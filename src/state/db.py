@@ -283,9 +283,7 @@ class StateDatabase:
         row = await cursor.fetchone()
         if row is None:
             return None
-        available_until = (
-            _parse_timestamp(str(row[3])) if row[3] is not None else None
-        )
+        available_until = _parse_timestamp(str(row[3])) if row[3] is not None else None
         return ProviderStateRecord(
             provider_name=str(row[0]),
             run_id=str(row[1]),
