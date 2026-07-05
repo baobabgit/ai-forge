@@ -11,6 +11,7 @@ from src.quota.states import QuotaStatus, get_provider_quota_state
 from src.state.db import StateDatabase
 
 STOP_REASON_EXHAUSTED = "providers_exhausted"
+RESUME_REASON_EXHAUSTION_LIFTED = "exhaustion_stop_lifted"
 INTERRUPTED_STATUSES: frozenset[Status] = frozenset(
     {Status.IN_PROGRESS, Status.IN_TEST, Status.IN_REVIEW}
 )
@@ -267,7 +268,9 @@ async def is_run_stopped_for_exhaustion(db: StateDatabase, *, run_id: str) -> bo
     """Return whether ``run_id`` is under a graceful exhaustion stop.
 
     A run is stopped when its latest ``RUN_STOPPED`` event carrying the
-    exhaustion reason is more recent than any ``RESUMED`` event. Restart is
+    exhaustion reason is more recent than any ``RESUMED`` event carrying the
+    matching lift reason. Both sides are filtered on their reason so that an
+    unrelated pause/resume flow can never lift an exhaustion stop. Restart is
     strictly human: automated callers must refuse to run while this holds.
 
     :param db: Open state store.
@@ -282,11 +285,42 @@ async def is_run_stopped_for_exhaustion(db: StateDatabase, *, run_id: str) -> bo
             STOP_REASON_EXHAUSTED
         ):
             stopped_id = event.id
-        elif event.event_type == "RESUMED":
+        elif event.event_type == "RESUMED" and event.details.get("reason") == (
+            RESUME_REASON_EXHAUSTION_LIFTED
+        ):
             resumed_id = event.id
     if stopped_id is None:
         return False
     return resumed_id is None or resumed_id < stopped_id
+
+
+async def can_continue_after_resume(db: StateDatabase, *, run_id: str, bl_id: str) -> bool:
+    """Return whether an interrupted ``bl_id`` may continue after a resume.
+
+    Continuation is granted exactly once per lifted stop: the latest exhaustion
+    ``RESUMED`` event must be more recent than every event already recorded for
+    the backlog item. As soon as the continuation starts (a new event is
+    appended for the BL), this predicate turns false again, so a concurrent or
+    repeated ``forge run`` on the same mid-cycle BL keeps being refused.
+
+    :param db: Open state store.
+    :param run_id: Run identifier.
+    :param bl_id: Backlog item identifier.
+    :returns: ``True`` when the BL's continuation has not started yet.
+    """
+    events = await db.list_events(run_id)
+    resumed_id: int | None = None
+    bl_last_id: int | None = None
+    for event in events:
+        if event.event_type == "RESUMED" and event.details.get("reason") == (
+            RESUME_REASON_EXHAUSTION_LIFTED
+        ):
+            resumed_id = event.id
+        if event.bl_id == bl_id:
+            bl_last_id = event.id
+    if resumed_id is None:
+        return False
+    return bl_last_id is None or bl_last_id < resumed_id
 
 
 async def resume_run(
@@ -320,7 +354,7 @@ async def resume_run(
         event_type="RESUMED",
         actor="cli",
         details={
-            "reason": "human resume after exhaustion stop",
+            "reason": RESUME_REASON_EXHAUSTION_LIFTED,
             "interrupted_bls": [
                 {"bl_id": bl_id, "status": status.value} for bl_id, status in interrupted
             ],

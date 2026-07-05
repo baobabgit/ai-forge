@@ -285,6 +285,62 @@ def test_resume_lifts_stop_exactly_once(tmp_path: Path, monkeypatch: pytest.Monk
     assert len(resumes) == 1, "resume must never replay its side effect"
 
 
+def test_interrupted_bl_continues_after_resume(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """After forge resume, the interrupted BL is executable again, exactly once."""
+    forge_dir, repo = _setup_workspace(tmp_path)
+    calls = _patch_executor(monkeypatch)
+    _exhaust_all(forge_dir)
+    assert _invoke_run(forge_dir, repo).exit_code == ExitCode.PROVIDERS_EXHAUSTED
+    assert calls == ["BL-forge-026"]
+
+    resumed = runner.invoke(
+        app,
+        ["resume", "--forge-dir", str(forge_dir), "--repo-root", str(repo)],
+    )
+    assert resumed.exit_code == ExitCode.OK
+    for name in THREE_PROVIDERS:
+        asyncio.run(_set_quota(forge_dir, name, QuotaStatus.AVAILABLE))
+
+    continued = _invoke_run(forge_dir, repo)
+
+    assert continued.exit_code == ExitCode.OK
+    assert calls == ["BL-forge-026", "BL-forge-026"], "continuation must reach the executor"
+
+    repeat = _invoke_run(forge_dir, repo)
+    assert repeat.exit_code == ExitCode.USER_ERROR
+    assert "not ready" in repeat.stdout, "continuation is granted exactly once per resume"
+
+
+def test_unrelated_resumed_event_does_not_lift_stop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only a RESUMED event carrying the exhaustion reason lifts the stop."""
+    forge_dir, repo = _setup_workspace(tmp_path)
+    _patch_executor(monkeypatch)
+    _exhaust_all(forge_dir)
+    assert _invoke_run(forge_dir, repo).exit_code == ExitCode.PROVIDERS_EXHAUSTED
+
+    async def _append_generic_resumed() -> None:
+        database = await StateDatabase.open(forge_dir / "state.db")
+        try:
+            await database.append_event(
+                run_id=_run_id(forge_dir),
+                event_type="RESUMED",
+                actor="scheduler",
+                details={"reason": "pause_lifted"},
+            )
+        finally:
+            await database.close()
+
+    asyncio.run(_append_generic_resumed())
+
+    blocked = _invoke_run(forge_dir, repo)
+    assert blocked.exit_code == ExitCode.PROVIDERS_EXHAUSTED
+    assert "human-only" in blocked.stdout
+
+
 def test_resume_requires_initialization(tmp_path: Path) -> None:
     """forge resume fails cleanly before forge init."""
     result = runner.invoke(

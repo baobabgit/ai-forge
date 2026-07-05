@@ -20,9 +20,11 @@ from src.phases.execute import (
 from src.providers.bootstrap import create_provider, default_providers_path, load_registry
 from src.providers.registry import ProviderRegistryError
 from src.scheduler.shutdown import (
+    INTERRUPTED_STATUSES,
     ResumeReport,
     all_providers_exhausted,
     build_exhaustion_report,
+    can_continue_after_resume,
     is_run_stopped_for_exhaustion,
     resume_run,
     stop_run_for_exhaustion,
@@ -161,29 +163,39 @@ async def run_bl(
             status = await database.get_bl_status(bl_id)
         if status is None:
             raise ForgeCliError(ExitCode.STATE_ERROR, f"failed to register backlog item {bl_id!r}")
-        if status.status not in RUNNABLE_STATUSES:
+        continuation = status.status in INTERRUPTED_STATUSES and await can_continue_after_resume(
+            database,
+            run_id=run_id,
+            bl_id=bl_id,
+        )
+        if status.status not in RUNNABLE_STATUSES and not continuation:
             raise ForgeCliError(
                 ExitCode.USER_ERROR,
                 f"{bl_id} is not ready for execution (status={status.status.value})",
             )
-        machine = BlStateMachine(database)
-        try:
-            await machine.transition(
-                bl_id,
-                TransitionRequest(
-                    target=Status.IN_PROGRESS,
-                    actor="cli",
-                    reason="forge run",
-                ),
-            )
-        except IllegalTransitionError as error:
-            raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+        if not continuation:
+            machine = BlStateMachine(database)
+            try:
+                await machine.transition(
+                    bl_id,
+                    TransitionRequest(
+                        target=Status.IN_PROGRESS,
+                        actor="cli",
+                        reason="forge run",
+                    ),
+                )
+            except IllegalTransitionError as error:
+                raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
         await database.append_event(
             run_id=status.run_id,
             event_type="DEV_STARTED",
             actor="cli",
             bl_id=bl_id,
-            details={"spec_path": str(spec_path.resolve()), "provider": provider_name},
+            details={
+                "spec_path": str(spec_path.resolve()),
+                "provider": provider_name,
+                "continuation": continuation,
+            },
         )
 
         config_path = providers_config or default_providers_path(repo_root)
@@ -211,6 +223,7 @@ async def run_bl(
                 database,
                 run_id=run_id,
                 provider_names=registry.names,
+                failure=str(error),
             )
             raise ForgeCliError(ExitCode.EXECUTION_ERROR, str(error)) from error
         await _stop_if_all_exhausted(
@@ -228,6 +241,7 @@ async def _stop_if_all_exhausted(
     *,
     run_id: str,
     provider_names: tuple[str, ...],
+    failure: str | None = None,
 ) -> None:
     """Stop the run when every provider is EXHAUSTED (EXG-QUO-03).
 
@@ -237,6 +251,7 @@ async def _stop_if_all_exhausted(
     :param database: Open state store.
     :param run_id: Run identifier.
     :param provider_names: Providers configured for the run.
+    :param failure: Optional execution failure to keep in the operator message.
     :raises ForgeCliError: With :attr:`ExitCode.PROVIDERS_EXHAUSTED` when stopping.
     """
     if not await all_providers_exhausted(
@@ -251,7 +266,10 @@ async def _stop_if_all_exhausted(
         provider_names=provider_names,
     )
     await stop_run_for_exhaustion(database, report)
-    raise ForgeCliError(ExitCode.PROVIDERS_EXHAUSTED, report.render())
+    message = report.render()
+    if failure is not None:
+        message = f"Echec d'execution : {failure}\n\n{message}"
+    raise ForgeCliError(ExitCode.PROVIDERS_EXHAUSTED, message)
 
 
 async def resume_forge(
