@@ -10,6 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from src.cli import ExitCode, ForgeCliError, app, init_forge, resolve_bl_spec
+from src.phases.execute import ExecutionStep, SequentialExecutionResult
 from src.state.db import StateDatabaseError
 
 runner = CliRunner()
@@ -120,7 +121,7 @@ def test_run_rejects_unknown_bl(tmp_path: Path) -> None:
     assert "unknown backlog item" in result.stdout
 
 
-def test_run_starts_execution_for_ready_bl(tmp_path: Path) -> None:
+def test_run_starts_execution_for_ready_bl(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Start execution for a known backlog item after initialization."""
     cdc = tmp_path / "cdc.md"
     forge_dir = tmp_path / ".forge"
@@ -128,9 +129,23 @@ def test_run_starts_execution_for_ready_bl(tmp_path: Path) -> None:
     repo.mkdir()
     _write_cdc(cdc)
     _write_bl_spec(repo, "BL-forge-014")
+    _write_providers(repo)
 
     init = runner.invoke(app, ["init", str(cdc), "--forge-dir", str(forge_dir)])
     assert init.exit_code == ExitCode.OK
+
+    async def _fake_execute(self, request):  # type: ignore[no-untyped-def]
+        _ = self, request
+        return SequentialExecutionResult(
+            bl_id="BL-forge-014",
+            branch="feat/bl-forge-014",
+            pr_body="demo",
+            pr_number=42,
+            merged=True,
+            completed_steps=(ExecutionStep.MERGE,),
+        )
+
+    monkeypatch.setattr("src.cli.SequentialExecutor.execute", _fake_execute)
 
     result = runner.invoke(
         app,
@@ -145,10 +160,12 @@ def test_run_starts_execution_for_ready_bl(tmp_path: Path) -> None:
         ],
     )
     assert result.exit_code == ExitCode.OK
-    assert "execution started" in result.stdout
+    assert "merged on feat/bl-forge-014" in result.stdout
 
 
-def test_run_rejects_repeat_while_in_progress(tmp_path: Path) -> None:
+def test_run_rejects_repeat_while_in_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Refuse to start execution again while the BL is already in progress."""
     cdc = tmp_path / "cdc.md"
     forge_dir = tmp_path / ".forge"
@@ -156,9 +173,23 @@ def test_run_rejects_repeat_while_in_progress(tmp_path: Path) -> None:
     repo.mkdir()
     _write_cdc(cdc)
     _write_bl_spec(repo, "BL-forge-014")
+    _write_providers(repo)
 
     init = runner.invoke(app, ["init", str(cdc), "--forge-dir", str(forge_dir)])
     assert init.exit_code == ExitCode.OK
+
+    async def _fake_execute(self, request):  # type: ignore[no-untyped-def]
+        _ = self, request
+        return SequentialExecutionResult(
+            bl_id="BL-forge-014",
+            branch="feat/bl-forge-014",
+            pr_body="demo",
+            pr_number=None,
+            merged=False,
+            completed_steps=(ExecutionStep.BRANCH,),
+        )
+
+    monkeypatch.setattr("src.cli.SequentialExecutor.execute", _fake_execute)
 
     first = runner.invoke(
         app,
@@ -341,3 +372,126 @@ def test_run_wraps_state_database_open_failure(
     )
     assert result.exit_code == ExitCode.STATE_ERROR
     assert "database unavailable" in result.stdout
+
+
+def _write_providers(repo: Path) -> None:
+    config_dir = repo / "config"
+    config_dir.mkdir(exist_ok=True)
+    (config_dir / "providers.toml").write_text(
+        (Path(__file__).resolve().parents[2] / "config" / "providers.toml").read_text(
+            encoding="utf-8"
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_run_rejects_unknown_provider(tmp_path: Path) -> None:
+    """Return a user error when the requested provider is not configured."""
+    cdc = tmp_path / "cdc.md"
+    forge_dir = tmp_path / ".forge"
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write_cdc(cdc)
+    _write_bl_spec(repo, "BL-forge-014")
+    _write_providers(repo)
+
+    init = runner.invoke(app, ["init", str(cdc), "--forge-dir", str(forge_dir)])
+    assert init.exit_code == ExitCode.OK
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--bl",
+            "BL-forge-014",
+            "--provider",
+            "missing",
+            "--forge-dir",
+            str(forge_dir),
+            "--repo-root",
+            str(repo),
+        ],
+    )
+    assert result.exit_code == ExitCode.USER_ERROR
+    assert "unknown provider" in result.stdout
+
+
+def test_run_surfaces_execution_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Map sequential execution failures to execution exit codes."""
+    from src.phases.execute import ExecutionError, ExecutionStep
+
+    cdc = tmp_path / "cdc.md"
+    forge_dir = tmp_path / ".forge"
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write_cdc(cdc)
+    _write_bl_spec(repo, "BL-forge-014")
+    _write_providers(repo)
+
+    init = runner.invoke(app, ["init", str(cdc), "--forge-dir", str(forge_dir)])
+    assert init.exit_code == ExitCode.OK
+
+    async def _broken_execute(self, request):  # type: ignore[no-untyped-def]
+        _ = self, request
+        raise ExecutionError(ExecutionStep.DEV, "provider failed")
+
+    monkeypatch.setattr("src.cli.SequentialExecutor.execute", _broken_execute)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--bl",
+            "BL-forge-014",
+            "--forge-dir",
+            str(forge_dir),
+            "--repo-root",
+            str(repo),
+        ],
+    )
+    assert result.exit_code == ExitCode.EXECUTION_ERROR
+    assert "provider failed" in result.stdout
+
+
+def test_run_reports_completed_without_merge(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Print a completion message when the chain stops before merge."""
+    cdc = tmp_path / "cdc.md"
+    forge_dir = tmp_path / ".forge"
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write_cdc(cdc)
+    _write_bl_spec(repo, "BL-forge-014")
+    _write_providers(repo)
+
+    init = runner.invoke(app, ["init", str(cdc), "--forge-dir", str(forge_dir)])
+    assert init.exit_code == ExitCode.OK
+
+    async def _partial_execute(self, request):  # type: ignore[no-untyped-def]
+        _ = self, request
+        return SequentialExecutionResult(
+            bl_id="BL-forge-014",
+            branch="feat/bl-forge-014",
+            pr_body="demo",
+            pr_number=7,
+            merged=False,
+            completed_steps=(ExecutionStep.PR_OPEN,),
+        )
+
+    monkeypatch.setattr("src.cli.SequentialExecutor.execute", _partial_execute)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--bl",
+            "BL-forge-014",
+            "--forge-dir",
+            str(forge_dir),
+            "--repo-root",
+            str(repo),
+        ],
+    )
+    assert result.exit_code == ExitCode.OK
+    assert "execution completed" in result.stdout
