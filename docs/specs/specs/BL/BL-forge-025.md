@@ -7,7 +7,7 @@ target_version: 0.2.0
 depends_on: [BL-forge-024, BL-forge-021]
 size: M
 critical: false
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -34,11 +34,11 @@ Implémenter EXG-QUO-02 : à la détection d'un épuisement pendant un rôle, ma
 - BL-forge-021 — Boucle de correction par Issue GitHub
 
 ## Definition of Done
-- [ ] Épuisement simulé en plein rôle DEV puis TESTER : la tâche aboutit sur un autre provider
-- [ ] Reset propre du worktree avant relance d'un rôle écrivain
-- [ ] Bascule journalisée (provider quitté, provider repreneur, itération)
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Épuisement simulé en plein rôle DEV puis TESTER : la tâche aboutit sur un autre provider
+- [x] Reset propre du worktree avant relance d'un rôle écrivain
+- [x] Bascule journalisée (provider quitté, provider repreneur, itération)
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
