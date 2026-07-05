@@ -245,6 +245,8 @@ async def test_assignment_ignores_malformed_history_and_validates_inputs(
                     {"role": "TESTER", "provider": "beta", "bl_id": 5},
                     {"role": "DEV", "provider": "delta", "bl_id": "BL-bad-002"},
                     {"role": "INTEGRATOR", "provider": "alpha", "bl_id": "BL-bad-002"},
+                    {"role": "UNKNOWN", "provider": "alpha", "bl_id": "BL-bad-002"},
+                    {"role": "DEV", "provider": "Bad Name", "bl_id": "BL-bad-002"},
                 ]
             },
         )

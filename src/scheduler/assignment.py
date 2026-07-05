@@ -6,6 +6,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 from src.core.models.role import Role
 from src.core.models.role_assignment import RoleAssignment
 from src.obs.logging import JsonlRunLogger
@@ -268,7 +270,10 @@ def _parse_assignments(
             continue
         if not isinstance(item_bl_id, str):
             continue
-        parsed.append(RoleAssignment(bl_id=item_bl_id, role=Role(role), provider=provider))
+        try:
+            parsed.append(RoleAssignment(bl_id=item_bl_id, role=Role(role), provider=provider))
+        except (ValueError, ValidationError):
+            continue
     return tuple(parsed)
 
 
