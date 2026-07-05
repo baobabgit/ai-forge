@@ -7,7 +7,7 @@ target_version: 0.2.0
 depends_on: [BL-forge-009]
 size: M
 critical: true
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -35,11 +35,11 @@ Implémenter le gestionnaire de locks persistés en base d'état (EXG-LCK-01/02)
 - BL-forge-009 — Base d'état SQLite et machine à états BL
 
 ## Definition of Done
-- [ ] Acquisition exclusive, réentrance propriétaire et expiration TTL testées
-- [ ] Scénario double instance : un seul détenteur, échec propre de l'autre
-- [ ] Récupération d'un lock orphelin après crash simulé
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Acquisition exclusive, réentrance propriétaire et expiration TTL testées
+- [x] Scénario double instance : un seul détenteur, échec propre de l'autre
+- [x] Récupération d'un lock orphelin après crash simulé
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
