@@ -1,0 +1,41 @@
+[claude]
+bin = "claude"
+model = "opus-4.8"
+max_concurrency = 2
+
+[claude.capabilities]
+non_interactive = true
+json_output = true
+json_schema_output = true
+model_pinning = true
+supports_no_attribution = true
+native_resume = true
+native_sandbox = false
+
+[codex]
+bin = "codex"
+model = "gpt-5.5"
+max_concurrency = 2
+
+[codex.capabilities]
+non_interactive = true
+json_output = true
+json_schema_output = true
+model_pinning = true
+supports_no_attribution = false
+native_resume = true
+native_sandbox = true
+
+[cursor]
+bin = "cursor-agent"
+model = "auto"
+max_concurrency = 2
+
+[cursor.capabilities]
+non_interactive = true
+json_output = true
+json_schema_output = false
+model_pinning = true
+supports_no_attribution = false
+native_resume = true
+native_sandbox = false

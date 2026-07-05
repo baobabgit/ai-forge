@@ -1,0 +1,17 @@
+[run]
+workers = 1
+trust_level = "L0"
+open_prs_max = 4
+
+[quality]
+coverage_fail_under = 85
+version_coverage_fail_under = 95
+require_black = true
+require_ruff = true
+require_mypy_strict = true
+require_bandit = true
+
+[ci]
+required_check = "quality"
+timeout_minutes = 30
+infra_retries = 2
