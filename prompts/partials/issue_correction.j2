@@ -1,0 +1,31 @@
+# Correction requise — {{ bl_id }} (iteration {{ iteration }})
+
+## Source du NO-GO
+
+- **Role :** {{ role }}
+{% if pr_number is not none -%}
+- **PR liee :** #{{ pr_number }}
+{% endif %}
+
+## Criteres en echec
+
+{% for motif in motifs -%}
+- {{ motif }}
+{% endfor %}
+
+## Preuves / logs
+
+{% for preuve in preuves -%}
+- {{ preuve }}
+{% endfor %}
+
+## Corrections attendues
+
+1. Corriger chaque critere en echec en restant strictement dans le perimetre du BL.
+2. Ajouter ou mettre a jour les tests couvrant le comportement corrige.
+3. Verifier que les gates automatiques passent avant de soumettre a nouveau.
+
+## Contexte
+
+Cette Issue a ete ouverte automatiquement par AI-Forge apres un verdict NO-GO (EXG-EXE-02).
+Le DEV sera relance avec cette Issue, le diff courant et la specification du BL.

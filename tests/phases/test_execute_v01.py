@@ -562,77 +562,68 @@ async def test_execute_runs_real_gates_tester_and_reviewer_with_mocks(
 
 
 @pytest.mark.asyncio
-async def test_execute_fails_when_tester_returns_no_go(
+async def test_handle_no_go_opens_issue_and_returns_in_progress(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Stop the chain when the TESTER verdict is NO GO."""
+    """Opening a correction issue transitions the BL back to IN_PROGRESS."""
     from src.core.models.go_no_go import GoNoGo
     from src.core.models.verdict import Verdict
-    from src.gates.auto import AutoGatesReport
-    from src.roles.tester import TesterRoleResult
 
     repo = _init_repo(tmp_path)
     forge_dir = tmp_path / ".forge"
     forge_dir.mkdir()
-    (forge_dir / "artifacts").mkdir()
-    spec_path = Path("examples/demo-bl/BL-demo-001.md").resolve()
     run_id = "run-demo"
     baseline = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
 
-    async def _passed_gates(_request):  # type: ignore[no-untyped-def]
-        return AutoGatesReport(
-            bl_id="BL-demo-001",
-            verdict=Verdict.GO,
-            gates=(),
-            diff_guard=None,
-            report_path=forge_dir / "artifacts" / "BL-demo-001" / "auto-gates.json",
-            motifs=(),
-        )
-
-    async def _tester_no_go(_self, _request):  # type: ignore[no-untyped-def]
-        _ = _self
-        return TesterRoleResult(
-            gates_report=await _passed_gates(None),
-            verdict=GoNoGo(verdict=Verdict.NO_GO, motifs=["tests missing"], preuves=["log"]),
-            changed_files=(),
-        )
-
-    monkeypatch.setattr("src.phases.execute.run_auto_gates", _passed_gates)
-    monkeypatch.setattr("src.phases.execute.TesterRole.run", _tester_no_go)
+    monkeypatch.setattr(
+        "src.phases.execute.issue_create",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            [], 0, "https://github.com/o/r/issues/5", ""
+        ),
+    )
 
     database = await StateDatabase.open(forge_dir / "state.db")
     try:
         await database.create_run(run_id)
         await database.register_bl("BL-demo-001", run_id, status=Status.IN_TEST)
-        for event_type, details in (
-            ("WORKTREE_CREATED", {"branch": "feat/bl-demo-001", "path": str(repo)}),
-            (
-                "DEV_COMPLETED",
-                {"commits": 1, "baseline_ref": baseline, "changed_files": []},
-            ),
-            ("GATES_COMPLETED", {"verdict": "GO"}),
-        ):
-            await database.append_event(
-                run_id=run_id,
-                event_type=event_type,
-                actor="executor",
-                bl_id="BL-demo-001",
-                details=details,
-            )
+        await database.append_event(
+            run_id=run_id,
+            event_type="DEV_COMPLETED",
+            actor="DEV",
+            bl_id="BL-demo-001",
+            details={"commits": 1, "baseline_ref": baseline, "changed_files": []},
+        )
         executor = SequentialExecutor(database)
-        with pytest.raises(ExecutionError) as exc:
-            await executor.execute(
-                SequentialExecutionRequest(
-                    bl_id="BL-demo-001",
-                    spec_path=spec_path,
-                    repo_root=repo,
-                    forge_dir=forge_dir,
-                    run_id=run_id,
-                    provider=_provider(),
-                    dry_run=False,
-                )
-            )
-        assert exc.value.step is ExecutionStep.TESTER
+        request = SequentialExecutionRequest(
+            bl_id="BL-demo-001",
+            spec_path=Path("examples/demo-bl/BL-demo-001.md").resolve(),
+            repo_root=repo,
+            forge_dir=forge_dir,
+            run_id=run_id,
+            provider=_provider(),
+            dry_run=False,
+        )
+        epoch_id = await executor._handle_no_go(
+            request,
+            repo=repo,
+            role="TESTER",
+            verdict=GoNoGo(
+                verdict=Verdict.NO_GO,
+                motifs=["tests missing"],
+                preuves=["log"],
+            ),
+            pr_number=None,
+            dry_run_log=None,
+            epoch_event_id=None,
+        )
+        assert epoch_id > 0
+        status = await database.get_bl_status("BL-demo-001")
+        assert status is not None
+        assert status.status is Status.IN_PROGRESS
+        events = await database.list_events(run_id)
+        issue = next(event for event in events if event.event_type == "ISSUE_OPENED")
+        assert issue.details["motifs"] == ["tests missing"]
+        assert issue.id == epoch_id
     finally:
         await database.close()
 
