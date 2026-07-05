@@ -7,7 +7,7 @@ target_version: 0.1.2
 depends_on: [BL-forge-012]
 size: M
 critical: true
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -36,11 +36,11 @@ Implémenter l'attente et la classification des checks GitHub (EXG-CI-04..06) : 
 - BL-forge-012 — Wrapper git et gh de base
 
 ## Definition of Done
-- [ ] Les quatre classes d'échec sont produites depuis des sorties gh simulées
-- [ ] INFRA_FAILURE relancé 2 fois max sans Issue de correction, puis FORGE_ERROR + pause
-- [ ] Résumé structuré des logs joint au diagnostic sur TEST_FAILURE
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Les quatre classes d'échec sont produites depuis des sorties gh simulées
+- [x] INFRA_FAILURE relancé 2 fois max sans Issue de correction, puis FORGE_ERROR + pause
+- [x] Résumé structuré des logs joint au diagnostic sur TEST_FAILURE
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
