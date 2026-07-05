@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "ai-forge"
 version = "0.1.0"
 description = "Autonomous CLI-driven software development orchestrator."
-readme = "docs/001 - specs/README.md"
+readme = "docs/specs/README.md"
 requires-python = ">=3.13"
 license = "MIT"
 authors = [
