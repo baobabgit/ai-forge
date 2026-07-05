@@ -18,6 +18,9 @@ from src.core.specparser import build_index, read_spec
 from src.gates.auto import AutoGatesRequest, run_auto_gates
 from src.ghub.cli import issue_create, pr_create
 from src.planner.graph_updates import apply_blocked_side_effects
+from src.policy.approval_queue import ApprovalQueue
+from src.policy.pending_action import PendingActionStatus
+from src.policy.trust_level import ActionKind
 from src.providers.base import Provider
 from src.roles.dev import DevCorrectionContext, DevRole, DevRoleRequest, resolve_scope
 from src.roles.integrator import IntegratorRole, IntegratorRoleRequest
@@ -25,6 +28,7 @@ from src.roles.reviewer import ReviewerRole, ReviewerRoleRequest
 from src.roles.tester import TesterRole, TesterRoleRequest
 from src.state.db import EventRecord, StateDatabase
 from src.state.machine import BlStateMachine, TransitionRequest
+from src.state.run_manifest import default_run_manifest_path, load_run_manifest
 from src.workspace import gitio
 
 NO_GO_EVENT_TYPES = frozenset({"TEST_NO_GO", "REVIEW_NO_GO"})
@@ -79,6 +83,7 @@ class SequentialExecutionRequest:
     dry_run: bool = False
     max_iterations: int = DEFAULT_MAX_ITERATIONS
     specs_root: Path | None = None
+    run_manifest_path: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +99,8 @@ class SequentialExecutionResult:
     iteration: int = 1
     blocked: bool = False
     blocked_issue_number: int | None = None
+    awaiting_approval: bool = False
+    pending_action_id: str | None = None
 
 
 class _CorrectionRestart(Exception):
@@ -110,6 +117,19 @@ class _IterationCapExceeded(Exception):
     def __init__(self, issue_number: int | None) -> None:
         """Remember the synthesis issue number when available."""
         self.issue_number = issue_number
+
+
+class _MergeAwaitingApproval(Exception):
+    """Internal signal that the merge is gated and queued for human approval.
+
+    The rest of the DAG keeps progressing while the merge waits (EXG-TRU-03):
+    the BL is left in its pre-merge state and the executor returns without
+    merging instead of raising an execution error.
+    """
+
+    def __init__(self, pending_action_id: str | None) -> None:
+        """Remember the queued approval identifier when available."""
+        self.pending_action_id = pending_action_id
 
 
 class SequentialExecutor:
@@ -413,6 +433,12 @@ class SequentialExecutor:
                             pr_number = await self._find_open_pr_number(
                                 request.run_id, request.bl_id
                             )
+                        released, pending_action_id = await self._gate_merge(
+                            request,
+                            pr_number=pr_number,
+                        )
+                        if not released:
+                            raise _MergeAwaitingApproval(pending_action_id)
                         await self._ensure_pre_merge_status(request.bl_id)
                         integrator = IntegratorRole()
                         merge_result = await integrator.run(
@@ -461,6 +487,24 @@ class SequentialExecutor:
                     iteration=iteration,
                     blocked=True,
                     blocked_issue_number=blocked.issue_number,
+                )
+            except _MergeAwaitingApproval as awaiting:
+                final_completed = await self._completed_steps(
+                    request.run_id,
+                    request.bl_id,
+                    after_event_id=epoch_event_id,
+                )
+                iteration = await self._current_iteration(request.run_id, request.bl_id)
+                return SequentialExecutionResult(
+                    bl_id=request.bl_id,
+                    branch=branch,
+                    pr_body=pr_body,
+                    pr_number=pr_number,
+                    merged=False,
+                    completed_steps=_ordered_steps(final_completed),
+                    iteration=iteration,
+                    awaiting_approval=True,
+                    pending_action_id=awaiting.pending_action_id,
                 )
 
         final_completed = await self._completed_steps(
@@ -717,6 +761,55 @@ class SequentialExecutor:
                 if isinstance(number, int):
                     return number
         return None
+
+    async def _gate_merge(
+        self,
+        request: SequentialExecutionRequest,
+        *,
+        pr_number: int | None,
+    ) -> tuple[bool, str | None]:
+        """Gate the INTEGRATOR merge through the approval queue (EXG-TRU/SAF).
+
+        The active confidence level and safe mode are read from the run manifest
+        (``forge-run.yaml``). When no manifest is present, the merge is released
+        unconditionally so runs without a manifest keep their prior behaviour.
+        Gating is idempotent across resumes: an already-queued merge is not
+        re-enqueued, and an approved one is released.
+
+        :param request: Active execution request.
+        :param pr_number: Pull request number being merged, if known.
+        :returns: ``(released, pending_action_id)`` where ``released`` is ``True``
+            when the merge may proceed and ``pending_action_id`` identifies the
+            queued action when the merge is withheld.
+        """
+        manifest_path = request.run_manifest_path or default_run_manifest_path(request.repo_root)
+        if not manifest_path.is_file():
+            return True, None
+        manifest = load_run_manifest(manifest_path)
+        async with ApprovalQueue(self._database.path) as queue:
+            existing = await queue.latest_action(
+                request.run_id,
+                request.bl_id,
+                ActionKind.MERGE,
+            )
+            if existing is not None:
+                if existing.status is PendingActionStatus.APPROVED:
+                    return True, existing.action_id
+                return False, existing.action_id
+            decision = await queue.gate(
+                run_id=request.run_id,
+                kind=ActionKind.MERGE,
+                summary=f"merge PR for {request.bl_id}",
+                target=str(pr_number) if pr_number is not None else request.bl_id,
+                requested_by="INTEGRATOR",
+                trust_level=manifest.trust_level,
+                safe_mode=manifest.safe_mode,
+                bl_id=request.bl_id,
+            )
+            if decision.released:
+                return True, None
+            pending_id = decision.pending.action_id if decision.pending is not None else None
+            return False, pending_id
 
     async def _ensure_pre_merge_status(self, bl_id: str) -> None:
         status = await self._machine.get_status(bl_id)
