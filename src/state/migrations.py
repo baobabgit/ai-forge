@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import aiosqlite
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 _MIGRATION_STATEMENTS: dict[int, tuple[str, ...]] = {
     1: (
@@ -91,6 +91,25 @@ _MIGRATION_STATEMENTS: dict[int, tuple[str, ...]] = {
         "CREATE INDEX IF NOT EXISTS idx_events_run_id ON events(run_id)",
         "CREATE INDEX IF NOT EXISTS idx_events_bl_id ON events(bl_id)",
         "CREATE INDEX IF NOT EXISTS idx_bl_status_run_id ON bl_status(run_id)",
+    ),
+    2: (
+        """
+        CREATE TABLE IF NOT EXISTS pending_actions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            target TEXT NOT NULL,
+            requested_by TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            status TEXT NOT NULL,
+            bl_id TEXT,
+            resolved_at TEXT,
+            resolved_by TEXT
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_pending_actions_run_id ON pending_actions(run_id)",
     ),
 }
 
