@@ -31,9 +31,10 @@ forge status (rich, état réel < 2 s : BL par état, providers, vague courante,
 - `src.obs.stats`
 
 ## BL enfants
+- BL-forge-047
+- BL-forge-069
 - BL-forge-043
 - BL-forge-044
-- BL-forge-047
 
 ## Critères GO/NO-GO (niveau FEAT — EXG-SPE-07)
 - GO si tous les BL enfants sont DONE, les tests d'intégration de la feature sont verts, et le comportement Given/When/Then est validé par une IA n'ayant pas développé.
