@@ -22,6 +22,7 @@ class BL(StrictDomainModel):
     target_version: SemVer
     depends_on: list[BLId] = Field(default_factory=list)
     size: Size
+    critical: bool = False
     status: Status
     gates: Gate
     priority: int | None = Field(default=None, ge=0)

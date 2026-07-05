@@ -127,6 +127,7 @@ def test_build_index_detects_missing_parent(tmp_path: Path) -> None:
         type="FEAT",
         parent="UC-missing-001",
         library="ai-forge",
+        target_version="0.1.0",
         status=Status.TODO,
         gates=gate,
     )
@@ -158,6 +159,7 @@ def test_build_index_detects_unknown_depends_on(tmp_path: Path) -> None:
         type="FEAT",
         parent="UC-dep-001",
         library="ai-forge",
+        target_version="0.1.0",
         status=Status.TODO,
         gates=gate,
     )
@@ -196,3 +198,17 @@ def test_read_spec_rejects_missing_type(tmp_path: Path) -> None:
         read_spec(path)
 
     assert "missing the required 'type' field" in str(error.value)
+
+
+REPO_SPECS = Path(__file__).resolve().parents[2] / "docs" / "specs" / "specs"
+
+
+def test_build_index_parses_repository_specs() -> None:
+    """Parse the committed UC/FEAT/BL tree including critical and target_version."""
+    index = build_index(REPO_SPECS)
+
+    assert len(index.use_cases) > 0
+    assert len(index.features) > 0
+    assert len(index.backlog_items) > 0
+    assert any(bl.critical for bl in index.backlog_items)
+    assert all(feat.target_version for feat in index.features)

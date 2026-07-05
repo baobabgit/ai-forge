@@ -65,6 +65,7 @@ def test_frontmatter_models_accept_nominal_values() -> None:
         type="FEAT",
         parent=uc.id,
         library="ai-forge",
+        target_version="0.1.0",
         status=Status.IN_PROGRESS,
         gates=make_gate(),
     )
@@ -137,6 +138,31 @@ def test_bl_rejects_invalid_identifiers_semver_status_and_size(
 
     with pytest.raises(ValidationError):
         BL.model_validate(payload)
+
+
+def test_bl_critical_defaults_to_false() -> None:
+    """BL critical flag defaults to False when omitted."""
+    bl = make_bl()
+    assert bl.critical is False
+
+
+def test_bl_accepts_critical_flag() -> None:
+    """BL accepts explicit critical=true from frontmatter."""
+    bl = make_bl().model_copy(update={"critical": True})
+    assert bl.critical is True
+
+
+def test_feat_requires_target_version() -> None:
+    """FEAT frontmatter must carry a target_version semver."""
+    with pytest.raises(ValidationError):
+        FEAT(
+            id="FEAT-forge-002",
+            type="FEAT",
+            parent="UC-forge-001",
+            library="ai-forge",
+            status=Status.TODO,
+            gates=make_gate(),
+        )
 
 
 def test_models_reject_unknown_fields() -> None:
