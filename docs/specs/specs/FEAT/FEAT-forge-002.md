@@ -25,8 +25,8 @@ Modèles pydantic v2 stricts pour tout le domaine (Project, Library, UC, FEAT, B
 - **Then** chaque fichier est validé en modèle typé, les ids/dépendances sont résolus, et toute anomalie produit une erreur localisée fichier+champ
 
 ## Interfaces concernées
-- `forge.core.models`
-- `forge.core.specparser.SpecIndex`
+- `src.core.models`
+- `src.core.specparser.SpecIndex`
 
 ## BL enfants
 - BL-forge-002

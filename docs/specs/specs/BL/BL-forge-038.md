@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le prompt de résolution donne au DEV tout le contexte nécessaire sans historique de session"
 ---
@@ -26,7 +26,7 @@ gates:
 Implémenter EXG-PAR-03 : après le merge d'un BL, tous les worktrees encore ouverts sur le même dépôt sont rebasés sur main avant la reprise de leur rôle DEV ; en cas de conflit de rebase, création d'une tâche de résolution confiée au rôle DEV du BL concerné (prompt dédié : conflits, spec du BL, diff des deux branches), puis reprise du cycle normal.
 
 ## Fichiers / modules impactés
-- `forge/workspace/rebase.py`
+- `src/workspace/rebase.py`
 - `prompts/dev_conflict.md.j2`
 - `tests/workspace/test_rebase.py`
 

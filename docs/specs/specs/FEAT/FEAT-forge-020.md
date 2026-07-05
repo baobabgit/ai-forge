@@ -25,8 +25,8 @@ Cycle de vie des worktrees (création ../wt/<BL-id> + branche, verrou d'unicité
 - **Then** le worktree restant est rebasé sur main avant reprise du DEV, et en cas de conflit une tâche de résolution est créée pour le DEV de ce BL
 
 ## Interfaces concernées
-- `forge.workspace.worktrees`
-- `forge.workspace.rebase`
+- `src.workspace.worktrees`
+- `src.workspace.rebase`
 
 ## BL enfants
 - BL-forge-036

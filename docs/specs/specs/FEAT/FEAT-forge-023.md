@@ -25,7 +25,7 @@ gates:
 - **Then** si toutes les gates FEAT/UC et la suite d'intégration passent, le tag SemVer et la release sont créés, sinon une Issue de version rouvre les BL fautifs et le planning est recalculé
 
 ## Interfaces concernées
-- `forge.phases.release`
+- `src.phases.release`
 
 ## BL enfants
 - BL-forge-042

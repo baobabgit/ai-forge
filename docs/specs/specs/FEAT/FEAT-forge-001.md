@@ -27,7 +27,7 @@ Dépôt ai-forge opérationnel : pyproject (uv, Python >= 3.13), CI GitHub Actio
 ## Interfaces concernées
 - `pyproject.toml`
 - `.github/workflows/ci.yml`
-- `forge.obs.logging`
+- `src.obs.logging`
 
 ## BL enfants
 - BL-forge-001

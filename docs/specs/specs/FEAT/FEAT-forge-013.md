@@ -25,7 +25,7 @@ Chaque rôle s'exécute en session neuve ; en mono-provider, le TESTER/REVIEWER 
 - **Then** leurs contextes ne contiennent que les artefacts autorisés (vérifié par test d'inspection des prompts) et aucun fragment de l'historique du DEV
 
 ## Interfaces concernées
-- `forge.roles.rendering (contexte par rôle)`
+- `src.roles.rendering (contexte par rôle)`
 
 ## BL enfants
 - BL-forge-023

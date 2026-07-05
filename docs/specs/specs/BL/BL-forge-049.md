@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le projet d'exemple exerce toutes les mécaniques : multi-repo, jalons, parallélisme, corrections par Issue"
     - "Le run démontre la traçabilité complète EXG-NF-02 sur au moins un BL"

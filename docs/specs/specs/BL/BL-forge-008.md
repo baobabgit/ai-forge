@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Symétrie de comportement avec les deux autres adaptateurs"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
-Implémenter forge/providers/cursor.py : invocation `cursor-agent -p` en mode Auto via le runner commun, parsing de sortie (texte ou JSON selon disponibilité), classification par patterns (quota fixe Cursor), health_check. Tests avec faux binaire simulant les quatre issues.
+Implémenter src/providers/cursor.py : invocation `cursor-agent -p` en mode Auto via le runner commun, parsing de sortie (texte ou JSON selon disponibilité), classification par patterns (quota fixe Cursor), health_check. Tests avec faux binaire simulant les quatre issues.
 
 ## Fichiers / modules impactés
-- `forge/providers/cursor.py`
+- `src/providers/cursor.py`
 - `tests/providers/test_cursor.py`
 - `tests/fixtures/fake_cli/cursor-agent`
 

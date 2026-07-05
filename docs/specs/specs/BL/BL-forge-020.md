@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le rôle ne prend aucune décision : il exécute un verdict déjà rendu"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.2.0 · **Taille :** S (~0,5 j) · **Critique :** non
 
 ## Description technique
-Implémenter forge/roles/integrator.py : merge de la PR en squash (gh pr merge --squash --delete-branch), nettoyage du worktree et de la branche locale, transition du BL à DONE via la machine à états. Purement procédural, exécuté par l'orchestrateur via gh/git, zéro token IA (EXG-ROL-04). Idempotent : rejouer après crash ne produit aucun double effet.
+Implémenter src/roles/integrator.py : merge de la PR en squash (gh pr merge --squash --delete-branch), nettoyage du worktree et de la branche locale, transition du BL à DONE via la machine à états. Purement procédural, exécuté par l'orchestrateur via gh/git, zéro token IA (EXG-ROL-04). Idempotent : rejouer après crash ne produit aucun double effet.
 
 ## Fichiers / modules impactés
-- `forge/roles/integrator.py`
+- `src/roles/integrator.py`
 - `tests/roles/test_integrator.py`
 
 ## Dépendances

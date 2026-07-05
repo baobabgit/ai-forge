@@ -25,7 +25,7 @@ gates:
 - **Then** le provider passe EXHAUSTED avec une heure de recharge estimée selon sa fenêtre, et les patterns modifiés dans providers.toml sont pris en compte sans redémarrage
 
 ## Interfaces concernées
-- `forge.quota`
+- `src.quota`
 - `config/providers.toml`
 
 ## BL enfants

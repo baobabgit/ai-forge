@@ -25,8 +25,8 @@ Sur épuisement en cours de tâche : relance sur un autre provider disponible (p
 - **Then** la tâche est relancée sur un autre provider sans perte d'état, et si plus aucun provider n'est disponible le run s'arrête proprement avec rapport et redémarre via forge resume
 
 ## Interfaces concernées
-- `forge.scheduler (bascule)`
-- `forge.cli (resume)`
+- `src.scheduler (bascule)`
+- `src.cli (resume)`
 
 ## BL enfants
 - BL-forge-025

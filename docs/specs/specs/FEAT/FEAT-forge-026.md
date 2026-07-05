@@ -17,7 +17,7 @@ gates:
 **UC parent :** UC-forge-010 — Observer, rapporter et livrer
 
 ## Description
-Documentation d'exploitation (installation des trois CLI, forge.toml/providers.toml, procédure de reprise après épuisement) et test d'acceptation final : projet cible à deux librairies mené jusqu'à un jalon d'intégration tagué sans intervention humaine hors relances quota.
+Documentation d'exploitation (installation des trois CLI, src.toml/providers.toml, procédure de reprise après épuisement) et test d'acceptation final : projet cible à deux librairies mené jusqu'à un jalon d'intégration tagué sans intervention humaine hors relances quota.
 
 ## Comportement attendu (Given / When / Then)
 - **Given** AI-Forge v0.5+ installé selon la documentation seule

@@ -10,9 +10,9 @@ critical: true
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le runner est la seule voie d'exécution de CLI IA du projet (pas de subprocess ad hoc ailleurs)"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/providers/runner.py : lancement asyncio.create_subprocess_exec d'une CLI avec répertoire de travail imposé, timeout configurable avec kill propre du groupe de processus, capture stdout/stderr en streaming, écriture du transcript brut horodaté dans artifacts/<bl_id>/<n>-<role>-<provider>.txt, retour normalisé (code, stdout, stderr, durée, chemin transcript). Aucun secret injecté dans l'environnement du sous-processus au-delà du nécessaire.
+Implémenter src/providers/runner.py : lancement asyncio.create_subprocess_exec d'une CLI avec répertoire de travail imposé, timeout configurable avec kill propre du groupe de processus, capture stdout/stderr en streaming, écriture du transcript brut horodaté dans artifacts/<bl_id>/<n>-<role>-<provider>.txt, retour normalisé (code, stdout, stderr, durée, chemin transcript). Aucun secret injecté dans l'environnement du sous-processus au-delà du nécessaire.
 
 ## Fichiers / modules impactés
-- `forge/providers/runner.py`
+- `src/providers/runner.py`
 - `tests/providers/test_runner.py`
 
 ## Dépendances

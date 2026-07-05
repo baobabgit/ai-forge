@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le scheduler ne contient aucune logique métier de rôle (séparation stricte orchestration/rôles)"
     - "Jalon v0.4 : deux BL du même dépôt développés simultanément et mergés sans intervention"
@@ -24,11 +24,11 @@ gates:
 **Version cible :** v0.4.0 · **Taille :** L (~2 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/scheduler/loop.py : boucle asyncio principale — sélection continue des BL prêts via le planner, pool de N workers concurrents (configurable, défaut 3), chaque worker déroulant le cycle complet d'un BL dans son worktree dédié ; réaction aux événements (BL DONE => recalcul planning + déblocage, BL BLOCKED => retrait), intégration de l'attribution des rôles et de la bascule de provider ; arrêt propre sur signal et reprise via l'état persisté. Câbler `forge run --workers N`.
+Implémenter src/scheduler/loop.py : boucle asyncio principale — sélection continue des BL prêts via le planner, pool de N workers concurrents (configurable, défaut 3), chaque worker déroulant le cycle complet d'un BL dans son worktree dédié ; réaction aux événements (BL DONE => recalcul planning + déblocage, BL BLOCKED => retrait), intégration de l'attribution des rôles et de la bascule de provider ; arrêt propre sur signal et reprise via l'état persisté. Câbler `forge run --workers N`.
 
 ## Fichiers / modules impactés
-- `forge/scheduler/loop.py`
-- `forge/cli.py`
+- `src/scheduler/loop.py`
+- `src/cli.py`
 - `tests/scheduler/test_loop.py`
 
 ## Dépendances

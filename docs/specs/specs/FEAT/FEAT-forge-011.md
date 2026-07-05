@@ -25,9 +25,9 @@ TESTER en contexte propre (gates auto + tests complémentaires + ai_judged), REV
 - **Then** l'INTEGRATOR merge en squash, supprime branche et worktree, et le BL passe à DONE avec verdicts archivés
 
 ## Interfaces concernées
-- `forge.roles.tester`
-- `forge.roles.reviewer`
-- `forge.roles.integrator`
+- `src.roles.tester`
+- `src.roles.reviewer`
+- `src.roles.integrator`
 
 ## BL enfants
 - BL-forge-018

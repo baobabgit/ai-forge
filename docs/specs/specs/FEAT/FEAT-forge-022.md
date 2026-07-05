@@ -25,8 +25,8 @@ Création du dépôt programme (CDC, architecture, milestones.md, planning, rapp
 - **Then** le dépôt programme et les N dépôts de librairies existent avec main protégée, et les libs consommatrices référencent leurs dépendances par tag épinglé
 
 ## Interfaces concernées
-- `forge.ghub.repos`
-- `forge.workspace.pinning`
+- `src.ghub.repos`
+- `src.workspace.pinning`
 
 ## BL enfants
 - BL-forge-040

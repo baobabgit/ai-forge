@@ -10,9 +10,9 @@ critical: false
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le format permet de reconstituer chronologiquement un run complet sans la base SQLite"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** S (~0,5 j) · **Critique :** non
 
 ## Description technique
-Implémenter forge/obs/logging.py : événements JSON lines (event, ts, run_id, bl_id, provider, role, durée, verdict, chemin transcript), un fichier par run, écriture append-only ; convention d'archivage des transcripts par BL (artifacts/<bl_id>/) partagée avec le runner. Les logs doivent être exploitables sans outillage spécifique (EXG-NF-05).
+Implémenter src/obs/logging.py : événements JSON lines (event, ts, run_id, bl_id, provider, role, durée, verdict, chemin transcript), un fichier par run, écriture append-only ; convention d'archivage des transcripts par BL (artifacts/<bl_id>/) partagée avec le runner. Les logs doivent être exploitables sans outillage spécifique (EXG-NF-05).
 
 ## Fichiers / modules impactés
-- `forge/obs/logging.py`
+- `src/obs/logging.py`
 - `tests/obs/test_logging.py`
 
 ## Dépendances

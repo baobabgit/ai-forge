@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Les interfaces publiques décrites sont suffisantes pour spécifier les UC sans revenir au CDC global"
 ---
@@ -26,7 +26,7 @@ gates:
 Générer et committer les livrables de la phase 1 : architecture.md (découpage, justifications), un cahier des charges complet par librairie (objet, responsabilités, interfaces publiques attendues, dépendances vers les autres librairies, stack Python >= 3.13 / React si front, contraintes qualité) conforme EXG-ARC-02, et milestones.md au format contraintes explicites (`lib-core v0.2.0 requis avant lib-api v0.1.0`) conforme EXG-ARC-04.
 
 ## Fichiers / modules impactés
-- `forge/phases/architect.py`
+- `src/phases/architect.py`
 - `templates/architecture.md.j2`
 - `templates/lib_cdc.md.j2`
 - `templates/milestones.md.j2`

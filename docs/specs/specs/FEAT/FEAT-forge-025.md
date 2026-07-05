@@ -25,9 +25,9 @@ forge status (rich, état réel < 2 s : BL par état, providers, vague courante,
 - **Then** le tableau de bord reflète l'état réel en moins de 2 secondes et le rapport de synthèse, incluant la consommation par provider et rôle, est poussé dans le dépôt programme
 
 ## Interfaces concernées
-- `forge.cli.status`
-- `forge.cli.report`
-- `forge.obs.stats`
+- `src.cli.status`
+- `src.cli.report`
+- `src.obs.stats`
 
 ## BL enfants
 - BL-forge-043

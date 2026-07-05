@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from forge.core.models import BL, FEAT, UC, Gate, Size, Status
-from forge.core.specparser import (
+from src.core.models import BL, FEAT, UC, Gate, Size, Status
+from src.core.specparser import (
     SpecDocument,
     SpecIndexError,
     SpecParseError,

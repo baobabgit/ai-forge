@@ -10,9 +10,9 @@ critical: false
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Les messages d'erreur permettent à une IA de spec de corriger le fichier sans contexte supplémentaire"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
-Implémenter forge/core/specparser.py : lecture d'un fichier UC/FEAT/BL via python-frontmatter, validation du frontmatter vers les modèles pydantic, écriture round-trip sans perte (frontmatter + corps Markdown), et scan récursif d'un dossier specs/ produisant un SpecIndex (résolution parent/enfants, détection d'id dupliqué et de depends_on inconnu). Erreurs localisées : fichier, champ, valeur fautive.
+Implémenter src/core/specparser.py : lecture d'un fichier UC/FEAT/BL via python-frontmatter, validation du frontmatter vers les modèles pydantic, écriture round-trip sans perte (frontmatter + corps Markdown), et scan récursif d'un dossier specs/ produisant un SpecIndex (résolution parent/enfants, détection d'id dupliqué et de depends_on inconnu). Erreurs localisées : fichier, champ, valeur fautive.
 
 ## Fichiers / modules impactés
-- `forge/core/specparser.py`
+- `src/core/specparser.py`
 - `tests/core/test_specparser.py`
 - `tests/fixtures/specs/`
 

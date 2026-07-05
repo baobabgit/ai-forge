@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le contre-relecteur est systématiquement un provider différent du producteur"
     - "Le critère de testabilité est appliqué explicitement (parade dérive des specs §6)"
@@ -27,7 +27,7 @@ gates:
 Implémenter EXG-SPE-08 : chaque lot de specs (UC, puis FEAT/BL d'une librairie) est contre-relu par un provider différent de celui qui l'a produit, selon trois axes explicites : complétude, testabilité des critères GO/NO-GO, cohérence des dépendances ; rapport structuré ; boucle de correction avec le SPEC ; commit uniquement après validation.
 
 ## Fichiers / modules impactés
-- `forge/phases/specify.py`
+- `src/phases/specify.py`
 - `prompts/spec_review.md.j2`
 - `tests/phases/test_spec_review.py`
 

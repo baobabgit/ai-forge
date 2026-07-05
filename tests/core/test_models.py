@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from forge.core import (
+from src.core import (
     ADR,
     BL,
     FEAT,
@@ -46,7 +46,7 @@ def make_bl() -> BL:
         status=Status.TODO,
         gates=make_gate(),
         priority=2,
-        scope=["forge/core/models.py"],
+        scope=["src/core/models.py"],
     )
 
 
@@ -93,7 +93,7 @@ def test_glossary_models_accept_nominal_values() -> None:
     dor = DefinitionOfReady(
         dependencies_done=True,
         gates=make_gate(),
-        scope=["forge/core/models.py"],
+        scope=["src/core/models.py"],
         spec_quality_score=95,
     )
     role_context = RoleContext(role=Role.TESTER, artifacts=["spec", "diff", "ci"])

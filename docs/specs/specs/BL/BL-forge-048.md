@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "La documentation est exacte vis-à-vis du comportement réel (vérification croisée code/doc)"
 ---
@@ -23,7 +23,7 @@ gates:
 **Version cible :** v1.0.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
-Rédiger la documentation d'exploitation (livrable §7.3) : installation et authentification des trois CLI (claude, codex, cursor-agent), configuration commentée de forge.toml et providers.toml (patterns d'épuisement, fenêtres de recharge, plafonds), déroulé complet init -> architect -> spec -> plan -> run, procédure de reprise après épuisement des quotas, guide de diagnostic (status, logs JSONL, transcripts, Issues de synthèse).
+Rédiger la documentation d'exploitation (livrable §7.3) : installation et authentification des trois CLI (claude, codex, cursor-agent), configuration commentée de src.toml et providers.toml (patterns d'épuisement, fenêtres de recharge, plafonds), déroulé complet init -> architect -> spec -> plan -> run, procédure de reprise après épuisement des quotas, guide de diagnostic (status, logs JSONL, transcripts, Issues de synthèse).
 
 ## Fichiers / modules impactés
 - `docs/installation.md`

@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le format de milestones.md reste lisible humain et éditable à la main"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.5.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/planner/milestones.py : parsing de milestones.md en contraintes typées (`lib-core v0.2.0 requis avant lib-api v0.1.0`), injection dans le DAG comme arêtes de jalon ; à la pose du tag correspondant, les BL des librairies dépendantes deviennent prêts et le planning est recalculé (EXG-ARC-04, EXG-VER-02 côté déblocage).
+Implémenter src/planner/milestones.py : parsing de milestones.md en contraintes typées (`lib-core v0.2.0 requis avant lib-api v0.1.0`), injection dans le DAG comme arêtes de jalon ; à la pose du tag correspondant, les BL des librairies dépendantes deviennent prêts et le planning est recalculé (EXG-ARC-04, EXG-VER-02 côté déblocage).
 
 ## Fichiers / modules impactés
-- `forge/planner/milestones.py`
+- `src/planner/milestones.py`
 - `tests/planner/test_milestones.py`
 
 ## Dépendances

@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le rapport répond seul à la question : où en est le projet et qu'est-ce qui bloque ?"
 ---
@@ -26,8 +26,8 @@ gates:
 Implémenter `forge report` : rapport Markdown de synthèse du run — BL livrés/bloqués par librairie et version, itérations par BL, Issues ouvertes, jalons atteints, durées — généré depuis l'état persisté et poussé dans le dépôt programme (commit dédié).
 
 ## Fichiers / modules impactés
-- `forge/cli.py`
-- `forge/obs/report.py`
+- `src/cli.py`
+- `src/obs/report.py`
 - `templates/report.md.j2`
 - `tests/cli/test_report.py`
 

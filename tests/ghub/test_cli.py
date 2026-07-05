@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from forge.ghub import cli
-from forge.workspace import gitio
+from src.ghub import cli
+from src.workspace import gitio
 
 
 def test_git_cycle_operations_are_journaled_in_dry_run(tmp_path: Path) -> None:
@@ -20,7 +20,7 @@ def test_git_cycle_operations_are_journaled_in_dry_run(tmp_path: Path) -> None:
     gitio.checkout_new_branch(repo, "feat/BL-forge-012", dry_run=True, dry_run_log=commands)
     gitio.add(
         repo,
-        ["forge/ghub/cli.py", repo / "tests/ghub/test_cli.py"],
+        ["src/ghub/cli.py", repo / "tests/ghub/test_cli.py"],
         dry_run=True,
         dry_run_log=commands,
     )
@@ -35,7 +35,7 @@ def test_git_cycle_operations_are_journaled_in_dry_run(tmp_path: Path) -> None:
 
     assert commands == [
         (repo, ("git", "checkout", "-b", "feat/BL-forge-012")),
-        (repo, ("git", "add", "forge/ghub/cli.py", "tests/ghub/test_cli.py")),
+        (repo, ("git", "add", "src/ghub/cli.py", "tests/ghub/test_cli.py")),
         (repo, ("git", "commit", "-m", "feat(git): BL-forge-012 wrapper git gh")),
         (repo, ("git", "push", "-u", "origin", "feat/BL-forge-012")),
     ]

@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le diagnostic de cycle est directement consommable par le rôle SPEC pour correction"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.3.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/planner/dag.py : construction du graphe networkx de tous les BL de toutes les librairies à partir des champs depends_on des frontmatters, des versions cibles (les BL d'une version dépendent du tag de la version précédente de leur librairie) et des jalons d'intégration ; détection des cycles avec diagnostic exploitable (liste ordonnée des BL du cycle et des arêtes fautives) destiné à la relance de la phase 2 sur les BL concernés (EXG-PLA-02).
+Implémenter src/planner/dag.py : construction du graphe networkx de tous les BL de toutes les librairies à partir des champs depends_on des frontmatters, des versions cibles (les BL d'une version dépendent du tag de la version précédente de leur librairie) et des jalons d'intégration ; détection des cycles avec diagnostic exploitable (liste ordonnée des BL du cycle et des arêtes fautives) destiné à la relance de la phase 2 sur les BL concernés (EXG-PLA-02).
 
 ## Fichiers / modules impactés
-- `forge/planner/dag.py`
+- `src/planner/dag.py`
 - `tests/planner/test_dag.py`
 
 ## Dépendances

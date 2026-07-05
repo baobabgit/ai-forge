@@ -2,9 +2,9 @@
 
 from pydantic import field_validator
 
-from forge.core.models.base import StrictDomainModel
-from forge.core.models.validators import reject_blank_entries
-from forge.core.models.verdict import Verdict
+from src.core.models.base import StrictDomainModel
+from src.core.models.validators import reject_blank_entries
+from src.core.models.verdict import Verdict
 
 
 class GoNoGo(StrictDomainModel):

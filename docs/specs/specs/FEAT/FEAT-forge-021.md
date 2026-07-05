@@ -25,7 +25,7 @@ Boucle asyncio : sélection continue des BL prêts, pool de N workers (défaut 3
 - **Then** les BL prêts sont développés en parallèle dans des worktrees isolés, aucun provider ne dépasse son plafond de concurrence, et deux BL du même dépôt sont mergés sans intervention
 
 ## Interfaces concernées
-- `forge.scheduler`
+- `src.scheduler`
 
 ## BL enfants
 - BL-forge-037

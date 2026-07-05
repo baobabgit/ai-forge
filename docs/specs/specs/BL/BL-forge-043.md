@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Un opérateur comprend l'état du run en un écran sans documentation"
 ---
@@ -26,8 +26,8 @@ gates:
 Implémenter `forge status` (rich) : tableau de bord temps réel lisant l'état persisté — BL par état, vague courante, états et heures de recharge des providers, itérations en cours, workers actifs et leurs BL ; rafraîchissement continu, écart avec l'état réel < 2 s (EXG-NF-05) ; utilisable pendant qu'un run tourne (lecture seule, WAL).
 
 ## Fichiers / modules impactés
-- `forge/cli.py`
-- `forge/obs/status.py`
+- `src/cli.py`
+- `src/obs/status.py`
 - `tests/cli/test_status.py`
 
 ## Dépendances

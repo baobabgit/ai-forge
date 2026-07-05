@@ -8,8 +8,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from forge.core.models.go_no_go import GoNoGo
-from forge.core.models.role import Role
+from src.core.models.go_no_go import GoNoGo
+from src.core.models.role import Role
 
 
 class ProviderStatus(StrEnum):

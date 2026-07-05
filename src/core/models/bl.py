@@ -4,12 +4,12 @@ from typing import Literal
 
 from pydantic import Field, field_validator
 
-from forge.core.models.base import StrictDomainModel
-from forge.core.models.gate import Gate
-from forge.core.models.identifiers import BLId, FEATId, LibraryName, SemVer
-from forge.core.models.size import Size
-from forge.core.models.status import Status
-from forge.core.models.validators import reject_blank_entries
+from src.core.models.base import StrictDomainModel
+from src.core.models.gate import Gate
+from src.core.models.identifiers import BLId, FEATId, LibraryName, SemVer
+from src.core.models.size import Size
+from src.core.models.status import Status
+from src.core.models.validators import reject_blank_entries
 
 
 class BL(StrictDomainModel):

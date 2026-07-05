@@ -10,9 +10,9 @@ critical: true
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le wrapper est la seule voie d'accès à git/gh du projet"
 ---
@@ -23,11 +23,11 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/ghub/ et forge/workspace/gitio.py : exécution de git et gh en sous-processus avec erreurs typées (GitError, GhError avec code + stderr) ; opérations : clone, checkout -b, add/commit, push, gh pr create/view/diff/merge --squash, gh issue create/comment, gh pr review. Mode dry-run pour les tests (commandes journalisées, non exécutées). Interdiction structurelle des chemins relatifs entre dépôts (EXG-GIT-03).
+Implémenter src/ghub/ et src/workspace/gitio.py : exécution de git et gh en sous-processus avec erreurs typées (GitError, GhError avec code + stderr) ; opérations : clone, checkout -b, add/commit, push, gh pr create/view/diff/merge --squash, gh issue create/comment, gh pr review. Mode dry-run pour les tests (commandes journalisées, non exécutées). Interdiction structurelle des chemins relatifs entre dépôts (EXG-GIT-03).
 
 ## Fichiers / modules impactés
-- `forge/ghub/cli.py`
-- `forge/workspace/gitio.py`
+- `src/ghub/cli.py`
+- `src/workspace/gitio.py`
 - `tests/ghub/test_cli.py`
 
 ## Dépendances

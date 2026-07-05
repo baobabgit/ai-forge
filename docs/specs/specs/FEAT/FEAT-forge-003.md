@@ -25,9 +25,9 @@ Protocol Provider + ProviderResult/RoleTask typés, registre chargé depuis prov
 - **Then** un ProviderResult typé est retourné (OK/EXHAUSTED/ERROR/TIMEOUT) avec le chemin du transcript brut archivé
 
 ## Interfaces concernées
-- `forge.providers.base.Provider`
-- `forge.providers.base.ProviderResult`
-- `forge.providers.runner`
+- `src.providers.base.Provider`
+- `src.providers.base.ProviderResult`
+- `src.providers.runner`
 
 ## BL enfants
 - BL-forge-004

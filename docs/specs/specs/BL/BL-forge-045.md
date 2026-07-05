@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "L'épinglage garantit des builds reproductibles à chaque jalon"
 ---
@@ -26,7 +26,7 @@ gates:
 Implémenter EXG-GIT-03 : les librairies consommatrices référencent leurs dépendances internes comme dépendances Git taguées (ou packages d'un registre privé si configuré) ; à la pose d'un tag de jalon, AI-Forge épingle automatiquement cette version dans le pyproject des librairies consommatrices (commit dédié par PR) ; toute dépendance par chemin relatif entre dépôts est structurellement impossible.
 
 ## Fichiers / modules impactés
-- `forge/workspace/pinning.py`
+- `src/workspace/pinning.py`
 - `tests/workspace/test_pinning.py`
 
 ## Dépendances

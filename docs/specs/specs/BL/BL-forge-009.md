@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le schéma couvre tout l'état exigé par EXG-ETA-01 sans champ mort"
     - "La machine à états est la seule autorité de transition (aucun UPDATE direct ailleurs)"
@@ -24,12 +24,12 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** L (~2 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/state/ : schéma SQLite (tables runs, bl_status, iterations, provider_state, worktrees, invocations, prs_issues) avec migrations versionnées simples ; accès aiosqlite en DAO typées ; machine à états BL n'autorisant que les transitions légales (TODO->IN_PROGRESS->IN_TEST->IN_REVIEW->DONE, retours NO GO vers IN_PROGRESS, sortie BLOCKED) ; chaque transition écrite transactionnellement (journal WAL) avant que l'appelant ne poursuive. Détection de base corrompue à l'ouverture avec refus explicite.
+Implémenter src/state/ : schéma SQLite (tables runs, bl_status, iterations, provider_state, worktrees, invocations, prs_issues) avec migrations versionnées simples ; accès aiosqlite en DAO typées ; machine à états BL n'autorisant que les transitions légales (TODO->IN_PROGRESS->IN_TEST->IN_REVIEW->DONE, retours NO GO vers IN_PROGRESS, sortie BLOCKED) ; chaque transition écrite transactionnellement (journal WAL) avant que l'appelant ne poursuive. Détection de base corrompue à l'ouverture avec refus explicite.
 
 ## Fichiers / modules impactés
-- `forge/state/db.py`
-- `forge/state/machine.py`
-- `forge/state/migrations.py`
+- `src/state/db.py`
+- `src/state/machine.py`
+- `src/state/migrations.py`
 - `tests/state/`
 
 ## Dépendances

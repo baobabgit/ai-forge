@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "L'ergonomie CLI est cohérente avec le tableau EXG-ETA-02"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
-Implémenter forge/cli.py (typer) : `forge init <cdc.md>` crée la base d'état, enregistre le run (chemin CDC, dépôts, configuration) et le dossier d'artefacts ; `forge run --bl <id>` lance l'exécution séquentielle d'un BL désigné ; sortie rich basique, codes retour propres (0 succès, différenciés sinon), erreurs utilisateur lisibles.
+Implémenter src/cli.py (typer) : `forge init <cdc.md>` crée la base d'état, enregistre le run (chemin CDC, dépôts, configuration) et le dossier d'artefacts ; `forge run --bl <id>` lance l'exécution séquentielle d'un BL désigné ; sortie rich basique, codes retour propres (0 succès, différenciés sinon), erreurs utilisateur lisibles.
 
 ## Fichiers / modules impactés
-- `forge/cli.py`
+- `src/cli.py`
 - `tests/cli/test_cli.py`
 
 ## Dépendances

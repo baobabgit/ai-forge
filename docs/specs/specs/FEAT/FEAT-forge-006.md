@@ -25,8 +25,8 @@ Campagne d'interruptions brutales (kill -9) à chaque étape du cycle, vérifica
 - **Then** le run reprend exactement où il s'était arrêté, sans corruption de worktree ni d'état, et sans double effet de bord GitHub
 
 ## Interfaces concernées
-- `forge.state`
-- `forge.workspace`
+- `src.state`
+- `src.workspace`
 - `tests/crash/`
 
 ## BL enfants

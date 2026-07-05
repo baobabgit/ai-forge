@@ -17,9 +17,9 @@ from typing import Any, ClassVar
 import frontmatter
 from pydantic import ValidationError
 
-from forge.core.models.bl import BL
-from forge.core.models.feat import FEAT
-from forge.core.models.uc import UC
+from src.core.models.bl import BL
+from src.core.models.feat import FEAT
+from src.core.models.uc import UC
 
 SpecModel = UC | FEAT | BL
 _MODELS_BY_TYPE: dict[str, type[SpecModel]] = {"UC": UC, "FEAT": FEAT, "BL": BL}

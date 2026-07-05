@@ -25,7 +25,7 @@ Exécution des gates auto d'un BL dans son worktree : commandes, timeout, captur
 - **Then** chaque gate produit un verdict avec preuve archivée, l'agrégat est NO GO dès qu'une gate échoue, et tout fichier modifié hors périmètre déclaré force un NO GO automatique
 
 ## Interfaces concernées
-- `forge.gates.auto`
+- `src.gates.auto`
 
 ## BL enfants
 - BL-forge-016

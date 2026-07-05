@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Aucune information nécessaire à la reprise ne dépend de l'historique de session (EXG-QUO-02)"
 ---
@@ -26,7 +26,7 @@ gates:
 Implémenter EXG-QUO-02 : à la détection d'un épuisement pendant un rôle, marquer le provider EXHAUSTED, sélectionner un autre provider disponible et relancer la tâche — les prompts étant autoporteurs, l'état complet est reconstruit depuis le worktree et les artefacts (spec, diff, Issue, résultats de gates), jamais depuis l'historique de session. Le worktree est resété proprement avant relance si le rôle écrivait.
 
 ## Fichiers / modules impactés
-- `forge/scheduler/failover.py`
+- `src/scheduler/failover.py`
 - `tests/scheduler/test_failover.py`
 
 ## Dépendances

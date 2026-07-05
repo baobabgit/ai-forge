@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le déroulé est strictement conforme aux étapes 1-4 puis 7 d'EXG-EXE-01"
     - "Aucune intervention humaine n'est nécessaire entre init et merge"
@@ -24,10 +24,10 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** L (~2 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/phases/execute.py en version minimale séquentielle : prendre un BL rédigé à la main dans un dépôt unique, dérouler branche -> rôle DEV -> push -> ouverture de PR (gh pr create, corps rédigé par le DEV) -> merge par l'orchestrateur (préfiguration INTEGRATOR, sans gates), avec persistance de chaque étape dans la base d'état et reprise possible à chaque étape après interruption. C'est le jalon de sortie de la v0.1.0 : un BL de démonstration développé et mergé de bout en bout par une IA.
+Implémenter src/phases/execute.py en version minimale séquentielle : prendre un BL rédigé à la main dans un dépôt unique, dérouler branche -> rôle DEV -> push -> ouverture de PR (gh pr create, corps rédigé par le DEV) -> merge par l'orchestrateur (préfiguration INTEGRATOR, sans gates), avec persistance de chaque étape dans la base d'état et reprise possible à chaque étape après interruption. C'est le jalon de sortie de la v0.1.0 : un BL de démonstration développé et mergé de bout en bout par une IA.
 
 ## Fichiers / modules impactés
-- `forge/phases/execute.py`
+- `src/phases/execute.py`
 - `tests/phases/test_execute_v01.py`
 - `examples/demo-bl/`
 

@@ -1,6 +1,6 @@
 """Core domain models and specification parsing."""
 
-from forge.core.models import (
+from src.core.models import (
     ADR,
     BL,
     FEAT,

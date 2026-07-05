@@ -29,7 +29,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["forge"]
+packages = ["src"]
 
 [tool.black]
 line-length = 100
@@ -49,11 +49,11 @@ strict = true
 [tool.pytest.ini_options]
 addopts = "--doctest-modules"
 asyncio_mode = "auto"
-testpaths = ["forge", "tests"]
+testpaths = ["src", "tests"]
 
 [tool.coverage.run]
 branch = true
-source = ["forge"]
+source = ["src"]
 
 [tool.coverage.report]
 fail_under = 85
