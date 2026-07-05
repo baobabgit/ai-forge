@@ -1,0 +1,21 @@
+invariants:
+  - id: INV-001
+    rule: "Une librairie core ne depend jamais d'une librairie de niveau superieur (API, front)."
+    check: ai_judged
+  - id: INV-002
+    rule: "Aucun test ne peut etre supprime ou marque skip sans justification dans la PR."
+    check: auto
+  - id: INV-003
+    rule: "Aucun seuil de couverture ou de qualite ne peut etre abaisse."
+    check: auto
+  - id: INV-004
+    rule: "Aucune dependance inter-librairies flottante."
+    check: ai_judged
+  - id: INV-005
+    rule: "Aucune modification de CI hors perimetre du BL sans validation."
+    check: auto
+  - id: INV-006
+    rule: >
+      Les IA ne sont jamais mentionnees comme contributrices, co-auteurs ou
+      membres du projet, dans aucun commit, PR, README, changelog ni documentation.
+    check: auto
