@@ -13,6 +13,7 @@ authors = [
   { name = "Forge maintainers" },
 ]
 dependencies = [
+  "aiosqlite>=0.22.1",
   "pydantic>=2.12.0",
   "python-frontmatter>=1.3.0",
 ]
