@@ -7,7 +7,7 @@ target_version: 0.1.0
 depends_on: []
 size: S
 critical: true
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=forge --cov-fail-under=85"
