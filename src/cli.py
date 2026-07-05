@@ -19,6 +19,14 @@ from src.phases.execute import (
 )
 from src.providers.bootstrap import create_provider, default_providers_path, load_registry
 from src.providers.registry import ProviderRegistryError
+from src.scheduler.shutdown import (
+    ResumeReport,
+    all_providers_exhausted,
+    build_exhaustion_report,
+    is_run_stopped_for_exhaustion,
+    resume_run,
+    stop_run_for_exhaustion,
+)
 from src.state.db import StateDatabase, StateDatabaseError
 from src.state.machine import BlStateMachine, IllegalTransitionError, TransitionRequest
 
@@ -41,6 +49,7 @@ class ExitCode(IntEnum):
     USER_ERROR = 1
     STATE_ERROR = 2
     EXECUTION_ERROR = 3
+    PROVIDERS_EXHAUSTED = 4
 
 
 class ForgeCliError(Exception):
@@ -141,6 +150,12 @@ async def run_bl(
     try:
         status = await database.get_bl_status(bl_id)
         run_id = (forge_dir / RUN_ID_FILENAME).read_text(encoding="utf-8").strip()
+        if await is_run_stopped_for_exhaustion(database, run_id=run_id):
+            raise ForgeCliError(
+                ExitCode.PROVIDERS_EXHAUSTED,
+                "run stopped after full provider exhaustion; "
+                "restart is human-only via 'forge resume'",
+            )
         if status is None:
             await database.register_bl(bl_id, run_id, status=Status.TODO)
             status = await database.get_bl_status(bl_id)
@@ -180,7 +195,7 @@ async def run_bl(
 
         executor = SequentialExecutor(database)
         try:
-            return await executor.execute(
+            result = await executor.execute(
                 SequentialExecutionRequest(
                     bl_id=bl_id,
                     spec_path=spec_path,
@@ -192,7 +207,86 @@ async def run_bl(
                 )
             )
         except ExecutionError as error:
+            await _stop_if_all_exhausted(
+                database,
+                run_id=run_id,
+                provider_names=registry.names,
+            )
             raise ForgeCliError(ExitCode.EXECUTION_ERROR, str(error)) from error
+        await _stop_if_all_exhausted(
+            database,
+            run_id=run_id,
+            provider_names=registry.names,
+        )
+        return result
+    finally:
+        await database.close()
+
+
+async def _stop_if_all_exhausted(
+    database: StateDatabase,
+    *,
+    run_id: str,
+    provider_names: tuple[str, ...],
+) -> None:
+    """Stop the run when every provider is EXHAUSTED (EXG-QUO-03).
+
+    Persists the ``RUN_STOPPED`` event with the full report, then raises the
+    dedicated CLI error carrying the operator report.
+
+    :param database: Open state store.
+    :param run_id: Run identifier.
+    :param provider_names: Providers configured for the run.
+    :raises ForgeCliError: With :attr:`ExitCode.PROVIDERS_EXHAUSTED` when stopping.
+    """
+    if not await all_providers_exhausted(
+        database,
+        run_id=run_id,
+        provider_names=provider_names,
+    ):
+        return
+    report = await build_exhaustion_report(
+        database,
+        run_id=run_id,
+        provider_names=provider_names,
+    )
+    await stop_run_for_exhaustion(database, report)
+    raise ForgeCliError(ExitCode.PROVIDERS_EXHAUSTED, report.render())
+
+
+async def resume_forge(
+    *,
+    forge_dir: Path,
+    repo_root: Path,
+    providers_config: Path | None = None,
+) -> ResumeReport:
+    """Lift a graceful exhaustion stop after a human decision.
+
+    :param forge_dir: Directory holding forge state.
+    :param repo_root: Repository root used to resolve the providers config.
+    :param providers_config: Optional override for the providers configuration file.
+    :returns: Resume summary (interrupted backlog items, provider availability).
+    :raises ForgeCliError: If forge is not initialized or the config is invalid.
+    """
+    state_path = forge_dir / STATE_FILENAME
+    if not state_path.is_file():
+        raise ForgeCliError(
+            ExitCode.STATE_ERROR,
+            f"forge is not initialized; run 'forge init' first (expected {state_path})",
+        )
+    config_path = providers_config or default_providers_path(repo_root)
+    try:
+        registry = load_registry(config_path)
+    except ProviderRegistryError as error:
+        raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+    try:
+        database = await StateDatabase.open(state_path)
+    except StateDatabaseError as error:
+        raise ForgeCliError(ExitCode.STATE_ERROR, str(error)) from error
+    try:
+        run_id = (forge_dir / RUN_ID_FILENAME).read_text(encoding="utf-8").strip()
+        return await resume_run(database, run_id=run_id, provider_names=registry.names)
     finally:
         await database.close()
 
@@ -284,6 +378,38 @@ def run_command(
         console.print(f"[green]{bl_id} merged on {result.branch} (PR #{result.pr_number})[/green]")
     else:
         console.print(f"[green]{bl_id} execution completed[/green]")
+
+
+@app.command("resume")
+def resume_command(
+    forge_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_FORGE_DIR,
+        "--forge-dir",
+        help="Forge state directory.",
+    ),
+    repo_root: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo-root",
+        help="Repository root path.",
+    ),
+    providers_config: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--providers-config",
+        help="Override path to providers.toml.",
+    ),
+) -> None:
+    """Resume a run stopped after full provider exhaustion (human-only restart)."""
+    try:
+        report = asyncio.run(
+            resume_forge(
+                forge_dir=forge_dir.resolve(),
+                repo_root=repo_root.resolve(),
+                providers_config=providers_config.resolve() if providers_config else None,
+            )
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    console.print(report.render())
 
 
 def main() -> None:
