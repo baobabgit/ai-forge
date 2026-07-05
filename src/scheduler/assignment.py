@@ -70,6 +70,8 @@ async def assign_roles(
         "assignments": _assignment_payload(assignments),
         "available_providers": list(available),
         "history_window": history_window,
+        "mono_provider_isolation": len({assignment.provider for assignment in assignments}) == 1,
+        "session_policy": "fresh_per_role",
         "loads": {role.value: role_loads[role] for role in ASSIGNED_ROLES},
         "total_loads": total_loads,
     }
