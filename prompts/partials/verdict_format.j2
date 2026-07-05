@@ -1,0 +1,17 @@
+## Format de verdict obligatoire
+
+Conclus ta reponse avec un bloc JSON fenced exactement de cette forme :
+
+```json
+{
+  "verdict": "GO",
+  "criteria_evaluated": ["critere evalue"],
+  "motifs": ["resume de la decision"],
+  "preuves": ["preuve exploitable"]
+}
+```
+
+Regles :
+- `verdict` doit valoir `GO` ou `NO_GO`
+- un verdict `NO_GO` exige au moins un motif non vide
+- `criteria_evaluated`, `motifs` et `preuves` sont des tableaux de chaines non vides
