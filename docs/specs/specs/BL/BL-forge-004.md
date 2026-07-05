@@ -15,15 +15,18 @@ gates:
     - "mypy --strict src/"
   ai_judged:
     - "L'interface permet d'ajouter un quatrième provider sans toucher au reste du code (EXG-NF-04)"
+    - "Un provider mock est disponible pour le jalon v0.1.0 dry-run (réponses déterministes, sans CLI externe)"
 ---
 
-# BL-forge-004 — Interface Provider et résultats typés
+# BL-forge-004 — Interface Provider, mock et résultats typés
 
 **FEAT parente :** FEAT-forge-003 — Interface Provider et exécuteur subprocess
 **Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter src/providers/base.py : Protocol Provider (name, model, execute(task, workdir) -> ProviderResult, health_check() -> ProviderHealth), dataclasses RoleTask (bl_id, role, prompt rendu, artefacts, timeout) et ProviderResult (status OK/EXHAUSTED/ERROR/TIMEOUT, output, verdict GoNoGo|None, raw_transcript_path), plus le registre des providers construit depuis config/providers.toml (binaire, modèle imposé, patterns, plafonds).
+Implémenter `src/providers/base.py` : Protocol Provider (name, model, execute(task, workdir) -> ProviderResult, health_check() -> ProviderHealth), dataclasses RoleTask et ProviderResult, plus le registre construit depuis `config/providers.toml`.
+
+**Jalon v0.1.0 :** livrer un **provider mock** (`mock` dans le registre) retournant des réponses déterministes pour le dry-run complet sans CLI externe. Les adaptateurs réels (Claude, Codex, Cursor) sont couverts en **v0.1.1** (BL-006..008).
 
 ## Fichiers / modules impactés
 - `src/providers/base.py`

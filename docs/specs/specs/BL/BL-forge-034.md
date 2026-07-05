@@ -3,7 +3,7 @@ id: BL-forge-034
 type: BL
 parent: FEAT-forge-019
 library: ai-forge
-target_version: 0.3.0
+target_version: 0.5.0
 depends_on: [BL-forge-033]
 size: M
 critical: true
@@ -20,7 +20,7 @@ gates:
 # BL-forge-034 — Ordonnancement par vagues et chemin critique
 
 **FEAT parente :** FEAT-forge-019 — Planner : DAG, vagues, chemin critique, publication
-**Version cible :** v0.3.0 · **Taille :** M (~1 j) · **Critique :** OUI
+**Version cible :** v0.5.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
 Implémenter src/planner/waves.py : tri topologique par vagues (à tout instant, l'ensemble des BL prêts — toutes dépendances DONE — est exécutable en parallèle dans la limite des workers) ; calcul du chemin critique pondéré par la taille des BL (S=1, M=2, L=4) ; API de requête pour le scheduler : ready_bls(state) retourne les BL prêts triés (chemin critique d'abord).

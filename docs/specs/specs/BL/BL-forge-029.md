@@ -3,7 +3,7 @@ id: BL-forge-029
 type: BL
 parent: FEAT-forge-017
 library: ai-forge
-target_version: 0.3.0
+target_version: 0.5.0
 depends_on: [BL-forge-028]
 size: M
 critical: false
@@ -20,7 +20,7 @@ gates:
 # BL-forge-029 — Documents d'architecture et CDC par librairie
 
 **FEAT parente :** FEAT-forge-017 — Phase 1 : ARCHITECT et contre-relecture
-**Version cible :** v0.3.0 · **Taille :** M (~1 j) · **Critique :** non
+**Version cible :** v0.5.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
 Générer et committer les livrables de la phase 1 : architecture.md (découpage, justifications), un cahier des charges complet par librairie (objet, responsabilités, interfaces publiques attendues, dépendances vers les autres librairies, stack Python >= 3.13 / React si front, contraintes qualité) conforme EXG-ARC-02, et milestones.md au format contraintes explicites (`lib-core v0.2.0 requis avant lib-api v0.1.0`) conforme EXG-ARC-04.

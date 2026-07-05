@@ -3,7 +3,7 @@ id: BL-forge-030
 type: BL
 parent: FEAT-forge-018
 library: ai-forge
-target_version: 0.3.0
+target_version: 0.5.0
 depends_on: [BL-forge-011, BL-forge-003]
 size: M
 critical: false
@@ -20,7 +20,7 @@ gates:
 # BL-forge-030 — Rôle SPEC : génération des UC
 
 **FEAT parente :** FEAT-forge-018 — Phase 2 : génération et contre-relecture des specs
-**Version cible :** v0.3.0 · **Taille :** M (~1 j) · **Critique :** non
+**Version cible :** v0.5.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
 Implémenter src/roles/spec.py (partie UC) et src/phases/specify.py : pour chaque librairie, génération des fichiers specs/UC/UC-<lib>-<nnn>.md conformes EXG-SPE-02 (identifiant, acteurs, préconditions, scénario nominal, alternatifs et erreurs, postconditions, exigences non fonctionnelles, critères GO/NO-GO) avec frontmatter EXG-SPE-05 ; chaque fichier généré est immédiatement validé par le specparser, toute erreur étant renvoyée au SPEC avec le diagnostic exact.

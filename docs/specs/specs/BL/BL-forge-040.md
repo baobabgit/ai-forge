@@ -3,7 +3,7 @@ id: BL-forge-040
 type: BL
 parent: FEAT-forge-022
 library: ai-forge
-target_version: 0.5.0
+target_version: 0.4.0
 depends_on: [BL-forge-012, BL-forge-014]
 size: M
 critical: false
@@ -20,7 +20,7 @@ gates:
 # BL-forge-040 — Dépôt programme et création multi-repo
 
 **FEAT parente :** FEAT-forge-022 — Organisation multi-repo et dépendances épinglées
-**Version cible :** v0.5.0 · **Taille :** M (~1 j) · **Critique :** non
+**Version cible :** v0.4.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
 Implémenter EXG-GIT-01/02 : création (idempotente) de l'organisation ou du préfixe de dépôts du projet cible ; dépôt programme <projet>-program recevant CDC d'entrée, architecture.md, CDC des librairies, milestones.md, planning.md/planning.json et rapports ; un dépôt par librairie <projet>-<lib> avec squelette (pyproject, CI, specs/UC|FEAT|BL/) ; branches main protégées, merge par PR uniquement ; toutes les opérations via gh authentifié.

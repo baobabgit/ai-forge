@@ -3,6 +3,7 @@ id: FEAT-forge-024
 type: FEAT
 parent: UC-forge-009
 library: ai-forge
+target_version: 0.4.0
 status: TODO
 gates:
   auto: []

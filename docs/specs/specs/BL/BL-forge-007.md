@@ -3,7 +3,7 @@ id: BL-forge-007
 type: BL
 parent: FEAT-forge-004
 library: ai-forge
-target_version: 0.1.0
+target_version: 0.1.1
 depends_on: [BL-forge-004, BL-forge-005]
 size: M
 critical: false
@@ -20,7 +20,7 @@ gates:
 # BL-forge-007 — Adaptateur Codex CLI
 
 **FEAT parente :** FEAT-forge-004 — Adaptateurs Claude Code, Codex et Cursor
-**Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** non
+**Version cible :** v0.1.1 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
 Implémenter src/providers/codex.py : invocation `codex exec --json --model gpt-5.5` via le runner commun, parsing du flux JSON de Codex, classification par patterns configurables, health_check (binaire, auth, modèle). Tests avec faux binaire simulant les quatre issues, y compris les motifs d'épuisement propres à Codex (fenêtres horaires/hebdomadaires).

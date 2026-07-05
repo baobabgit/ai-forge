@@ -4,7 +4,7 @@ type: BL
 parent: FEAT-forge-009
 library: ai-forge
 target_version: 0.1.0
-depends_on: [BL-forge-006, BL-forge-007, BL-forge-008, BL-forge-012, BL-forge-013, BL-forge-014]
+depends_on: [BL-forge-004, BL-forge-009, BL-forge-011, BL-forge-014]
 size: L
 critical: true
 status: DONE
@@ -14,17 +14,21 @@ gates:
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
-    - "Le déroulé est strictement conforme aux étapes 1-4 puis 7 d'EXG-EXE-01"
-    - "Aucune intervention humaine n'est nécessaire entre init et merge"
+    - "Le déroulé dry-run (--dry-run) enchaîne branche → DEV mock → events persistés sans effet GitHub destructif"
+    - "Chaque étape est rejouable depuis la base d'état après interruption simulée"
 ---
 
-# BL-forge-015 — Chaîne séquentielle v0.1 de bout en bout
+# BL-forge-015 — Chaîne séquentielle dry-run v0.1.0
 
 **FEAT parente :** FEAT-forge-009 — Chaîne séquentielle v0.1 (init + run)
 **Version cible :** v0.1.0 · **Taille :** L (~2 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter src/phases/execute.py en version minimale séquentielle : prendre un BL rédigé à la main dans un dépôt unique, dérouler branche -> rôle DEV -> push -> ouverture de PR (gh pr create, corps rédigé par le DEV) -> merge par l'orchestrateur (préfiguration INTEGRATOR, sans gates), avec persistance de chaque étape dans la base d'état et reprise possible à chaque étape après interruption. C'est le jalon de sortie de la v0.1.0 : un BL de démonstration développé et mergé de bout en bout par une IA.
+Implémenter `src/phases/execute.py` en version minimale séquentielle **dry-run** : prendre un BL rédigé à la main dans un dépôt unique, dérouler branche → rôle DEV (provider **mock**) → persistance de chaque étape dans la base d'état et l'event log, avec reprise possible à chaque étape après interruption. En mode `--dry-run`, aucun push, aucune PR réelle, aucun merge — seuls les événements et le journal JSONL sont produits.
+
+C'est le **jalon de sortie v0.1.0** (CDC v1.4 §6) : un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable.
+
+> **Note implémentation :** le code actuel couvre aussi push/PR/merge (anticipation v0.1.1+). Voir `MIGRATION-IMPL.md`.
 
 ## Fichiers / modules impactés
 - `src/phases/execute.py`
@@ -32,20 +36,18 @@ Implémenter src/phases/execute.py en version minimale séquentielle : prendre u
 - `examples/demo-bl/`
 
 ## Dépendances
-- BL-forge-006 — Adaptateur Claude Code
-- BL-forge-007 — Adaptateur Codex CLI
-- BL-forge-008 — Adaptateur Cursor Agent
-- BL-forge-012 — Wrapper git et gh de base
-- BL-forge-013 — Rôle DEV
+- BL-forge-004 — Interface Provider (mock)
+- BL-forge-009 — Base d'état SQLite et machine à états BL
+- BL-forge-011 — Moteur de prompts jinja2 et template DEV
 - BL-forge-014 — CLI typer : forge init et run minimal
 
 ## Definition of Done
-- [ ] Scénario de démonstration rejouable : BL manuel -> PR mergée, entièrement piloté par AI-Forge
-- [ ] Interruption à chaque étape puis reprise : aucune étape rejouée avec double effet GitHub
+- [ ] `forge run --dry-run --bl <id>` déroule le BL demo sans effet GitHub destructif
+- [ ] Interruption à chaque étape puis reprise : aucune étape rejouée avec double effet
 - [ ] Toutes les étapes tracées en base et en JSONL
 - [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
-- **ai_judged :** critères du frontmatter évalués par le TESTER/REVIEWER (provider différent du DEV si disponible).
+- **ai_judged :** critères du frontmatter évalués manuellement ou par revue croisée (pas de TESTER en v0.1.0).

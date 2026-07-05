@@ -3,7 +3,7 @@ id: BL-forge-028
 type: BL
 parent: FEAT-forge-017
 library: ai-forge
-target_version: 0.3.0
+target_version: 0.5.0
 depends_on: [BL-forge-011, BL-forge-017]
 size: L
 critical: false
@@ -21,7 +21,7 @@ gates:
 # BL-forge-028 — Rôle ARCHITECT et contre-relecture itérative
 
 **FEAT parente :** FEAT-forge-017 — Phase 1 : ARCHITECT et contre-relecture
-**Version cible :** v0.3.0 · **Taille :** L (~2 j) · **Critique :** non
+**Version cible :** v0.5.0 · **Taille :** L (~2 j) · **Critique :** non
 
 ## Description technique
 Implémenter src/roles/architect.py, prompts/architect.md.j2 et src/phases/architect.py : à partir du CDC d'entrée, l'ARCHITECT produit la liste des librairies, les trajectoires de versions SemVer (contenu fonctionnel et ordre de développement) et les jalons d'intégration ; un second provider contre-relit et produit un rapport de cohérence structuré (dépendances circulaires, librairies redondantes, versions incohérentes) ; en cas d'anomalie l'ARCHITECT est relancé avec le rapport, trois itérations maximum, puis arrêt et remontée à l'humain (EXG-ARC-05).

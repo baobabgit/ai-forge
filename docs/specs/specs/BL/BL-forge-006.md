@@ -3,7 +3,7 @@ id: BL-forge-006
 type: BL
 parent: FEAT-forge-004
 library: ai-forge
-target_version: 0.1.0
+target_version: 0.1.1
 depends_on: [BL-forge-004, BL-forge-005]
 size: M
 critical: false
@@ -20,7 +20,7 @@ gates:
 # BL-forge-006 — Adaptateur Claude Code
 
 **FEAT parente :** FEAT-forge-004 — Adaptateurs Claude Code, Codex et Cursor
-**Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** non
+**Version cible :** v0.1.1 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
 Implémenter src/providers/claude.py : invocation `claude -p --output-format json --model opus-4.8` via le runner commun, parsing de la sortie JSON (repli texte brut documenté si sortie non JSON), classification EXHAUSTED/ERROR/TIMEOUT selon les patterns de providers.toml, health_check vérifiant binaire, authentification et modèle imposé. Tests avec un faux binaire simulant OK, épuisement de quota, erreur et blocage.

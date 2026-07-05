@@ -3,7 +3,7 @@ id: BL-forge-032
 type: BL
 parent: FEAT-forge-018
 library: ai-forge
-target_version: 0.3.0
+target_version: 0.5.0
 depends_on: [BL-forge-031]
 size: M
 critical: false
@@ -21,7 +21,7 @@ gates:
 # BL-forge-032 — Contre-relecture des spécifications
 
 **FEAT parente :** FEAT-forge-018 — Phase 2 : génération et contre-relecture des specs
-**Version cible :** v0.3.0 · **Taille :** M (~1 j) · **Critique :** non
+**Version cible :** v0.5.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
 Implémenter EXG-SPE-08 : chaque lot de specs (UC, puis FEAT/BL d'une librairie) est contre-relu par un provider différent de celui qui l'a produit, selon trois axes explicites : complétude, testabilité des critères GO/NO-GO, cohérence des dépendances ; rapport structuré ; boucle de correction avec le SPEC ; commit uniquement après validation.

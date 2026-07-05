@@ -3,6 +3,7 @@ id: UC-forge-009
 type: UC
 parent: null
 library: ai-forge
+target_version: 0.4.0
 status: TODO
 gates:
   auto: []
@@ -12,6 +13,8 @@ gates:
 ---
 
 # UC-forge-009 — Gérer le multi-repo, les versions et les jalons
+
+> **Version cible : v0.4.0** — repoussé ; ne pas polluer la stabilisation du cœur séquentiel (CDC v1.4 §6).
 
 ## Description
 Créer et gérer l'organisation GitHub du projet cible (dépôt programme + un dépôt par librairie), exécuter les gates de version, poser les tags SemVer et releases, matérialiser les jalons d'intégration qui débloquent les BL dépendants, et épingler les dépendances inter-librairies sur des versions taguées.

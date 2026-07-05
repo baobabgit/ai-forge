@@ -3,7 +3,7 @@ id: BL-forge-008
 type: BL
 parent: FEAT-forge-004
 library: ai-forge
-target_version: 0.1.0
+target_version: 0.1.1
 depends_on: [BL-forge-004, BL-forge-005]
 size: M
 critical: false
@@ -20,7 +20,7 @@ gates:
 # BL-forge-008 — Adaptateur Cursor Agent
 
 **FEAT parente :** FEAT-forge-004 — Adaptateurs Claude Code, Codex et Cursor
-**Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** non
+**Version cible :** v0.1.1 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
 Implémenter src/providers/cursor.py : invocation `cursor-agent -p` en mode Auto via le runner commun, parsing de sortie (texte ou JSON selon disponibilité), classification par patterns (quota fixe Cursor), health_check. Tests avec faux binaire simulant les quatre issues.
