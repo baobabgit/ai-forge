@@ -2,6 +2,10 @@
 bin = "claude"
 model = "opus-4.8"
 max_concurrency = 2
+exhausted_patterns = ["rate limit", "quota exceeded", "usage limit"]
+cooldown = { kind = "window", hours = 5, weekly = true }
+consecutive_failure_threshold = 3
+consecutive_failure_cooldown_seconds = 300
 
 [claude.capabilities]
 non_interactive = true
@@ -16,6 +20,10 @@ native_sandbox = false
 bin = "codex"
 model = "gpt-5.5"
 max_concurrency = 2
+exhausted_patterns = ["rate limit", "quota", "usage limit exceeded"]
+cooldown = { kind = "window", hours = 5, weekly = true }
+consecutive_failure_threshold = 3
+consecutive_failure_cooldown_seconds = 300
 
 [codex.capabilities]
 non_interactive = true
@@ -30,6 +38,10 @@ native_sandbox = true
 bin = "cursor-agent"
 model = "auto"
 max_concurrency = 2
+exhausted_patterns = ["quota", "limit reached"]
+cooldown = { kind = "fixed", seconds = 86400 }
+consecutive_failure_threshold = 3
+consecutive_failure_cooldown_seconds = 300
 
 [cursor.capabilities]
 non_interactive = true
@@ -44,6 +56,10 @@ native_sandbox = false
 bin = "mock"
 model = "mock-v1"
 max_concurrency = 1
+exhausted_patterns = ["mock exhausted"]
+cooldown = { kind = "window", hours = 1, weekly = false }
+consecutive_failure_threshold = 2
+consecutive_failure_cooldown_seconds = 60
 
 [mock.capabilities]
 non_interactive = true

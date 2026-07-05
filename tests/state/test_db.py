@@ -121,3 +121,38 @@ async def test_register_bl_and_list_events(tmp_path: Path) -> None:
         assert events[0].details["mode"] == "dry-run"
     finally:
         await db.close()
+
+
+@pytest.mark.asyncio
+async def test_provider_state_round_trip(tmp_path: Path) -> None:
+    """Upsert and read provider quota rows through the DAO."""
+    from datetime import UTC, datetime
+
+    db = await StateDatabase.open(tmp_path / "state.db")
+    try:
+        await db.create_run("run-001")
+        until = datetime(2026, 7, 10, 8, 0, tzinfo=UTC)
+        await db.upsert_provider_state(
+            provider_name="claude",
+            run_id="run-001",
+            status="EXHAUSTED",
+            available_until=until,
+        )
+        row = await db.get_provider_state("claude", "run-001")
+        assert row is not None
+        assert row.status == "EXHAUSTED"
+        assert row.available_until == until
+
+        await db.upsert_provider_state(
+            provider_name="claude",
+            run_id="run-001",
+            status="AVAILABLE",
+            available_until=None,
+        )
+        updated = await db.get_provider_state("claude", "run-001")
+        assert updated is not None
+        assert updated.status == "AVAILABLE"
+        assert updated.available_until is None
+        assert await db.get_provider_state("missing", "run-001") is None
+    finally:
+        await db.close()
