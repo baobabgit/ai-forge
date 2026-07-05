@@ -8,20 +8,26 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
+
 from src.core.models.bl import BL
+from src.core.models.go_no_go import GoNoGo
 from src.core.models.status import Status
 from src.core.models.verdict import Verdict
 from src.core.specparser import read_spec
 from src.gates.auto import AutoGatesRequest, run_auto_gates
-from src.ghub.cli import pr_create
+from src.ghub.cli import issue_create, pr_create
 from src.providers.base import Provider
-from src.roles.dev import DevRole, DevRoleRequest, resolve_scope
+from src.roles.dev import DevCorrectionContext, DevRole, DevRoleRequest, resolve_scope
 from src.roles.integrator import IntegratorRole, IntegratorRoleRequest
 from src.roles.reviewer import ReviewerRole, ReviewerRoleRequest
 from src.roles.tester import TesterRole, TesterRoleRequest
-from src.state.db import StateDatabase
+from src.state.db import EventRecord, StateDatabase
 from src.state.machine import BlStateMachine, TransitionRequest
 from src.workspace import gitio
+
+NO_GO_EVENT_TYPES = frozenset({"TEST_NO_GO", "REVIEW_NO_GO"})
+PROMPTS_ROOT = Path(__file__).resolve().parents[2] / "prompts"
 
 
 class ExecutionStep(StrEnum):
@@ -81,6 +87,15 @@ class SequentialExecutionResult:
     pr_number: int | None
     merged: bool
     completed_steps: tuple[ExecutionStep, ...]
+    iteration: int = 1
+
+
+class _CorrectionRestart(Exception):
+    """Internal signal to restart the execution cycle after a NO-GO correction."""
+
+    def __init__(self, epoch_event_id: int) -> None:
+        """Remember the journal event that started the correction epoch."""
+        self.epoch_event_id = epoch_event_id
 
 
 class SequentialExecutor:
@@ -115,247 +130,313 @@ class SequentialExecutor:
         artifacts_dir = request.forge_dir / "artifacts"
 
         branch = _branch_name(request.bl_id)
-        completed = await self._completed_steps(request.run_id, request.bl_id)
         pr_body = ""
         pr_number: int | None = None
-        merged = ExecutionStep.MERGE in completed
+        merged = False
         dev_baseline = ""
+        epoch_event_id: int | None = None
 
         repo = request.repo_root.resolve()
         dry_run_log: gitio.CommandLog | None = self._command_log if request.dry_run else None
 
-        for step in STEP_ORDER:
-            if step in completed:
-                continue
-            if step is ExecutionStep.BRANCH:
-                gitio.checkout_new_branch(
-                    repo,
-                    branch,
-                    dry_run=request.dry_run,
-                    dry_run_log=dry_run_log,
-                )
-                await self._database.append_event(
-                    run_id=request.run_id,
-                    event_type="WORKTREE_CREATED",
-                    actor="executor",
-                    bl_id=request.bl_id,
-                    details={"branch": branch, "path": str(repo)},
-                )
-            elif step is ExecutionStep.DEV:
-                dev_baseline = _git_head(repo, dry_run=request.dry_run)
-                dev = DevRole(request.provider)
-                dev_result = await dev.run(
-                    DevRoleRequest(
-                        spec_path=request.spec_path,
-                        workdir=repo,
-                        baseline_ref=dev_baseline,
-                    )
-                )
-                pr_body = dev_result.pr_body
-                await self._database.append_event(
-                    run_id=request.run_id,
-                    event_type="DEV_COMPLETED",
-                    actor="DEV",
-                    bl_id=request.bl_id,
-                    details={
-                        "commits": dev_result.commit_count,
-                        "changed_files": list(dev_result.changed_files),
-                        "baseline_ref": dev_baseline,
-                    },
-                )
-                await self._machine.transition(
-                    request.bl_id,
-                    TransitionRequest(
-                        target=Status.IN_TEST,
-                        actor="DEV",
-                        reason="dev completed",
-                    ),
-                )
-            elif step is ExecutionStep.GATES:
-                dev_baseline = dev_baseline or await self._read_baseline_ref(
-                    request.run_id, request.bl_id
-                )
-                if request.dry_run:
-                    await self._database.append_event(
-                        run_id=request.run_id,
-                        event_type="GATES_COMPLETED",
-                        actor="GATE",
-                        bl_id=request.bl_id,
-                        details={"verdict": Verdict.GO.value, "dry_run": True},
-                    )
-                else:
-                    gates_report = await run_auto_gates(
-                        AutoGatesRequest(
-                            bl_id=request.bl_id,
-                            workdir=repo,
-                            commands=tuple(bl.gates.auto),
-                            artifacts_dir=artifacts_dir,
-                            baseline_ref=dev_baseline,
-                            scope=scope,
-                        )
-                    )
-                    if gates_report.verdict is Verdict.NO_GO:
-                        raise ExecutionError(
-                            ExecutionStep.GATES,
-                            "; ".join(gates_report.motifs) or "automatic gates failed",
-                        )
-                    await self._database.append_event(
-                        run_id=request.run_id,
-                        event_type="GATES_COMPLETED",
-                        actor="GATE",
-                        bl_id=request.bl_id,
-                        details={
-                            "verdict": gates_report.verdict.value,
-                            "report_path": str(gates_report.report_path),
-                        },
-                    )
-            elif step is ExecutionStep.TESTER:
-                dev_baseline = dev_baseline or await self._read_baseline_ref(
-                    request.run_id, request.bl_id
-                )
-                if request.dry_run:
-                    await self._database.append_event(
-                        run_id=request.run_id,
-                        event_type="TESTER_COMPLETED",
-                        actor="TESTER",
-                        bl_id=request.bl_id,
-                        details={"verdict": Verdict.GO.value, "dry_run": True},
-                    )
-                else:
-                    tester = TesterRole(request.provider)
-                    tester_result = await tester.run(
-                        TesterRoleRequest(
-                            spec_path=request.spec_path,
-                            workdir=repo,
-                            branch=branch,
-                            baseline_ref=dev_baseline,
-                            artifacts_dir=artifacts_dir,
-                        )
-                    )
-                    if tester_result.verdict.verdict is Verdict.NO_GO:
-                        raise ExecutionError(
-                            ExecutionStep.TESTER,
-                            "; ".join(tester_result.verdict.motifs),
-                        )
-                    await self._database.append_event(
-                        run_id=request.run_id,
-                        event_type="TESTER_COMPLETED",
-                        actor="TESTER",
-                        bl_id=request.bl_id,
-                        details={
-                            "verdict": tester_result.verdict.verdict.value,
-                            "motifs": list(tester_result.verdict.motifs),
-                            "preuves": list(tester_result.verdict.preuves),
-                        },
-                    )
-            elif step is ExecutionStep.PUSH:
-                gitio.push(
-                    repo,
-                    set_upstream=True,
-                    branch=branch,
-                    dry_run=request.dry_run,
-                    dry_run_log=dry_run_log,
-                )
-            elif step is ExecutionStep.PR_OPEN:
-                title = f"feat({request.bl_id}): demo sequential execution"
-                result = pr_create(
-                    repo,
-                    title=title,
-                    body=pr_body or f"Automated PR for {request.bl_id}",
-                    head=branch,
-                    dry_run=request.dry_run,
-                    dry_run_log=dry_run_log,
-                )
-                pr_number = _parse_pr_number(result.stdout)
-                if pr_number is None and request.dry_run:
-                    pr_number = 1
-                await self._database.append_event(
-                    run_id=request.run_id,
-                    event_type="PR_OPENED",
-                    actor="executor",
-                    bl_id=request.bl_id,
-                    details={"number": pr_number, "branch": branch},
-                )
-            elif step is ExecutionStep.REVIEWER:
-                if pr_number is None:
-                    pr_number = await self._find_open_pr_number(request.run_id, request.bl_id)
-                if request.dry_run:
-                    await self._database.append_event(
-                        run_id=request.run_id,
-                        event_type="REVIEWER_COMPLETED",
-                        actor="REVIEWER",
-                        bl_id=request.bl_id,
-                        details={"verdict": Verdict.GO.value, "dry_run": True},
-                    )
-                else:
-                    reviewer = ReviewerRole(request.provider)
-                    review_result = await reviewer.run(
-                        ReviewerRoleRequest(
-                            spec_path=request.spec_path,
-                            repo_root=repo,
-                            pr_number=pr_number or 1,
+        while True:
+            completed = await self._completed_steps(
+                request.run_id,
+                request.bl_id,
+                after_event_id=epoch_event_id,
+            )
+            merged = ExecutionStep.MERGE in completed
+            pr_number = pr_number or await self._find_open_pr_number(request.run_id, request.bl_id)
+            correction = await self._load_correction_context(
+                request.run_id,
+                request.bl_id,
+                repo,
+                after_event_id=epoch_event_id,
+            )
+
+            try:
+                for step in STEP_ORDER:
+                    if step in completed:
+                        continue
+                    if step is ExecutionStep.BRANCH:
+                        gitio.checkout_new_branch(
+                            repo,
+                            branch,
                             dry_run=request.dry_run,
                             dry_run_log=dry_run_log,
                         )
-                    )
-                    if review_result.verdict.verdict is Verdict.NO_GO:
-                        raise ExecutionError(
-                            ExecutionStep.REVIEWER,
-                            "; ".join(review_result.verdict.motifs),
+                        await self._database.append_event(
+                            run_id=request.run_id,
+                            event_type="WORKTREE_CREATED",
+                            actor="executor",
+                            bl_id=request.bl_id,
+                            details={"branch": branch, "path": str(repo)},
                         )
-                    await self._database.append_event(
-                        run_id=request.run_id,
-                        event_type="REVIEWER_COMPLETED",
-                        actor="REVIEWER",
-                        bl_id=request.bl_id,
-                        details={
-                            "verdict": review_result.verdict.verdict.value,
-                            "event": review_result.review_event,
-                        },
-                    )
-                    await self._machine.transition(
+                    elif step is ExecutionStep.DEV:
+                        dev_baseline = _git_head(repo, dry_run=request.dry_run)
+                        dev = DevRole(request.provider)
+                        dev_result = await dev.run(
+                            DevRoleRequest(
+                                spec_path=request.spec_path,
+                                workdir=repo,
+                                baseline_ref=dev_baseline,
+                                correction=correction,
+                            )
+                        )
+                        pr_body = dev_result.pr_body
+                        await self._database.append_event(
+                            run_id=request.run_id,
+                            event_type="DEV_COMPLETED",
+                            actor="executor",
+                            bl_id=request.bl_id,
+                            details={
+                                "commits": dev_result.commit_count,
+                                "changed_files": list(dev_result.changed_files),
+                                "baseline_ref": dev_baseline,
+                                "correction": correction is not None,
+                            },
+                        )
+                        current_status = await self._machine.get_status(request.bl_id)
+                        if current_status is not Status.IN_TEST:
+                            await self._machine.transition(
+                                request.bl_id,
+                                TransitionRequest(
+                                    target=Status.IN_TEST,
+                                    actor="DEV",
+                                    reason="dev completed",
+                                ),
+                            )
+                    elif step is ExecutionStep.GATES:
+                        dev_baseline = dev_baseline or await self._read_baseline_ref(
+                            request.run_id, request.bl_id, after_event_id=epoch_event_id
+                        )
+                        if request.dry_run:
+                            await self._database.append_event(
+                                run_id=request.run_id,
+                                event_type="GATES_COMPLETED",
+                                actor="GATE",
+                                bl_id=request.bl_id,
+                                details={"verdict": Verdict.GO.value, "dry_run": True},
+                            )
+                        else:
+                            gates_report = await run_auto_gates(
+                                AutoGatesRequest(
+                                    bl_id=request.bl_id,
+                                    workdir=repo,
+                                    commands=tuple(bl.gates.auto),
+                                    artifacts_dir=artifacts_dir,
+                                    baseline_ref=dev_baseline,
+                                    scope=scope,
+                                )
+                            )
+                            if gates_report.verdict is Verdict.NO_GO:
+                                raise ExecutionError(
+                                    ExecutionStep.GATES,
+                                    "; ".join(gates_report.motifs) or "automatic gates failed",
+                                )
+                            await self._database.append_event(
+                                run_id=request.run_id,
+                                event_type="GATES_COMPLETED",
+                                actor="GATE",
+                                bl_id=request.bl_id,
+                                details={
+                                    "verdict": gates_report.verdict.value,
+                                    "report_path": str(gates_report.report_path),
+                                },
+                            )
+                    elif step is ExecutionStep.TESTER:
+                        dev_baseline = dev_baseline or await self._read_baseline_ref(
+                            request.run_id, request.bl_id, after_event_id=epoch_event_id
+                        )
+                        if request.dry_run:
+                            await self._database.append_event(
+                                run_id=request.run_id,
+                                event_type="TESTER_COMPLETED",
+                                actor="TESTER",
+                                bl_id=request.bl_id,
+                                details={"verdict": Verdict.GO.value, "dry_run": True},
+                            )
+                            current_status = await self._machine.get_status(request.bl_id)
+                            if current_status is Status.IN_TEST:
+                                await self._machine.transition(
+                                    request.bl_id,
+                                    TransitionRequest(
+                                        target=Status.IN_REVIEW,
+                                        actor="TESTER",
+                                        reason="tester completed",
+                                    ),
+                                )
+                        else:
+                            tester = TesterRole(request.provider)
+                            tester_result = await tester.run(
+                                TesterRoleRequest(
+                                    spec_path=request.spec_path,
+                                    workdir=repo,
+                                    branch=branch,
+                                    baseline_ref=dev_baseline,
+                                    artifacts_dir=artifacts_dir,
+                                )
+                            )
+                            if tester_result.verdict.verdict is Verdict.NO_GO:
+                                epoch_event_id = await self._handle_no_go(
+                                    request,
+                                    repo=repo,
+                                    role="TESTER",
+                                    verdict=tester_result.verdict,
+                                    pr_number=pr_number,
+                                    dry_run_log=dry_run_log,
+                                    epoch_event_id=epoch_event_id,
+                                )
+                                raise _CorrectionRestart(epoch_event_id)
+                            await self._database.append_event(
+                                run_id=request.run_id,
+                                event_type="TESTER_COMPLETED",
+                                actor="TESTER",
+                                bl_id=request.bl_id,
+                                details={
+                                    "verdict": tester_result.verdict.verdict.value,
+                                    "motifs": list(tester_result.verdict.motifs),
+                                    "preuves": list(tester_result.verdict.preuves),
+                                },
+                            )
+                            current_status = await self._machine.get_status(request.bl_id)
+                            if current_status is Status.IN_TEST:
+                                await self._machine.transition(
+                                    request.bl_id,
+                                    TransitionRequest(
+                                        target=Status.IN_REVIEW,
+                                        actor="TESTER",
+                                        reason="tester completed",
+                                    ),
+                                )
+                    elif step is ExecutionStep.PUSH:
+                        gitio.push(
+                            repo,
+                            set_upstream=True,
+                            branch=branch,
+                            dry_run=request.dry_run,
+                            dry_run_log=dry_run_log,
+                        )
+                    elif step is ExecutionStep.PR_OPEN:
+                        if pr_number is not None:
+                            continue
+                        title = f"feat({request.bl_id}): demo sequential execution"
+                        result = pr_create(
+                            repo,
+                            title=title,
+                            body=pr_body or f"Automated PR for {request.bl_id}",
+                            head=branch,
+                            dry_run=request.dry_run,
+                            dry_run_log=dry_run_log,
+                        )
+                        pr_number = _parse_pr_number(result.stdout)
+                        if pr_number is None and request.dry_run:
+                            pr_number = 1
+                        await self._database.append_event(
+                            run_id=request.run_id,
+                            event_type="PR_OPENED",
+                            actor="executor",
+                            bl_id=request.bl_id,
+                            details={"number": pr_number, "branch": branch},
+                        )
+                    elif step is ExecutionStep.REVIEWER:
+                        if pr_number is None:
+                            pr_number = await self._find_open_pr_number(
+                                request.run_id, request.bl_id
+                            )
+                        if request.dry_run:
+                            await self._database.append_event(
+                                run_id=request.run_id,
+                                event_type="REVIEWER_COMPLETED",
+                                actor="REVIEWER",
+                                bl_id=request.bl_id,
+                                details={"verdict": Verdict.GO.value, "dry_run": True},
+                            )
+                        else:
+                            reviewer = ReviewerRole(request.provider)
+                            review_result = await reviewer.run(
+                                ReviewerRoleRequest(
+                                    spec_path=request.spec_path,
+                                    repo_root=repo,
+                                    pr_number=pr_number or 1,
+                                    dry_run=request.dry_run,
+                                    dry_run_log=dry_run_log,
+                                )
+                            )
+                            if review_result.verdict.verdict is Verdict.NO_GO:
+                                epoch_event_id = await self._handle_no_go(
+                                    request,
+                                    repo=repo,
+                                    role="REVIEWER",
+                                    verdict=review_result.verdict,
+                                    pr_number=pr_number,
+                                    dry_run_log=dry_run_log,
+                                    epoch_event_id=epoch_event_id,
+                                )
+                                raise _CorrectionRestart(epoch_event_id)
+                            await self._database.append_event(
+                                run_id=request.run_id,
+                                event_type="REVIEWER_COMPLETED",
+                                actor="REVIEWER",
+                                bl_id=request.bl_id,
+                                details={
+                                    "verdict": review_result.verdict.verdict.value,
+                                    "event": review_result.review_event,
+                                },
+                            )
+                            current_status = await self._machine.get_status(request.bl_id)
+                            if current_status is not Status.IN_REVIEW:
+                                await self._machine.transition(
+                                    request.bl_id,
+                                    TransitionRequest(
+                                        target=Status.IN_REVIEW,
+                                        actor="REVIEWER",
+                                        reason="reviewer approved",
+                                    ),
+                                )
+                    elif step is ExecutionStep.MERGE:
+                        if pr_number is None:
+                            pr_number = await self._find_open_pr_number(
+                                request.run_id, request.bl_id
+                            )
+                        await self._ensure_pre_merge_status(request.bl_id)
+                        integrator = IntegratorRole()
+                        merge_result = await integrator.run(
+                            IntegratorRoleRequest(
+                                repo_root=repo,
+                                branch=branch,
+                                pr_number=pr_number or 1,
+                                dry_run=request.dry_run,
+                                dry_run_log=dry_run_log,
+                            )
+                        )
+                        pr_number = merge_result.pr_number
+                        await self._machine.transition(
+                            request.bl_id,
+                            TransitionRequest(
+                                target=Status.DONE,
+                                actor="INTEGRATOR",
+                                reason="sequential merge",
+                            ),
+                        )
+                        merged = True
+
+                    completed = await self._completed_steps(
+                        request.run_id,
                         request.bl_id,
-                        TransitionRequest(
-                            target=Status.IN_REVIEW,
-                            actor="REVIEWER",
-                            reason="reviewer approved",
-                        ),
+                        after_event_id=epoch_event_id,
                     )
-            elif step is ExecutionStep.MERGE:
-                if pr_number is None:
-                    pr_number = await self._find_open_pr_number(request.run_id, request.bl_id)
-                await self._ensure_pre_merge_status(request.bl_id)
-                integrator = IntegratorRole()
-                merge_result = await integrator.run(
-                    IntegratorRoleRequest(
-                        repo_root=repo,
-                        branch=branch,
-                        pr_number=pr_number or 1,
-                        dry_run=request.dry_run,
-                        dry_run_log=dry_run_log,
-                    )
-                )
-                pr_number = merge_result.pr_number
-                await self._machine.transition(
-                    request.bl_id,
-                    TransitionRequest(
-                        target=Status.DONE,
-                        actor="INTEGRATOR",
-                        reason="sequential merge",
-                    ),
-                )
-                await self._database.append_event(
-                    run_id=request.run_id,
-                    event_type="MERGED",
-                    actor="INTEGRATOR",
-                    bl_id=request.bl_id,
-                    details={"number": pr_number, "already_merged": merge_result.already_merged},
-                )
-                merged = True
+                break
+            except _CorrectionRestart as restart:
+                epoch_event_id = restart.epoch_event_id
+                continue
 
-            completed = await self._completed_steps(request.run_id, request.bl_id)
-
-        final_completed = await self._completed_steps(request.run_id, request.bl_id)
+        final_completed = await self._completed_steps(
+            request.run_id,
+            request.bl_id,
+            after_event_id=epoch_event_id,
+        )
+        iteration = await self._current_iteration(request.run_id, request.bl_id)
         return SequentialExecutionResult(
             bl_id=request.bl_id,
             branch=branch,
@@ -363,14 +444,23 @@ class SequentialExecutor:
             pr_number=pr_number,
             merged=merged,
             completed_steps=_ordered_steps(final_completed),
+            iteration=iteration,
         )
 
-    async def _completed_steps(self, run_id: str, bl_id: str) -> frozenset[ExecutionStep]:
+    async def _completed_steps(
+        self,
+        run_id: str,
+        bl_id: str,
+        *,
+        after_event_id: int | None = None,
+    ) -> frozenset[ExecutionStep]:
         events = await self._database.list_events(run_id)
-        relevant = [event for event in events if event.bl_id == bl_id]
-        completed: set[ExecutionStep] = set()
+        relevant = _events_for_bl_after_epoch(events, bl_id, after_event_id)
+        all_relevant = [event for event in events if event.bl_id == bl_id]
         event_types = {event.event_type for event in relevant}
-        if "WORKTREE_CREATED" in event_types:
+        all_event_types = {event.event_type for event in all_relevant}
+        completed: set[ExecutionStep] = set()
+        if "WORKTREE_CREATED" in all_event_types:
             completed.add(ExecutionStep.BRANCH)
         if "DEV_COMPLETED" in event_types:
             completed.add(ExecutionStep.DEV)
@@ -380,20 +470,128 @@ class SequentialExecutor:
             completed.add(ExecutionStep.TESTER)
         if "PR_OPENED" in event_types:
             completed.update({ExecutionStep.PUSH, ExecutionStep.PR_OPEN})
+        elif "PR_OPENED" in all_event_types:
+            completed.add(ExecutionStep.PR_OPEN)
         if "REVIEWER_COMPLETED" in event_types:
             completed.add(ExecutionStep.REVIEWER)
         if "MERGED" in event_types:
             completed.add(ExecutionStep.MERGE)
         return frozenset(completed)
 
-    async def _read_baseline_ref(self, run_id: str, bl_id: str) -> str:
+    async def _read_baseline_ref(
+        self,
+        run_id: str,
+        bl_id: str,
+        *,
+        after_event_id: int | None = None,
+    ) -> str:
         events = await self._database.list_events(run_id)
-        for event in reversed(events):
-            if event.bl_id == bl_id and event.event_type == "DEV_COMPLETED":
+        for event in reversed(_events_for_bl_after_epoch(events, bl_id, after_event_id)):
+            if event.event_type == "DEV_COMPLETED":
                 baseline = event.details.get("baseline_ref")
                 if isinstance(baseline, str) and baseline.strip():
                     return baseline.strip()
         raise ExecutionError(ExecutionStep.GATES, "missing DEV baseline reference")
+
+    async def _current_iteration(self, run_id: str, bl_id: str) -> int:
+        events = await self._database.list_events(run_id)
+        corrections = sum(
+            1 for event in events if event.bl_id == bl_id and event.event_type in NO_GO_EVENT_TYPES
+        )
+        return corrections + 1
+
+    async def _load_correction_context(
+        self,
+        run_id: str,
+        bl_id: str,
+        repo: Path,
+        *,
+        after_event_id: int | None,
+    ) -> DevCorrectionContext | None:
+        _ = repo
+        if after_event_id is None:
+            return None
+        events = await self._database.list_events(run_id)
+        for event in events:
+            if event.id == after_event_id and event.event_type == "ISSUE_OPENED":
+                issue_body = event.details.get("body")
+                if not isinstance(issue_body, str) or not issue_body.strip():
+                    return None
+                diff = event.details.get("current_diff")
+                current_diff = diff if isinstance(diff, str) else ""
+                return DevCorrectionContext(
+                    issue_body=issue_body,
+                    current_diff=current_diff,
+                )
+        return None
+
+    async def _handle_no_go(
+        self,
+        request: SequentialExecutionRequest,
+        *,
+        repo: Path,
+        role: str,
+        verdict: GoNoGo,
+        pr_number: int | None,
+        dry_run_log: gitio.CommandLog | None,
+        epoch_event_id: int | None,
+    ) -> int:
+        """Open a correction issue, return to IN_PROGRESS and signal a new epoch.
+
+        :returns: Event id of the TEST_NO_GO / REVIEW_NO_GO journal entry.
+        """
+        iteration = await self._current_iteration(request.run_id, request.bl_id) + 1
+        baseline = await self._read_baseline_ref(
+            request.run_id,
+            request.bl_id,
+            after_event_id=epoch_event_id,
+        )
+        current_diff = _git_diff(repo, baseline)
+        issue_body = render_issue_correction_body(
+            bl_id=request.bl_id,
+            role=role,
+            motifs=tuple(verdict.motifs),
+            preuves=tuple(verdict.preuves),
+            iteration=iteration,
+            pr_number=pr_number,
+        )
+        title = f"fix({request.bl_id}): correction apres NO-GO {role}"
+        issue_result = issue_create(
+            repo,
+            title=title,
+            body=issue_body,
+            dry_run=request.dry_run,
+            dry_run_log=dry_run_log,
+        )
+        issue_number = _parse_issue_number(issue_result.stdout)
+        if issue_number is None and request.dry_run:
+            issue_number = iteration
+        issue_event_id = await self._database.append_event(
+            run_id=request.run_id,
+            event_type="ISSUE_OPENED",
+            actor=role,
+            bl_id=request.bl_id,
+            details={
+                "number": issue_number,
+                "role": role,
+                "iteration": iteration,
+                "body": issue_body,
+                "current_diff": current_diff,
+                "pr_number": pr_number,
+                "motifs": list(verdict.motifs),
+                "preuves": list(verdict.preuves),
+            },
+        )
+        await self._machine.transition(
+            request.bl_id,
+            TransitionRequest(
+                target=Status.IN_PROGRESS,
+                actor=role,
+                reason=f"{role.lower()} no-go correction",
+                no_go=True,
+            ),
+        )
+        return issue_event_id
 
     async def _find_open_pr_number(self, run_id: str, bl_id: str) -> int | None:
         events = await self._database.list_events(run_id)
@@ -430,6 +628,78 @@ class SequentialExecutor:
 def _branch_name(bl_id: str) -> str:
     slug = bl_id.lower().replace("_", "-")
     return f"feat/{slug}"
+
+
+def _events_for_bl_after_epoch(
+    events: tuple[EventRecord, ...],
+    bl_id: str,
+    after_event_id: int | None,
+) -> tuple[EventRecord, ...]:
+    """Return ``bl_id`` events recorded at or after the correction epoch marker."""
+    if after_event_id is None:
+        return tuple(event for event in events if event.bl_id == bl_id)
+    return tuple(event for event in events if event.bl_id == bl_id and event.id >= after_event_id)
+
+
+def render_issue_correction_body(
+    *,
+    bl_id: str,
+    role: str,
+    motifs: tuple[str, ...],
+    preuves: tuple[str, ...],
+    iteration: int,
+    pr_number: int | None,
+) -> str:
+    """Render the GitHub correction issue body from the shared partial template."""
+    environment = Environment(
+        loader=FileSystemLoader(PROMPTS_ROOT),
+        autoescape=select_autoescape(enabled_extensions=()),
+        undefined=StrictUndefined,
+        keep_trailing_newline=True,
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+    return environment.get_template("partials/issue_correction.j2").render(
+        bl_id=bl_id,
+        role=role,
+        motifs=list(motifs),
+        preuves=list(preuves),
+        iteration=iteration,
+        pr_number=pr_number,
+    )
+
+
+def _git_diff(repo: Path, baseline_ref: str) -> str:
+    """Return the unified diff between ``baseline_ref`` and ``HEAD``."""
+    git_bin = shutil.which("git")
+    if git_bin is None:
+        return ""
+    result = subprocess.run(  # nosec B603 - fixed git argv, no shell.
+        [git_bin, "diff", f"{baseline_ref}..HEAD"],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return result.stderr.strip() or result.stdout.strip()
+    return result.stdout
+
+
+def _parse_issue_number(stdout: str) -> int | None:
+    for token in stdout.split():
+        if "/issues/" in token:
+            fragment = token.rstrip("/").rsplit("/", 1)[-1]
+            if fragment.isdigit():
+                return int(fragment)
+        if token.isdigit():
+            return int(token)
+    for line in stdout.splitlines():
+        if "/issues/" in line:
+            fragment = line.rstrip("/").rsplit("/", 1)[-1]
+            if fragment.isdigit():
+                return int(fragment)
+    return None
 
 
 def _ordered_steps(completed: frozenset[ExecutionStep]) -> tuple[ExecutionStep, ...]:
