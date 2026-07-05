@@ -14,9 +14,10 @@ from src.core.models.bl import BL
 from src.core.models.go_no_go import GoNoGo
 from src.core.models.status import Status
 from src.core.models.verdict import Verdict
-from src.core.specparser import read_spec
+from src.core.specparser import build_index, read_spec
 from src.gates.auto import AutoGatesRequest, run_auto_gates
 from src.ghub.cli import issue_create, pr_create
+from src.planner.graph_updates import apply_blocked_side_effects
 from src.providers.base import Provider
 from src.roles.dev import DevCorrectionContext, DevRole, DevRoleRequest, resolve_scope
 from src.roles.integrator import IntegratorRole, IntegratorRoleRequest
@@ -27,6 +28,7 @@ from src.state.machine import BlStateMachine, TransitionRequest
 from src.workspace import gitio
 
 NO_GO_EVENT_TYPES = frozenset({"TEST_NO_GO", "REVIEW_NO_GO"})
+DEFAULT_MAX_ITERATIONS = 4
 PROMPTS_ROOT = Path(__file__).resolve().parents[2] / "prompts"
 
 
@@ -75,6 +77,8 @@ class SequentialExecutionRequest:
     run_id: str
     provider: Provider
     dry_run: bool = False
+    max_iterations: int = DEFAULT_MAX_ITERATIONS
+    specs_root: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +92,8 @@ class SequentialExecutionResult:
     merged: bool
     completed_steps: tuple[ExecutionStep, ...]
     iteration: int = 1
+    blocked: bool = False
+    blocked_issue_number: int | None = None
 
 
 class _CorrectionRestart(Exception):
@@ -96,6 +102,14 @@ class _CorrectionRestart(Exception):
     def __init__(self, epoch_event_id: int) -> None:
         """Remember the journal event that started the correction epoch."""
         self.epoch_event_id = epoch_event_id
+
+
+class _IterationCapExceeded(Exception):
+    """Internal signal that the iteration cap was reached and the BL is BLOCKED."""
+
+    def __init__(self, issue_number: int | None) -> None:
+        """Remember the synthesis issue number when available."""
+        self.issue_number = issue_number
 
 
 class SequentialExecutor:
@@ -430,6 +444,24 @@ class SequentialExecutor:
             except _CorrectionRestart as restart:
                 epoch_event_id = restart.epoch_event_id
                 continue
+            except _IterationCapExceeded as blocked:
+                final_completed = await self._completed_steps(
+                    request.run_id,
+                    request.bl_id,
+                    after_event_id=epoch_event_id,
+                )
+                iteration = await self._current_iteration(request.run_id, request.bl_id)
+                return SequentialExecutionResult(
+                    bl_id=request.bl_id,
+                    branch=branch,
+                    pr_body=pr_body,
+                    pr_number=pr_number,
+                    merged=False,
+                    completed_steps=_ordered_steps(final_completed),
+                    iteration=iteration,
+                    blocked=True,
+                    blocked_issue_number=blocked.issue_number,
+                )
 
         final_completed = await self._completed_steps(
             request.run_id,
@@ -525,6 +557,12 @@ class SequentialExecutor:
                 )
         return None
 
+    async def _count_no_go_events(self, run_id: str, bl_id: str) -> int:
+        events = await self._database.list_events(run_id)
+        return sum(
+            1 for event in events if event.bl_id == bl_id and event.event_type in NO_GO_EVENT_TYPES
+        )
+
     async def _handle_no_go(
         self,
         request: SequentialExecutionRequest,
@@ -540,6 +578,16 @@ class SequentialExecutor:
 
         :returns: Event id of the TEST_NO_GO / REVIEW_NO_GO journal entry.
         """
+        if await self._count_no_go_events(request.run_id, request.bl_id) >= request.max_iterations:
+            await self._block_for_iteration_cap(
+                request,
+                repo=repo,
+                role=role,
+                verdict=verdict,
+                pr_number=pr_number,
+                dry_run_log=dry_run_log,
+            )
+
         iteration = await self._current_iteration(request.run_id, request.bl_id) + 1
         baseline = await self._read_baseline_ref(
             request.run_id,
@@ -592,6 +640,74 @@ class SequentialExecutor:
             ),
         )
         return issue_event_id
+
+    async def _block_for_iteration_cap(
+        self,
+        request: SequentialExecutionRequest,
+        *,
+        repo: Path,
+        role: str,
+        verdict: GoNoGo,
+        pr_number: int | None,
+        dry_run_log: gitio.CommandLog | None,
+    ) -> None:
+        """Transition to BLOCKED, open a synthesis issue, and demote dependents."""
+        events = await self._database.list_events(request.run_id)
+        history = _iteration_history(events, request.bl_id)
+        issue_body = render_blocked_summary_body(
+            bl_id=request.bl_id,
+            max_iterations=request.max_iterations,
+            history=history,
+            role=role,
+            motifs=tuple(verdict.motifs),
+            preuves=tuple(verdict.preuves),
+            pr_number=pr_number,
+        )
+        title = f"blocked({request.bl_id}): synthese plafond iterations"
+        issue_result = issue_create(
+            repo,
+            title=title,
+            body=issue_body,
+            dry_run=request.dry_run,
+            dry_run_log=dry_run_log,
+        )
+        issue_number = _parse_issue_number(issue_result.stdout)
+        if issue_number is None and request.dry_run:
+            issue_number = request.max_iterations + 1
+
+        await self._machine.transition(
+            request.bl_id,
+            TransitionRequest(
+                target=Status.BLOCKED,
+                actor="executor",
+                reason="iteration cap reached",
+            ),
+        )
+        await self._database.append_event(
+            run_id=request.run_id,
+            event_type="ISSUE_OPENED",
+            actor="executor",
+            bl_id=request.bl_id,
+            details={
+                "number": issue_number,
+                "synthesis": True,
+                "kind": "blocked",
+                "max_iterations": request.max_iterations,
+                "body": issue_body,
+                "history": history,
+                "pr_number": pr_number,
+            },
+        )
+        if request.specs_root is not None:
+            index = build_index(request.specs_root)
+            await apply_blocked_side_effects(
+                self._database,
+                self._machine,
+                run_id=request.run_id,
+                index=index,
+                blocked_bl_id=request.bl_id,
+            )
+        raise _IterationCapExceeded(issue_number)
 
     async def _find_open_pr_number(self, run_id: str, bl_id: str) -> int | None:
         events = await self._database.list_events(run_id)
@@ -667,6 +783,90 @@ def render_issue_correction_body(
         iteration=iteration,
         pr_number=pr_number,
     )
+
+
+def render_blocked_summary_body(
+    *,
+    bl_id: str,
+    max_iterations: int,
+    history: tuple[dict[str, object], ...],
+    role: str,
+    motifs: tuple[str, ...],
+    preuves: tuple[str, ...],
+    pr_number: int | None,
+) -> str:
+    """Render the synthesis issue body when the iteration cap is reached."""
+    lines = [
+        f"# BL bloque — {bl_id}",
+        "",
+        f"Le plafond de **{max_iterations}** allers-retours est atteint (EXG-EXE-03).",
+        "Reprise humaine requise : relire cette synthese plutot que l'historique complet.",
+        "",
+        "## Dernier NO-GO",
+        "",
+        f"- **Role :** {role}",
+    ]
+    if pr_number is not None:
+        lines.append(f"- **PR liee :** #{pr_number}")
+    lines.extend(["", "### Motifs", ""])
+    if motifs:
+        lines.extend(f"- {motif}" for motif in motifs)
+    else:
+        lines.append("- (aucun)")
+    lines.extend(["", "### Preuves", ""])
+    if preuves:
+        lines.extend(f"- {preuve}" for preuve in preuves)
+    else:
+        lines.append("- (aucune)")
+    lines.extend(["", "## Historique des iterations", ""])
+    if history:
+        for entry in history:
+            lines.append(
+                f"- Iteration {entry['iteration']}: {entry['event_type']} "
+                f"({entry['role']}) — {entry['motifs']}"
+            )
+    else:
+        lines.append("- Aucun evenement NO-GO journalise avant le blocage.")
+    lines.extend(
+        [
+            "",
+            "## Hypotheses de blocage",
+            "",
+            "- Les corrections automatiques n'ont pas leve les criteres en echec.",
+            "- Le perimetre ou les gates du BL peuvent etre insuffisants ou ambigus.",
+            "- Une decision humaine sur la spec ou le scope peut etre necessaire.",
+            "",
+            "## Options de reprise",
+            "",
+            "1. Ajuster la spec ou le scope, puis `forge resume`.",
+            "2. Prendre le BL manuellement et fermer l'Issue de synthese.",
+            "3. Abandonner le BL et debloquer les dependants apres arbitrage.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _iteration_history(
+    events: tuple[EventRecord, ...],
+    bl_id: str,
+) -> tuple[dict[str, object], ...]:
+    """Extract prior NO-GO journal entries for synthesis."""
+    history: list[dict[str, object]] = []
+    iteration = 1
+    for event in events:
+        if event.bl_id != bl_id or event.event_type not in NO_GO_EVENT_TYPES:
+            continue
+        history.append(
+            {
+                "iteration": iteration,
+                "event_type": event.event_type,
+                "role": event.details.get("role", event.actor),
+                "motifs": event.details.get("motifs", []),
+                "preuves": event.details.get("preuves", []),
+            }
+        )
+        iteration += 1
+    return tuple(history)
 
 
 def _git_diff(repo: Path, baseline_ref: str) -> str:

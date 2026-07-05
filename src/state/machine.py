@@ -10,7 +10,7 @@ from src.state.db import BlStatusRecord, StateDatabase
 
 LEGAL_TRANSITIONS: Final[dict[Status, frozenset[Status]]] = {
     Status.TODO: frozenset({Status.READY, Status.IN_PROGRESS, Status.BLOCKED}),
-    Status.READY: frozenset({Status.IN_PROGRESS, Status.BLOCKED}),
+    Status.READY: frozenset({Status.IN_PROGRESS, Status.BLOCKED, Status.TODO}),
     Status.IN_PROGRESS: frozenset({Status.IN_TEST, Status.BLOCKED}),
     Status.IN_TEST: frozenset({Status.IN_REVIEW, Status.IN_PROGRESS, Status.BLOCKED}),
     Status.IN_REVIEW: frozenset({Status.DONE, Status.IN_PROGRESS, Status.BLOCKED}),

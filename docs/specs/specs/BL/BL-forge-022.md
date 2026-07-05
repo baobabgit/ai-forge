@@ -7,7 +7,7 @@ target_version: 0.2.0
 depends_on: [BL-forge-021]
 size: S
 critical: false
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -34,11 +34,11 @@ Implémenter EXG-EXE-03 : seuil configurable d'allers-retours par BL (défaut 4)
 - BL-forge-021 — Boucle de correction par Issue GitHub
 
 ## Definition of Done
-- [ ] Au 5e aller-retour (seuil 4), le BL passe BLOCKED avec Issue de synthèse
-- [ ] Les BL dépendants deviennent non prêts
-- [ ] Le run continue sur les BL indépendants
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Au 5e aller-retour (seuil 4), le BL passe BLOCKED avec Issue de synthèse
+- [x] Les BL dépendants deviennent non prêts
+- [x] Le run continue sur les BL indépendants
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
