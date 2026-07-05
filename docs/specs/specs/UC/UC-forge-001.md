@@ -25,7 +25,7 @@ Mettre en place le dépôt ai-forge, sa chaîne qualité non négociable (lint, 
 - Python >= 3.13 et uv installés sur le poste
 
 ## Scénario nominal
-1. Le DEV initialise le dépôt : pyproject (uv), arborescence forge/, configuration ruff / mypy --strict / pytest+couverture, workflow CI.
+1. Le DEV initialise le dépôt : pyproject (uv), arborescence src/, configuration ruff / mypy --strict / pytest+couverture, workflow CI.
 2. Le DEV implémente les modèles pydantic du domaine avec validation stricte et enums de statuts/rôles.
 3. Le DEV implémente le parser de specs : lecture/écriture frontmatter, validation vers les modèles, index des specs d'un dossier.
 4. La CI valide chaque PR (lint + typage + tests + couverture >= 85 %) avant merge sur main protégée.

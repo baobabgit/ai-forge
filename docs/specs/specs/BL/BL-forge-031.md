@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "La granularité des BL générés respecte EXG-SPE-06 sur un projet de test"
     - "Les BL d'un même module sont regroupés pour minimiser les conflits"
@@ -27,7 +27,7 @@ gates:
 Étendre le rôle SPEC : dérivation des FEAT depuis chaque UC (identifiant, UC parent, description, comportement Given/When/Then, interfaces, gates) conforme EXG-SPE-03, puis des BL depuis chaque FEAT (description technique, fichiers/modules impactés, definition of done, depends_on y compris inter-librairies, taille S/M/L, version cible, gates auto + ai_judged) conforme EXG-SPE-04. Instruction de granularité EXG-SPE-06 : un BL = une session d'agent (ordre demi-journée humaine), avec consigne de découpage par module pour limiter les conflits Git (parade §6).
 
 ## Fichiers / modules impactés
-- `forge/roles/spec.py`
+- `src/roles/spec.py`
 - `prompts/spec_feat.md.j2`
 - `prompts/spec_bl.md.j2`
 - `tests/phases/test_spec_featbl.py`

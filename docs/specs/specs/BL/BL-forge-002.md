@@ -10,9 +10,9 @@ critical: true
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le modèle couvre l'intégralité du glossaire §1.3 et du frontmatter EXG-SPE-05 sans champ superflu"
     - "Les types sont exploitables par tous les autres modules sans cast"
@@ -24,11 +24,11 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/core/models.py en pydantic v2 mode strict : Project, Library, UC, FEAT, BL (id, parent, library, target_version, depends_on, size S/M/L, status), Milestone (contrainte lib+version requise avant lib+version), Gate (listes auto et ai_judged), RoleAssignment (bl_id, role, provider), enums Status (TODO/IN_PROGRESS/IN_TEST/IN_REVIEW/DONE/BLOCKED), Role (ARCHITECT/SPEC/DEV/TESTER/REVIEWER/INTEGRATOR), GoNoGo (verdict, motifs, preuves). Sérialisation JSON stable et validateurs (id conformes au pattern, SemVer valide, size dans S/M/L).
+Implémenter src/core/models.py en pydantic v2 mode strict : Project, Library, UC, FEAT, BL (id, parent, library, target_version, depends_on, size S/M/L, status), Milestone (contrainte lib+version requise avant lib+version), Gate (listes auto et ai_judged), RoleAssignment (bl_id, role, provider), enums Status (TODO/IN_PROGRESS/IN_TEST/IN_REVIEW/DONE/BLOCKED), Role (ARCHITECT/SPEC/DEV/TESTER/REVIEWER/INTEGRATOR), GoNoGo (verdict, motifs, preuves). Sérialisation JSON stable et validateurs (id conformes au pattern, SemVer valide, size dans S/M/L).
 
 ## Fichiers / modules impactés
-- `forge/core/models.py`
-- `forge/core/__init__.py`
+- `src/core/models.py`
+- `src/core/__init__.py`
 - `tests/core/test_models.py`
 
 ## Dépendances

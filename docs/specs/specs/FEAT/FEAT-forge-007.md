@@ -26,9 +26,9 @@ Moteur de prompts jinja2 par rôle (contexte autoporteur, aucun secret), rôle D
 
 ## Interfaces concernées
 - `prompts/`
-- `forge.roles.rendering`
-- `forge.roles.dev`
-- `forge.roles.verdict`
+- `src.roles.rendering`
+- `src.roles.dev`
+- `src.roles.verdict`
 
 ## BL enfants
 - BL-forge-011

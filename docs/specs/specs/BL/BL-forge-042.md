@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le lien BL fautif <-> critère de version en échec est explicite dans l'Issue"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.5.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter EXG-VER-01/02/03 dans forge/phases/release.py : quand tous les BL d'une version d'une librairie sont DONE, exécution de la gate de version (gates de toutes les FEAT et de tous les UC de la version + suite d'intégration de la librairie) ; GO => l'INTEGRATOR pose le tag SemVer sur main et publie la release (gh release create) ; NO GO => Issue de version créée, BL fautifs rouverts (retour IN_PROGRESS), planning recalculé.
+Implémenter EXG-VER-01/02/03 dans src/phases/release.py : quand tous les BL d'une version d'une librairie sont DONE, exécution de la gate de version (gates de toutes les FEAT et de tous les UC de la version + suite d'intégration de la librairie) ; GO => l'INTEGRATOR pose le tag SemVer sur main et publie la release (gh release create) ; NO GO => Issue de version créée, BL fautifs rouverts (retour IN_PROGRESS), planning recalculé.
 
 ## Fichiers / modules impactés
-- `forge/phases/release.py`
+- `src/phases/release.py`
 - `tests/phases/test_release.py`
 
 ## Dépendances

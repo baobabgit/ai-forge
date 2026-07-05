@@ -25,7 +25,7 @@ Graphe networkx de tous les BL (depends_on + versions + jalons), rejet des cycle
 - **Then** un DAG sans cycle est construit (ou un diagnostic de cycle est produit), les vagues et le chemin critique sont calculés, et planning.md/planning.json sont publiés puis recalculés à chaque événement DONE/BLOCKED
 
 ## Interfaces concernées
-- `forge.planner`
+- `src.planner`
 - `planning.md`
 - `planning.json`
 

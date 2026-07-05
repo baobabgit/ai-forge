@@ -4,8 +4,8 @@ The package starts as a strict, typed skeleton and grows through backlog items.
 
 Examples
 --------
->>> import forge
->>> forge.__version__
+>>> import src
+>>> src.__version__
 '0.1.0'
 """
 

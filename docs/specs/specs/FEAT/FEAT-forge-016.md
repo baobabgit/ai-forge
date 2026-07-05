@@ -25,7 +25,7 @@ Politique EXG-ROL-02/03 : DEV = provider disponible le moins sollicité récemme
 - **Then** DEV, TESTER et REVIEWER sont trois providers distincts, le DEV étant le moins sollicité récemment, et l'attribution est journalisée
 
 ## Interfaces concernées
-- `forge.scheduler.assignment`
+- `src.scheduler.assignment`
 
 ## BL enfants
 - BL-forge-027

@@ -25,9 +25,9 @@ Trois adaptateurs concrets invoquant leur CLI en non-interactif avec modèle imp
 - **Then** le modèle imposé est vérifié à l'invocation et les sorties OK / quota / erreur / timeout sont correctement classées
 
 ## Interfaces concernées
-- `forge.providers.claude`
-- `forge.providers.codex`
-- `forge.providers.cursor`
+- `src.providers.claude`
+- `src.providers.codex`
+- `src.providers.cursor`
 - `config/providers.toml`
 
 ## BL enfants

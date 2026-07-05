@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from forge.obs.logging import (
+from src.obs.logging import (
     REQUIRED_FIELDS,
     JsonlRunLogger,
     build_event_record,

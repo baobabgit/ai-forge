@@ -5,7 +5,7 @@ from collections.abc import MutableSequence, Sequence
 from pathlib import Path
 from typing import Literal
 
-from forge.workspace.gitio import repo_root
+from src.workspace.gitio import repo_root
 
 CommandLog = MutableSequence[tuple[Path, tuple[str, ...]]]
 ReviewEvent = Literal["comment", "approve", "request-changes"]

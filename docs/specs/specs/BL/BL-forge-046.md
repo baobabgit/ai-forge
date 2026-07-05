@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Les correctifs n'introduisent aucun contournement des gates ni de la machine à états"
 ---
@@ -28,7 +28,7 @@ Campagne d'endurcissement EXG-NF-01/EXG-ETA-01 : harnais de test injectant des i
 ## Fichiers / modules impactés
 - `tests/crash/harness.py`
 - `tests/crash/scenarios/`
-- `forge/** (correctifs)`
+- `src/** (correctifs)`
 
 ## Dépendances
 - BL-forge-037 — Scheduler asyncio multi-workers

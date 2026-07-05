@@ -26,7 +26,7 @@ Offrir le pilotage opérateur : forge status temps réel (rich, < 2 s), forge re
 ## Scénario nominal
 1. forge status affiche : BL par état, vague courante, états providers, itérations en cours.
 2. forge report génère et pousse la synthèse (BL livrés, itérations, blocages, consommation).
-3. La documentation couvre : installation des trois CLI, forge.toml / providers.toml, procédure de reprise après épuisement.
+3. La documentation couvre : installation des trois CLI, src.toml / providers.toml, procédure de reprise après épuisement.
 4. Le projet cible d'exemple (deux librairies, un jalon) sert de test d'acceptation rejouable.
 
 ## Scénarios alternatifs et d'erreur

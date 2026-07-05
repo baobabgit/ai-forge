@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le rôle est rejouable sur le même worktree après reset sans corruption (EXG-NF-01)"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/roles/dev.py : construction de la RoleTask DEV depuis un BL (spec complète, périmètre de fichiers déclaré, Issue de correction et diff courant le cas échéant), exécution via le provider attribué, vérifications post-exécution : commits présents, tests ajoutés, diff limité au périmètre déclaré (préfiguration du diff-guard), corps de PR produit par le DEV et extrait pour l'orchestrateur.
+Implémenter src/roles/dev.py : construction de la RoleTask DEV depuis un BL (spec complète, périmètre de fichiers déclaré, Issue de correction et diff courant le cas échéant), exécution via le provider attribué, vérifications post-exécution : commits présents, tests ajoutés, diff limité au périmètre déclaré (préfiguration du diff-guard), corps de PR produit par le DEV et extrait pour l'orchestrateur.
 
 ## Fichiers / modules impactés
-- `forge/roles/dev.py`
+- `src/roles/dev.py`
 - `tests/roles/test_dev.py`
 
 ## Dépendances

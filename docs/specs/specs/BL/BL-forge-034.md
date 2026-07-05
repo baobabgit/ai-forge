@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "La priorisation minimise la durée totale estimée du run sur les fixtures"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.3.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/planner/waves.py : tri topologique par vagues (à tout instant, l'ensemble des BL prêts — toutes dépendances DONE — est exécutable en parallèle dans la limite des workers) ; calcul du chemin critique pondéré par la taille des BL (S=1, M=2, L=4) ; API de requête pour le scheduler : ready_bls(state) retourne les BL prêts triés (chemin critique d'abord).
+Implémenter src/planner/waves.py : tri topologique par vagues (à tout instant, l'ensemble des BL prêts — toutes dépendances DONE — est exécutable en parallèle dans la limite des workers) ; calcul du chemin critique pondéré par la taille des BL (S=1, M=2, L=4) ; API de requête pour le scheduler : ready_bls(state) retourne les BL prêts triés (chemin critique d'abord).
 
 ## Fichiers / modules impactés
-- `forge/planner/waves.py`
+- `src/planner/waves.py`
 - `tests/planner/test_waves.py`
 
 ## Dépendances

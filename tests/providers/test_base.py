@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from forge.core.models import GoNoGo, Role, Verdict
-from forge.providers.base import (
+from src.core.models import GoNoGo, Role, Verdict
+from src.providers.base import (
     Provider,
     ProviderCapabilities,
     ProviderHealth,
@@ -16,7 +16,7 @@ from forge.providers.base import (
     ProviderStatus,
     RoleTask,
 )
-from forge.providers.registry import ProviderConfig, ProviderRegistry, ProviderRegistryError
+from src.providers.registry import ProviderConfig, ProviderRegistry, ProviderRegistryError
 
 REPO_PROVIDERS = Path(__file__).resolve().parents[2] / "config" / "providers.toml"
 

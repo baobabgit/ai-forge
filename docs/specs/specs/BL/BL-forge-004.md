@@ -10,9 +10,9 @@ critical: true
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "L'interface permet d'ajouter un quatrième provider sans toucher au reste du code (EXG-NF-04)"
 ---
@@ -23,11 +23,11 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/providers/base.py : Protocol Provider (name, model, execute(task, workdir) -> ProviderResult, health_check() -> ProviderHealth), dataclasses RoleTask (bl_id, role, prompt rendu, artefacts, timeout) et ProviderResult (status OK/EXHAUSTED/ERROR/TIMEOUT, output, verdict GoNoGo|None, raw_transcript_path), plus le registre des providers construit depuis config/providers.toml (binaire, modèle imposé, patterns, plafonds).
+Implémenter src/providers/base.py : Protocol Provider (name, model, execute(task, workdir) -> ProviderResult, health_check() -> ProviderHealth), dataclasses RoleTask (bl_id, role, prompt rendu, artefacts, timeout) et ProviderResult (status OK/EXHAUSTED/ERROR/TIMEOUT, output, verdict GoNoGo|None, raw_transcript_path), plus le registre des providers construit depuis config/providers.toml (binaire, modèle imposé, patterns, plafonds).
 
 ## Fichiers / modules impactés
-- `forge/providers/base.py`
-- `forge/providers/registry.py`
+- `src/providers/base.py`
+- `src/providers/registry.py`
 - `tests/providers/test_base.py`
 
 ## Dépendances

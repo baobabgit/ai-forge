@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "La détection reste opérante si les messages CLI changent (parade du risque §6)"
 ---
@@ -23,11 +23,11 @@ gates:
 **Version cible :** v0.2.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/quota/ : états AVAILABLE / EXHAUSTED(until) / ERROR par provider, persistés en base ; détection réactive sur codes retour et motifs de sortie propres à chaque CLI, patterns rechargés à chaud depuis providers.toml ; heuristique de secours N échecs consécutifs => EXHAUSTED avec cooldown court ; estimation de l'heure de recharge selon le type de fenêtre configuré par provider (5 h glissantes / hebdomadaire / quota fixe).
+Implémenter src/quota/ : états AVAILABLE / EXHAUSTED(until) / ERROR par provider, persistés en base ; détection réactive sur codes retour et motifs de sortie propres à chaque CLI, patterns rechargés à chaud depuis providers.toml ; heuristique de secours N échecs consécutifs => EXHAUSTED avec cooldown court ; estimation de l'heure de recharge selon le type de fenêtre configuré par provider (5 h glissantes / hebdomadaire / quota fixe).
 
 ## Fichiers / modules impactés
-- `forge/quota/states.py`
-- `forge/quota/detection.py`
+- `src/quota/states.py`
+- `src/quota/detection.py`
 - `config/providers.toml`
 - `tests/quota/`
 

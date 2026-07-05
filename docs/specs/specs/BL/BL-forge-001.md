@@ -10,9 +10,9 @@ critical: true
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "La structure du dépôt est conforme au §3.1 du cahier des charges"
     - "Les configurations qualité sont strictes et non contournables (pas d'exclusions injustifiées)"
@@ -24,13 +24,13 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** S (~0,5 j) · **Critique :** OUI
 
 ## Description technique
-Initialiser le dépôt ai-forge : pyproject.toml géré par uv avec Python >= 3.13, arborescence forge/ conforme au §3.1 du CDC (sous-paquets core, providers, quota, roles, phases, planner, workspace, ghub, gates, state, scheduler vides avec __init__.py), configuration ruff, mypy --strict, pytest + pytest-asyncio + pytest-cov (seuil 85 %), et workflow GitHub Actions exécutant lint + typage + tests sur chaque PR. Protéger main : merge uniquement par PR avec CI verte.
+Initialiser le dépôt ai-forge : pyproject.toml géré par uv avec Python >= 3.13, arborescence src/ conforme au §3.1 du CDC (sous-paquets core, providers, quota, roles, phases, planner, workspace, ghub, gates, state, scheduler vides avec __init__.py), configuration ruff, mypy --strict, pytest + pytest-asyncio + pytest-cov (seuil 85 %), et workflow GitHub Actions exécutant lint + typage + tests sur chaque PR. Protéger main : merge uniquement par PR avec CI verte.
 
 ## Fichiers / modules impactés
 - `pyproject.toml`
 - `.github/workflows/ci.yml`
-- `forge/**/__init__.py`
-- `config/forge.toml`
+- `src/**/__init__.py`
+- `config/src.toml`
 - `config/providers.toml`
 - `tests/conftest.py`
 

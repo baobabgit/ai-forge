@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Symétrie de comportement avec l'adaptateur Claude (mêmes garanties, mêmes erreurs typées)"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
-Implémenter forge/providers/codex.py : invocation `codex exec --json --model gpt-5.5` via le runner commun, parsing du flux JSON de Codex, classification par patterns configurables, health_check (binaire, auth, modèle). Tests avec faux binaire simulant les quatre issues, y compris les motifs d'épuisement propres à Codex (fenêtres horaires/hebdomadaires).
+Implémenter src/providers/codex.py : invocation `codex exec --json --model gpt-5.5` via le runner commun, parsing du flux JSON de Codex, classification par patterns configurables, health_check (binaire, auth, modèle). Tests avec faux binaire simulant les quatre issues, y compris les motifs d'épuisement propres à Codex (fenêtres horaires/hebdomadaires).
 
 ## Fichiers / modules impactés
-- `forge/providers/codex.py`
+- `src/providers/codex.py`
 - `tests/providers/test_codex.py`
 - `tests/fixtures/fake_cli/codex`
 

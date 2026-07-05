@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Les gates sont non négociables : aucune voie de contournement dans le code (risque complaisance §6)"
 ---
@@ -23,11 +23,11 @@ gates:
 **Version cible :** v0.2.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/gates/auto.py : exécution séquentielle des commandes de gate d'un BL dans son worktree (timeout par gate, capture sortie + code retour comme preuve), verdict par gate et verdict agrégé (NO GO dès le premier échec, exécution complète pour rapport), rapport JSON archivé dans les artefacts du BL. Diff-guard : comparaison du diff de la branche au périmètre de fichiers déclaré du BL ; tout fichier hors périmètre => NO GO automatique motivé.
+Implémenter src/gates/auto.py : exécution séquentielle des commandes de gate d'un BL dans son worktree (timeout par gate, capture sortie + code retour comme preuve), verdict par gate et verdict agrégé (NO GO dès le premier échec, exécution complète pour rapport), rapport JSON archivé dans les artefacts du BL. Diff-guard : comparaison du diff de la branche au périmètre de fichiers déclaré du BL ; tout fichier hors périmètre => NO GO automatique motivé.
 
 ## Fichiers / modules impactés
-- `forge/gates/auto.py`
-- `forge/gates/diffguard.py`
+- `src/gates/auto.py`
+- `src/gates/diffguard.py`
 - `tests/gates/`
 
 ## Dépendances

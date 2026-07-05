@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le cycle est strictement conforme à EXG-EXE-01 et EXG-EXE-02"
     - "Aucun verdict n'est perdu ni écrasé entre itérations"
@@ -24,10 +24,10 @@ gates:
 **Version cible :** v0.2.0 · **Taille :** L (~2 j) · **Critique :** OUI
 
 ## Description technique
-Étendre forge/phases/execute.py au cycle complet EXG-EXE-01/02 : DEV -> PR -> TESTER -> REVIEWER -> INTEGRATOR si double GO ; sur NO GO de l'un des deux, création d'une Issue GitHub de correction liée à la PR (critères en échec, logs/preuves, corrections attendues), retour du BL à IN_PROGRESS, relance du DEV sur l'Issue (prompt incluant Issue + diff courant + spec), reprise du cycle test/review. Chaque itération est persistée et numérotée.
+Étendre src/phases/execute.py au cycle complet EXG-EXE-01/02 : DEV -> PR -> TESTER -> REVIEWER -> INTEGRATOR si double GO ; sur NO GO de l'un des deux, création d'une Issue GitHub de correction liée à la PR (critères en échec, logs/preuves, corrections attendues), retour du BL à IN_PROGRESS, relance du DEV sur l'Issue (prompt incluant Issue + diff courant + spec), reprise du cycle test/review. Chaque itération est persistée et numérotée.
 
 ## Fichiers / modules impactés
-- `forge/phases/execute.py`
+- `src/phases/execute.py`
 - `prompts/partials/issue_correction.j2`
 - `tests/phases/test_correction_loop.py`
 

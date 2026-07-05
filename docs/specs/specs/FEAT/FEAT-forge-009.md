@@ -25,8 +25,8 @@ CLI forge init/run et orchestration séquentielle minimale : un BL rédigé à l
 - **Then** le BL est développé par une IA, la PR est ouverte puis mergée, et chaque étape est persistée dans la base d'état
 
 ## Interfaces concernées
-- `forge.cli`
-- `forge.phases.execute`
+- `src.cli`
+- `src.phases.execute`
 
 ## BL enfants
 - BL-forge-014

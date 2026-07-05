@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le format demandé est le même pour tous les rôles jugeants et tous les providers"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.2.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/roles/verdict.py : format de sortie exigé des rôles jugeants (bloc JSON : verdict GO/NO-GO, critères évalués, motifs, preuves) injecté dans les templates ; parsing robuste (JSON fenced, tolérance aux préambules), une relance de reformatage automatique en cas de sortie non conforme, puis ERROR typé remonté à l'orchestrateur. Conversion en modèle GoNoGo.
+Implémenter src/roles/verdict.py : format de sortie exigé des rôles jugeants (bloc JSON : verdict GO/NO-GO, critères évalués, motifs, preuves) injecté dans les templates ; parsing robuste (JSON fenced, tolérance aux préambules), une relance de reformatage automatique en cas de sortie non conforme, puis ERROR typé remonté à l'orchestrateur. Conversion en modèle GoNoGo.
 
 ## Fichiers / modules impactés
-- `forge/roles/verdict.py`
+- `src/roles/verdict.py`
 - `prompts/partials/verdict_format.j2`
 - `tests/roles/test_verdict.py`
 

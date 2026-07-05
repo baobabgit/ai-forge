@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Les statistiques permettent d'identifier le provider le plus efficace par rôle"
 ---
@@ -26,7 +26,7 @@ gates:
 Implémenter EXG-QUO-04 : agrégation des invocations journalisées (par provider, rôle, BL, librairie : nombre, durées, issues OK/EXHAUSTED/ERROR/TIMEOUT, itérations induites) ; export dans forge report et dans un fichier stats.json ; les statistiques alimentent la fenêtre de charge de la rotation (BL-forge-027) pour l'affiner.
 
 ## Fichiers / modules impactés
-- `forge/obs/stats.py`
+- `src/obs/stats.py`
 - `tests/obs/test_stats.py`
 
 ## Dépendances

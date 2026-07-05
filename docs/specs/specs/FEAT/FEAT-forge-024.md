@@ -25,7 +25,7 @@ milestones.md parsé en contraintes explicites (ex. lib-core v0.2.0 requis avant
 - **Then** les BL de lib-api v0.1.0 deviennent prêts et lib-api épingle lib-core v0.2.0 dans ses dépendances
 
 ## Interfaces concernées
-- `forge.planner.milestones`
+- `src.planner.milestones`
 
 ## BL enfants
 - BL-forge-041

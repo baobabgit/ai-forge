@@ -25,8 +25,8 @@ Sur NO GO : Issue GitHub de correction liée à la PR (critères en échec, preu
 - **Then** une Issue de correction est créée, le DEV est relancé avec Issue + diff + spec, le cycle reprend, et au 5e aller-retour le BL passe BLOCKED avec Issue de synthèse et retrait du graphe
 
 ## Interfaces concernées
-- `forge.phases.execute (boucle)`
-- `forge.ghub (issues)`
+- `src.phases.execute (boucle)`
+- `src.ghub (issues)`
 
 ## BL enfants
 - BL-forge-021

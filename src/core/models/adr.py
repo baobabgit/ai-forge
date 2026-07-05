@@ -1,7 +1,7 @@
 """Architecture decision record model."""
 
-from forge.core.models.base import StrictDomainModel
-from forge.core.models.identifiers import ADRId, NonEmptyText
+from src.core.models.base import StrictDomainModel
+from src.core.models.identifiers import ADRId, NonEmptyText
 
 
 class ADR(StrictDomainModel):

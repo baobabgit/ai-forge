@@ -25,8 +25,8 @@ Rôle ARCHITECT (CDC -> librairies, CDC par librairie, trajectoires SemVer, mile
 - **Then** un document d'architecture, un CDC par librairie et milestones.md sont produits, contre-relus par un provider différent, et validés en au plus 3 itérations sinon remontée humaine
 
 ## Interfaces concernées
-- `forge.roles.architect`
-- `forge.phases.architect`
+- `src.roles.architect`
+- `src.phases.architect`
 
 ## BL enfants
 - BL-forge-028

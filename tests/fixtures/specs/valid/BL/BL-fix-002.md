@@ -14,7 +14,7 @@ gates:
   ai_judged:
   - criterion
 scope:
-- forge/core/specparser.py
+- src/core/specparser.py
 ---
 
 # BL fixture 002

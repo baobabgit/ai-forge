@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le cloisonnement neutralise le risque de complaisance identifié au §6 du CDC"
 ---
@@ -26,8 +26,8 @@ gates:
 Garantir EXG-ROL-03 : chaque rôle s'exécute en session neuve de la CLI (aucune reprise de session) ; en mono-provider, le contexte du TESTER/REVIEWER est strictement limité aux artefacts (spec du BL, diff de la PR, résultats des gates) — jamais l'historique de session ni les sorties intermédiaires du DEV. Test d'inspection : le prompt rendu pour TESTER/REVIEWER ne peut contenir aucun fragment du transcript DEV (assertion sur marqueurs injectés).
 
 ## Fichiers / modules impactés
-- `forge/roles/rendering.py`
-- `forge/scheduler/assignment.py`
+- `src/roles/rendering.py`
+- `src/scheduler/assignment.py`
 - `tests/roles/test_isolation.py`
 
 ## Dépendances

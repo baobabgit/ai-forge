@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Les critères de revue jugent le diff par rapport à la spec, pas les préférences de style hors gates"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.2.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
-Implémenter forge/roles/reviewer.py et son template : récupération du diff de la PR (gh pr diff), évaluation des critères ai_judged de revue (conformité à la spec, qualité, duplication), verdict GoNoGo structuré, publication de la revue via gh pr review (--approve ou --request-changes avec le détail des motifs). Le REVIEWER n'écrit jamais de code (whitelist de commandes, EXG-NF-03).
+Implémenter src/roles/reviewer.py et son template : récupération du diff de la PR (gh pr diff), évaluation des critères ai_judged de revue (conformité à la spec, qualité, duplication), verdict GoNoGo structuré, publication de la revue via gh pr review (--approve ou --request-changes avec le détail des motifs). Le REVIEWER n'écrit jamais de code (whitelist de commandes, EXG-NF-03).
 
 ## Fichiers / modules impactés
-- `forge/roles/reviewer.py`
+- `src/roles/reviewer.py`
 - `prompts/reviewer.md.j2`
 - `tests/roles/test_reviewer.py`
 

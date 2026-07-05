@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Les prompts sont autoporteurs et reprennables au sens d'EXG-QUO-02"
     - "Le template DEV ne présuppose aucun provider particulier"
@@ -24,11 +24,11 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter prompts/ (templates jinja2 versionnés par rôle) et forge/roles/rendering.py : chargement et rendu d'un template avec contexte standard (spec du BL, consignes autoportantes — tout l'état nécessaire dans le worktree et les artefacts, jamais dans l'historique de session —, format de sortie exigé, périmètre de fichiers déclaré). Template DEV v1 : implémentation + tests unitaires + commits atomiques + rédaction du corps de PR. Garde-fou : aucun secret ni token ne peut être injecté dans un contexte (liste noire de clés + test).
+Implémenter prompts/ (templates jinja2 versionnés par rôle) et src/roles/rendering.py : chargement et rendu d'un template avec contexte standard (spec du BL, consignes autoportantes — tout l'état nécessaire dans le worktree et les artefacts, jamais dans l'historique de session —, format de sortie exigé, périmètre de fichiers déclaré). Template DEV v1 : implémentation + tests unitaires + commits atomiques + rédaction du corps de PR. Garde-fou : aucun secret ni token ne peut être injecté dans un contexte (liste noire de clés + test).
 
 ## Fichiers / modules impactés
 - `prompts/dev.md.j2`
-- `forge/roles/rendering.py`
+- `src/roles/rendering.py`
 - `tests/roles/test_rendering.py`
 
 ## Dépendances

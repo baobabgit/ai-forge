@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le contexte du TESTER ne contient que spec, diff, résultats de gates (préparation d'EXG-ROL-03)"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.2.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
-Implémenter forge/roles/tester.py et son template : checkout propre de la branche de PR dans un espace vierge, exécution des gates automatiques du BL, écriture de tests complémentaires si les critères l'exigent (commit sur la branche), évaluation des critères ai_judged avec les résultats de gates comme preuves, verdict GoNoGo structuré motivé.
+Implémenter src/roles/tester.py et son template : checkout propre de la branche de PR dans un espace vierge, exécution des gates automatiques du BL, écriture de tests complémentaires si les critères l'exigent (commit sur la branche), évaluation des critères ai_judged avec les résultats de gates comme preuves, verdict GoNoGo structuré motivé.
 
 ## Fichiers / modules impactés
-- `forge/roles/tester.py`
+- `src/roles/tester.py`
 - `prompts/tester.md.j2`
 - `tests/roles/test_tester.py`
 

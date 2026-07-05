@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le plafond s'applique à tous les rôles, y compris les contre-relectures des phases 1-2"
 ---
@@ -26,7 +26,7 @@ gates:
 Implémenter EXG-PAR-04 : sémaphore asyncio par provider (plafond configurable dans providers.toml, défaut 2) appliqué à toute invocation ; l'attribution des rôles tient compte des slots restants ; un provider saturé n'est pas sélectionné pour une nouvelle tâche tant qu'un slot ne se libère pas, afin d'éviter l'épuisement en rafale.
 
 ## Fichiers / modules impactés
-- `forge/scheduler/limits.py`
+- `src/scheduler/limits.py`
 - `tests/scheduler/test_limits.py`
 
 ## Dépendances

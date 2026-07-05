@@ -25,8 +25,8 @@ Toutes les opérations git/gh en sous-processus avec erreurs typées : clone, br
 - **Then** chaque opération réussit ou lève une erreur typée exploitable, sans jamais recourir à des chemins relatifs entre dépôts
 
 ## Interfaces concernées
-- `forge.ghub`
-- `forge.workspace.gitio`
+- `src.ghub`
+- `src.workspace.gitio`
 
 ## BL enfants
 - BL-forge-012

@@ -2,9 +2,9 @@
 
 from pydantic import Field
 
-from forge.core.models.base import StrictDomainModel
-from forge.core.models.identifiers import LibraryName
-from forge.core.models.library import Library
+from src.core.models.base import StrictDomainModel
+from src.core.models.identifiers import LibraryName
+from src.core.models.library import Library
 
 
 class Project(StrictDomainModel):

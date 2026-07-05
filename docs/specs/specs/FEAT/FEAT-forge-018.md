@@ -25,8 +25,8 @@ Rôle SPEC : génération des UC (EXG-SPE-02), dérivation FEAT (Given/When/Then
 - **Then** des fichiers UC/FEAT/BL au frontmatter valide sont générés, contre-relus par un provider différent, et committés dans specs/ du dépôt de la librairie
 
 ## Interfaces concernées
-- `forge.roles.spec`
-- `forge.phases.specify`
+- `src.roles.spec`
+- `src.phases.specify`
 
 ## BL enfants
 - BL-forge-030

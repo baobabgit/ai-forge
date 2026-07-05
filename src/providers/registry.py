@@ -7,7 +7,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from forge.providers.base import Provider, ProviderCapabilities
+from src.providers.base import Provider, ProviderCapabilities
 
 type ProviderFactory = Callable[["ProviderConfig"], Provider]
 

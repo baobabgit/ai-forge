@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "planning.md est lisible par un humain sans connaître le format JSON"
 ---
@@ -26,8 +26,8 @@ gates:
 Implémenter EXG-PLA-04/05 : génération de planning.md (vagues lisibles, chemin critique, correspondance BL -> version -> jalon) et planning.json (machine) ; publication dans le dépôt programme (dossier local du run en v0.3, dépôt programme en v0.5) ; recalcul et republication après chaque événement modifiant le graphe : BL DONE, BL BLOCKED, Issue de correction créée. Câbler `forge plan` dans la CLI.
 
 ## Fichiers / modules impactés
-- `forge/planner/publish.py`
-- `forge/cli.py`
+- `src/planner/publish.py`
+- `src/cli.py`
 - `tests/planner/test_publish.py`
 
 ## Dépendances

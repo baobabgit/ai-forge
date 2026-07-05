@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "L'Issue de synthèse permet à un humain de reprendre le BL sans relire tous les transcripts"
 ---
@@ -26,8 +26,8 @@ gates:
 Implémenter EXG-EXE-03 : seuil configurable d'allers-retours par BL (défaut 4) ; au-delà, transition BLOCKED, création d'une Issue de synthèse (historique des itérations, verdicts, hypothèses de blocage), retrait du BL du graphe courant (ses dépendants deviennent non prêts), poursuite du run sur les autres branches.
 
 ## Fichiers / modules impactés
-- `forge/phases/execute.py`
-- `forge/planner/graph_updates.py`
+- `src/phases/execute.py`
+- `src/planner/graph_updates.py`
 - `tests/phases/test_blocked.py`
 
 ## Dépendances

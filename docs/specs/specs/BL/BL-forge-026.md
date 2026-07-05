@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le rapport de fin permet à l'opérateur de savoir quand relancer sans consulter les logs"
 ---
@@ -26,8 +26,8 @@ gates:
 Implémenter EXG-QUO-03 : lorsque les trois providers sont EXHAUSTED, arrêt propre du run — persistance complète de l'état, rapport de fin listant les BL en cours et l'heure de recharge estimée la plus proche, code retour dédié. `forge resume` relit l'état, réinitialise les worktrees des rôles interrompus et reprend exactement où le run s'était arrêté ; le redémarrage est exclusivement humain.
 
 ## Fichiers / modules impactés
-- `forge/cli.py`
-- `forge/scheduler/shutdown.py`
+- `src/cli.py`
+- `src/scheduler/shutdown.py`
 - `tests/cli/test_resume.py`
 
 ## Dépendances

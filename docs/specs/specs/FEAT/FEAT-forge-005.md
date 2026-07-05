@@ -25,8 +25,8 @@ Schéma SQLite complet (runs, BL, itérations, providers, worktrees, invocations
 - **Then** seules les transitions légales sont acceptées et l'état est durci sur disque avant que l'orchestrateur ne poursuive
 
 ## Interfaces concernées
-- `forge.state.db`
-- `forge.state.machine`
+- `src.state.db`
+- `src.state.machine`
 
 ## BL enfants
 - BL-forge-009

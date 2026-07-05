@@ -2,8 +2,8 @@
 
 from pydantic import Field
 
-from forge.core.models.base import StrictDomainModel
-from forge.core.models.identifiers import BLId, NonEmptyText
+from src.core.models.base import StrictDomainModel
+from src.core.models.identifiers import BLId, NonEmptyText
 
 
 class EventLogEntry(StrictDomainModel):

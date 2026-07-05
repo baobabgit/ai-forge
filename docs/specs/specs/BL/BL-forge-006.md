@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Le parsing tolère les évolutions mineures du format de sortie de la CLI sans crash"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
-Implémenter forge/providers/claude.py : invocation `claude -p --output-format json --model opus-4.8` via le runner commun, parsing de la sortie JSON (repli texte brut documenté si sortie non JSON), classification EXHAUSTED/ERROR/TIMEOUT selon les patterns de providers.toml, health_check vérifiant binaire, authentification et modèle imposé. Tests avec un faux binaire simulant OK, épuisement de quota, erreur et blocage.
+Implémenter src/providers/claude.py : invocation `claude -p --output-format json --model opus-4.8` via le runner commun, parsing de la sortie JSON (repli texte brut documenté si sortie non JSON), classification EXHAUSTED/ERROR/TIMEOUT selon les patterns de providers.toml, health_check vérifiant binaire, authentification et modèle imposé. Tests avec un faux binaire simulant OK, épuisement de quota, erreur et blocage.
 
 ## Fichiers / modules impactés
-- `forge/providers/claude.py`
+- `src/providers/claude.py`
 - `tests/providers/test_claude.py`
 - `tests/fixtures/fake_cli/claude`
 

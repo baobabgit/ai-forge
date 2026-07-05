@@ -1,7 +1,7 @@
 """Milestone model."""
 
-from forge.core.models.base import StrictDomainModel
-from forge.core.models.identifiers import LibraryName, SemVer
+from src.core.models.base import StrictDomainModel
+from src.core.models.identifiers import LibraryName, SemVer
 
 
 class Milestone(StrictDomainModel):

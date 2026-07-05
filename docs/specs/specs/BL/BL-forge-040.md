@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "La structure des dépôts créés est exactement celle d'EXG-GIT-01"
 ---
@@ -26,8 +26,8 @@ gates:
 Implémenter EXG-GIT-01/02 : création (idempotente) de l'organisation ou du préfixe de dépôts du projet cible ; dépôt programme <projet>-program recevant CDC d'entrée, architecture.md, CDC des librairies, milestones.md, planning.md/planning.json et rapports ; un dépôt par librairie <projet>-<lib> avec squelette (pyproject, CI, specs/UC|FEAT|BL/) ; branches main protégées, merge par PR uniquement ; toutes les opérations via gh authentifié.
 
 ## Fichiers / modules impactés
-- `forge/ghub/repos.py`
-- `forge/phases/bootstrap_repos.py`
+- `src/ghub/repos.py`
+- `src/phases/bootstrap_repos.py`
 - `tests/ghub/test_repos.py`
 
 ## Dépendances

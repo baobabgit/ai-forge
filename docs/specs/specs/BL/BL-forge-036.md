@@ -10,9 +10,9 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Aucun partage de fichiers locaux entre worktrees n'est possible par construction"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.4.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter forge/workspace/worktrees.py : création `git worktree add ../wt/<BL-id> -b feat/<BL-id>`, verrou d'unicité (un seul worktree actif par BL, enregistré en base), nettoyage garanti (worktree remove + prune) y compris pour les worktrees orphelins détectés après crash, reset propre (`git reset --hard` + clean) avant toute reprise de rôle sur un worktree existant (EXG-NF-01). Isolation totale des fichiers entre tâches simultanées (EXG-PAR-01), synchronisation exclusivement via GitHub (EXG-PAR-02).
+Implémenter src/workspace/worktrees.py : création `git worktree add ../wt/<BL-id> -b feat/<BL-id>`, verrou d'unicité (un seul worktree actif par BL, enregistré en base), nettoyage garanti (worktree remove + prune) y compris pour les worktrees orphelins détectés après crash, reset propre (`git reset --hard` + clean) avant toute reprise de rôle sur un worktree existant (EXG-NF-01). Isolation totale des fichiers entre tâches simultanées (EXG-PAR-01), synchronisation exclusivement via GitHub (EXG-PAR-02).
 
 ## Fichiers / modules impactés
-- `forge/workspace/worktrees.py`
+- `src/workspace/worktrees.py`
 - `tests/workspace/test_worktrees.py`
 
 ## Dépendances

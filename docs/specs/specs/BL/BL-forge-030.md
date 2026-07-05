@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Les critères GO/NO-GO générés sont objectivement vérifiables (testabilité)"
 ---
@@ -23,11 +23,11 @@ gates:
 **Version cible :** v0.3.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
-Implémenter forge/roles/spec.py (partie UC) et forge/phases/specify.py : pour chaque librairie, génération des fichiers specs/UC/UC-<lib>-<nnn>.md conformes EXG-SPE-02 (identifiant, acteurs, préconditions, scénario nominal, alternatifs et erreurs, postconditions, exigences non fonctionnelles, critères GO/NO-GO) avec frontmatter EXG-SPE-05 ; chaque fichier généré est immédiatement validé par le specparser, toute erreur étant renvoyée au SPEC avec le diagnostic exact.
+Implémenter src/roles/spec.py (partie UC) et src/phases/specify.py : pour chaque librairie, génération des fichiers specs/UC/UC-<lib>-<nnn>.md conformes EXG-SPE-02 (identifiant, acteurs, préconditions, scénario nominal, alternatifs et erreurs, postconditions, exigences non fonctionnelles, critères GO/NO-GO) avec frontmatter EXG-SPE-05 ; chaque fichier généré est immédiatement validé par le specparser, toute erreur étant renvoyée au SPEC avec le diagnostic exact.
 
 ## Fichiers / modules impactés
-- `forge/roles/spec.py`
-- `forge/phases/specify.py`
+- `src/roles/spec.py`
+- `src/phases/specify.py`
 - `prompts/spec_uc.md.j2`
 - `tests/phases/test_spec_uc.py`
 

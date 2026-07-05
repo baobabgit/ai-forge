@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "Les deux rôles sont attribués à des providers différents quand c'est possible"
     - "Le prompt ARCHITECT exige un découpage en librairies indépendamment développables"
@@ -24,11 +24,11 @@ gates:
 **Version cible :** v0.3.0 · **Taille :** L (~2 j) · **Critique :** non
 
 ## Description technique
-Implémenter forge/roles/architect.py, prompts/architect.md.j2 et forge/phases/architect.py : à partir du CDC d'entrée, l'ARCHITECT produit la liste des librairies, les trajectoires de versions SemVer (contenu fonctionnel et ordre de développement) et les jalons d'intégration ; un second provider contre-relit et produit un rapport de cohérence structuré (dépendances circulaires, librairies redondantes, versions incohérentes) ; en cas d'anomalie l'ARCHITECT est relancé avec le rapport, trois itérations maximum, puis arrêt et remontée à l'humain (EXG-ARC-05).
+Implémenter src/roles/architect.py, prompts/architect.md.j2 et src/phases/architect.py : à partir du CDC d'entrée, l'ARCHITECT produit la liste des librairies, les trajectoires de versions SemVer (contenu fonctionnel et ordre de développement) et les jalons d'intégration ; un second provider contre-relit et produit un rapport de cohérence structuré (dépendances circulaires, librairies redondantes, versions incohérentes) ; en cas d'anomalie l'ARCHITECT est relancé avec le rapport, trois itérations maximum, puis arrêt et remontée à l'humain (EXG-ARC-05).
 
 ## Fichiers / modules impactés
-- `forge/roles/architect.py`
-- `forge/phases/architect.py`
+- `src/roles/architect.py`
+- `src/phases/architect.py`
 - `prompts/architect.md.j2`
 - `prompts/arch_review.md.j2`
 - `tests/phases/test_architect.py`

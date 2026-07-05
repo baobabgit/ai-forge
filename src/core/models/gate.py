@@ -2,8 +2,8 @@
 
 from pydantic import Field, field_validator
 
-from forge.core.models.base import StrictDomainModel
-from forge.core.models.validators import reject_blank_entries
+from src.core.models.base import StrictDomainModel
+from src.core.models.validators import reject_blank_entries
 
 
 class Gate(StrictDomainModel):

@@ -10,9 +10,9 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=85"
     - "ruff check ."
-    - "mypy --strict forge/"
+    - "mypy --strict src/"
   ai_judged:
     - "La rotation répartit effectivement la charge sur un historique simulé de 50 BL"
 ---
@@ -23,10 +23,10 @@ gates:
 **Version cible :** v0.2.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
-Implémenter EXG-ROL-02/03 dans forge/scheduler/assignment.py : sur chaque BL, DEV = provider AVAILABLE le moins sollicité récemment (fenêtre glissante sur les invocations journalisées) ; TESTER et REVIEWER choisis parmi les providers disponibles restants ; repli à deux providers (DEV != TESTER, REVIEWER = TESTER) et à un provider (tous rôles, sessions cloisonnées via BL-forge-023). Attributions persistées (RoleAssignment) et journalisées.
+Implémenter EXG-ROL-02/03 dans src/scheduler/assignment.py : sur chaque BL, DEV = provider AVAILABLE le moins sollicité récemment (fenêtre glissante sur les invocations journalisées) ; TESTER et REVIEWER choisis parmi les providers disponibles restants ; repli à deux providers (DEV != TESTER, REVIEWER = TESTER) et à un provider (tous rôles, sessions cloisonnées via BL-forge-023). Attributions persistées (RoleAssignment) et journalisées.
 
 ## Fichiers / modules impactés
-- `forge/scheduler/assignment.py`
+- `src/scheduler/assignment.py`
 - `tests/scheduler/test_assignment.py`
 
 ## Dépendances

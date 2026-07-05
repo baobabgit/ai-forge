@@ -231,7 +231,7 @@ TODO → READY → [DEV] → PR ouverte → CI GitHub ✓ → [TESTER] → [REVI
 
 #### 2.5.5 Contrats de sortie IA
 
-**EXG-CON-01.** Toute sortie IA consommée par l'orchestrateur est typée par un schéma pydantic v2 (`forge/contracts/`) : `RoleVerdict`, `ArchitectureReview`, `SpecReview` (avec score EXG-SPE-09), `CycleDiagnostic`, `CorrectionRequest`, `EscalationReport`, `AuditReport`.
+**EXG-CON-01.** Toute sortie IA consommée par l'orchestrateur est typée par un schéma pydantic v2 (`src/contracts/`) : `RoleVerdict`, `ArchitectureReview`, `SpecReview` (avec score EXG-SPE-09), `CycleDiagnostic`, `CorrectionRequest`, `EscalationReport`, `AuditReport`.
 
 **EXG-CON-02.** JSON conforme exigé (bloc délimité en fin de sortie) ; absent ou invalide ⇒ relance ciblée (2 max) puis tâche ERROR (classée `AI_ERROR`).
 
@@ -247,7 +247,7 @@ TODO → READY → [DEV] → PR ouverte → CI GitHub ✓ → [TESTER] → [REVI
 
 #### 2.5.7 Budgets et limites
 
-**EXG-BUD-01.** Budget de run (`forge.toml`) : invocations max/jour/provider, PR ouvertes max (global et par dépôt), itérations cumulées max, durée max.
+**EXG-BUD-01.** Budget de run (`src.toml`) : invocations max/jour/provider, PR ouvertes max (global et par dépôt), itérations cumulées max, durée max.
 
 **EXG-BUD-02.** **Stop-loss par BL** : plafond d'invocations par BL (défaut : 12) ⇒ BLOCKED + dossier d'escalade.
 
@@ -255,7 +255,7 @@ TODO → READY → [DEV] → PR ouverte → CI GitHub ✓ → [TESTER] → [REVI
 
 #### 2.5.8 Parallélisme et verrous
 
-**EXG-PAR-01.** AI-Forge est conçu pour une **exécution parallèle par défaut** : N workers concurrents (défaut : 3, configurable via `--workers` ou `forge.toml` ; N = 1 reste possible pour déboguer). Les versions v0.1.x et v0.2.0 utilisent un worker unique comme **limitation temporaire d'implémentation**, le temps de stabiliser le moteur — ce n'est pas un mode fonctionnel distinct ; le multi-workers est activé à partir de la v0.3.0. La parallélisation d'une vague suppose des `scope` disjoints entre les BL lancés simultanément (vérifié par la DoR, EXG-RDY-01 ; intersection ⇒ sérialisation forcée, événement `SCOPE_CONFLICT_DETECTED`). Chaque worker dispose de son **worktree Git** dédié (`git worktree add ../wt/<BL-id> -b feat/<BL-id>`), garantissant l'isolation des fichiers, y compris sur la même librairie.
+**EXG-PAR-01.** AI-Forge est conçu pour une **exécution parallèle par défaut** : N workers concurrents (défaut : 3, configurable via `--workers` ou `src.toml` ; N = 1 reste possible pour déboguer). Les versions v0.1.x et v0.2.0 utilisent un worker unique comme **limitation temporaire d'implémentation**, le temps de stabiliser le moteur — ce n'est pas un mode fonctionnel distinct ; le multi-workers est activé à partir de la v0.3.0. La parallélisation d'une vague suppose des `scope` disjoints entre les BL lancés simultanément (vérifié par la DoR, EXG-RDY-01 ; intersection ⇒ sérialisation forcée, événement `SCOPE_CONFLICT_DETECTED`). Chaque worker dispose de son **worktree Git** dédié (`git worktree add ../wt/<BL-id> -b feat/<BL-id>`), garantissant l'isolation des fichiers, y compris sur la même librairie.
 
 **EXG-PAR-02.** Synchronisation exclusivement par GitHub (branches, PR, merges). Aucun partage de fichiers locaux entre worktrees.
 
@@ -273,7 +273,7 @@ TODO → READY → [DEV] → PR ouverte → CI GitHub ✓ → [TESTER] → [REVI
 
 #### 2.5.9 Politique d'ordonnancement concurrent
 
-**EXG-SCH-01 — Limites de concurrence.** Le scheduler applique des plafonds configurables (`forge.toml`) : workers globaux (défaut : 3), **workers par dépôt** (défaut : 2), **PR ouvertes par dépôt** (défaut : 4), tâches simultanées par provider (défaut : 2, cf. EXG-PAR-04). Priorité d'attribution : chemin critique d'abord, puis `priority`, puis ancienneté.
+**EXG-SCH-01 — Limites de concurrence.** Le scheduler applique des plafonds configurables (`src.toml`) : workers globaux (défaut : 3), **workers par dépôt** (défaut : 2), **PR ouvertes par dépôt** (défaut : 4), tâches simultanées par provider (défaut : 2, cf. EXG-PAR-04). Priorité d'attribution : chemin critique d'abord, puis `priority`, puis ancienneté.
 
 **EXG-SCH-02 — Score d'éligibilité parallèle.** Tous les BL READY d'une vague ne partent pas nécessairement ensemble. Un score d'éligibilité est calculé par BL : disjonction de `scope` avec les BL en cours, risque de conflit Git (fichiers chauds : fréquence de modification récente), nombre de dépendants (fan-out), taille du BL. Les BL à score faible restent READY mais sont **différés** aux vagues suivantes ou exécutés seuls ; le score et la décision sont journalisés.
 
@@ -358,7 +358,7 @@ Cette classification alimente les statistiques (EXG-SCO-01) et permet d'amélior
 
 **EXG-DRY-01.** `--dry-run` : validation du DAG, des worktrees, des prompts rendus, des transitions et de la reprise, sans écriture GitHub. `--mock-provider` : providers simulés scriptables, utilisés par le banc de scénarios et la CI d'AI-Forge.
 
-**EXG-DIA-01 — `forge doctor`.** Vérifie l'environnement complet et produit un rapport actionnable : présence et versions de `git`, `gh`, `uv`, des trois CLI IA ; disponibilité des modèles imposés ; authentification GitHub et droits sur les dépôts du run ; validité de `forge.toml`/`providers.toml`/`policies.toml` ; templates résolubles ; invariants parsables ; base d'état accessible et cohérente. `forge run` recommande `doctor` en cas d'échec de health-check.
+**EXG-DIA-01 — `forge doctor`.** Vérifie l'environnement complet et produit un rapport actionnable : présence et versions de `git`, `gh`, `uv`, des trois CLI IA ; disponibilité des modèles imposés ; authentification GitHub et droits sur les dépôts du run ; validité de `src.toml`/`providers.toml`/`policies.toml` ; templates résolubles ; invariants parsables ; base d'état accessible et cohérente. `forge run` recommande `doctor` en cas d'échec de health-check.
 
 **EXG-DIA-02 — `forge validate-specs`.** Valide hors-run l'ensemble des specs d'une ou toutes les librairies : frontmatter conforme aux schémas, hiérarchie UC→FEAT→BL cohérente, DoR de chaque BL (EXG-RDY-01), gates exécutables, `scope` valides et analyse des intersections, dépendances existantes et acycliques, conformité aux invariants. C'est la même vérification que celle de `forge plan`, exécutable isolément (utile pour les BL rédigés à la main).
 
@@ -376,13 +376,13 @@ Cette classification alimente les statistiques (EXG-SCO-01) et permet d'amélior
 
 #### 2.8.4 Safe mode
 
-**EXG-SAF-01.** Une option globale `safe_mode = true` (`forge.toml` ou `--safe`), orthogonale au niveau de confiance, interdit toute **action destructrice** sans confirmation humaine explicite, y compris en L2 : suppression de branche, fermeture de PR, dépréciation de release, yank, modification de protection de branche, suppression de worktree. En safe mode, ces actions passent par la file d'approbation (`forge approve`).
+**EXG-SAF-01.** Une option globale `safe_mode = true` (`src.toml` ou `--safe`), orthogonale au niveau de confiance, interdit toute **action destructrice** sans confirmation humaine explicite, y compris en L2 : suppression de branche, fermeture de PR, dépréciation de release, yank, modification de protection de branche, suppression de worktree. En safe mode, ces actions passent par la file d'approbation (`forge approve`).
 
 **EXG-SAF-02.** Le safe mode est activé par défaut sur tout premier run d'un projet et sur tout run pointant des dépôts préexistants non créés par AI-Forge.
 
 ### 2.9 Niveaux de confiance
 
-**EXG-TRU-01.** Configuré par run (`forge.toml`) :
+**EXG-TRU-01.** Configuré par run (`src.toml`) :
 
 | Niveau | Comportement |
 |---|---|
@@ -404,7 +404,7 @@ Cette classification alimente les statistiques (EXG-SCO-01) et permet d'amélior
 
 **EXG-TPL-01.** Templates = **plugins versionnés**, isolés du cœur, découverts par point d'entrée. Le cœur ne contient aucune logique spécifique à un type de projet.
 
-**EXG-TPL-02.** Fournis : librairie Python, package CLI Python, API FastAPI, front React, dépôt programme. Templates utilisateur additionnels via `forge.toml`.
+**EXG-TPL-02.** Fournis : librairie Python, package CLI Python, API FastAPI, front React, dépôt programme. Templates utilisateur additionnels via `src.toml`.
 
 ### 2.12 Profils qualité
 
@@ -503,7 +503,7 @@ Ces normes s'appliquent à **AI-Forge lui-même** et constituent les conventions
 
 ```
 ai-forge/
-├── forge/
+├── src/
 │   ├── core/         # Modèles pydantic : Project, Library, UC, FEAT, BL, Milestone,
 │   │                 # Gate, Invariant, RoleAssignment + parsing frontmatter + DoR
 │   ├── contracts/    # RoleVerdict, ArchitectureReview, SpecReview, CycleDiagnostic,
@@ -534,7 +534,7 @@ ai-forge/
 │   └── cli.py        # typer + rich
 ├── prompts/          # Templates jinja2 versionnés (prompt_id, SemVer, changelog)
 ├── templates/        # Plugins de templates projets cibles
-├── config/           # forge.toml, providers.toml, policies.toml
+├── config/           # src.toml, providers.toml, policies.toml
 ├── docs/adr/         # ADR d'AI-Forge lui-même
 └── pyproject.toml    # Python >= 3.13, uv
 ```
@@ -594,7 +594,7 @@ Python ≥ 3.13, `asyncio` + subprocess, `typer`, `rich`, `pydantic` v2, `networ
 
 | Version | Contenu | Défaut confiance | Jalon de sortie |
 |---|---|---|---|
-| **v0.0.1** | **Socle de développement assisté** : création du dépôt `ai-forge` (pyproject, CI, badges, protection de branche), configuration des trois CLI pour le développement du produit lui-même (annexe A10 §7 : `CLAUDE.md`/`AGENTS.md`, `.claude/settings.json` avec non-attribution, `.cursor/cli.json`, profils Codex, `docs/dev-setup/`). Aucune ligne de `forge/` : uniquement le cadre dans lequel les IA vont développer AI-Forge. | — (manuel) | Un premier commit de test réalisé par chacune des trois CLI : conventions respectées, CI verte, **aucune mention d'IA** dans les commits/PR (INV-006 vérifié). |
+| **v0.0.1** | **Socle de développement assisté** : création du dépôt `ai-forge` (pyproject, CI, badges, protection de branche), configuration des trois CLI pour le développement du produit lui-même (annexe A10 §7 : `CLAUDE.md`/`AGENTS.md`, `.claude/settings.json` avec non-attribution, `.cursor/cli.json`, profils Codex, `docs/dev-setup/`). Aucune ligne de `src/` : uniquement le cadre dans lequel les IA vont développer AI-Forge. | — (manuel) | Un premier commit de test réalisé par chacune des trois CLI : conventions respectées, CI verte, **aucune mention d'IA** dans les commits/PR (INV-006 vérifié). |
 | **v0.1.0** | core (modèles, frontmatter, DoR), contracts, event log + projections + taxonomie d'erreurs, provider **mock**, contexte + prompts versionnés, manifeste de run, exécution d'un BL manuel en **dry-run complet** (worker unique, limitation temporaire — EXG-PAR-01). | L0 | Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable. |
 | **v0.1.1** | Adaptateurs providers réels lisant l'amorçage (`providers.toml` / permissions par rôle établis hors-version selon l'annexe A10) ; le code de la version se limite à : construction des invocations depuis la configuration, parsing des sorties, et détection/calibration des signaux d'épuisement. Phase 0A mono-dépôt, PR GitHub réelle ouverte par le DEV. | L0 | Un BL développé par une IA réelle, PR ouverte, aucun artefact mentionnant une IA. |
 | **v0.1.2** | CI du dépôt cible (profil de base + badges), interprétation robuste des checks (EXG-CI-04..06), `forge approve`, safe_mode, reprise après kill -9. | L0 | PR avec CI verte mergée via `forge approve` ; run tué puis repris sans incohérence. |
