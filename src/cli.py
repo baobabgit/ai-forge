@@ -31,7 +31,7 @@ ARTIFACTS_DIRNAME = "artifacts"
 RUN_ID_FILENAME = "run_id"
 BL_SPEC_DIR = Path("docs") / "specs" / "specs" / "BL"
 RUNNABLE_STATUSES = frozenset({Status.TODO, Status.READY})
-DEFAULT_PROVIDER = "cursor"
+DEFAULT_PROVIDER = "mock"
 
 
 class ExitCode(IntEnum):

@@ -22,7 +22,8 @@ def test_load_registry_instantiates_builtin_adapters() -> None:
     """Load committed providers.toml with built-in factories."""
     registry = load_registry(REPO_PROVIDERS)
 
-    assert registry.names == ("claude", "codex", "cursor")
+    assert registry.names == ("claude", "codex", "cursor", "mock")
+    assert create_provider(registry, "mock").name == "mock"
     assert create_provider(registry, "cursor").name == "cursor"
     assert create_provider(registry, "claude").model == "opus-4.8"
 

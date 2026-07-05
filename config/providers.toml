@@ -39,3 +39,18 @@ model_pinning = true
 supports_no_attribution = false
 native_resume = true
 native_sandbox = false
+
+[mock]
+bin = "mock"
+model = "mock-v1"
+max_concurrency = 1
+
+[mock.capabilities]
+non_interactive = true
+json_output = true
+json_schema_output = true
+model_pinning = true
+supports_no_attribution = true
+native_resume = false
+native_sandbox = true
+known_limitations = ["No external CLI — deterministic dry-run only"]

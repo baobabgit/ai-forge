@@ -40,8 +40,8 @@
     {
       "exigence": "Provider mock (v0.1.0)",
       "target_version": "0.1.0",
-      "status": "partial",
-      "note": "À formaliser dans BL-forge-004 ; implémentation actuelle sans mock dédié."
+      "status": "done",
+      "note": "src/providers/mock.py — provider par defaut de forge run"
     },
     {
       "exigence": "forge approve + safe_mode (v0.1.2)",
