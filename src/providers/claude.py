@@ -1,0 +1,199 @@
+"""Claude Code provider adapter."""
+
+from __future__ import annotations
+
+import json
+import re
+import shutil
+from dataclasses import dataclass
+from pathlib import Path
+
+from src.providers.base import (
+    Provider,
+    ProviderHealth,
+    ProviderResult,
+    ProviderStatus,
+    RoleTask,
+)
+from src.providers.registry import ProviderConfig
+from src.providers.runner import RunnerResult, RunnerStatus, run_cli
+
+DEFAULT_EXHAUSTED_HINTS = (
+    "rate limit",
+    "quota",
+    "usage limit",
+    "exhausted",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeProvider:
+    """Provider adapter invoking the Claude Code CLI."""
+
+    config: ProviderConfig
+    _sequence: int = 1
+    _script: str | None = None
+    _health_check_args: tuple[str, ...] = ("health-check",)
+
+    def _argv_prefix(self) -> tuple[str, ...]:
+        if self._script is None:
+            return (self.config.bin,)
+        return (self.config.bin, self._script)
+
+    def build_command(self, prompt: str) -> tuple[str, ...]:
+        """Build the CLI invocation with the pinned model.
+
+        :param prompt: Rendered prompt passed to ``-p``.
+        :returns: Executable command argv.
+        """
+        return (
+            *self._argv_prefix(),
+            "-p",
+            prompt,
+            "--output-format",
+            "json",
+            "--model",
+            self.config.model,
+        )
+
+    @property
+    def name(self) -> str:
+        """Return the provider identifier."""
+        return self.config.name
+
+    @property
+    def model(self) -> str:
+        """Return the pinned model identifier."""
+        return self.config.model
+
+    async def execute(self, task: RoleTask, workdir: Path) -> ProviderResult:
+        """Execute ``task`` through the shared subprocess runner.
+
+        :param task: Rendered role task to execute.
+        :param workdir: Working directory for the CLI process.
+        :returns: Typed provider result including transcript path.
+        """
+        command = self.build_command(task.prompt)
+        runner_result = await run_cli(
+            command,
+            cwd=workdir,
+            bl_id=task.bl_id,
+            role=task.role.value,
+            provider=self.name,
+            timeout_seconds=task.timeout_seconds,
+            sequence=self._sequence,
+        )
+        status = classify_runner_result(runner_result, self.config.exhausted_patterns)
+        output = parse_claude_output(runner_result.stdout)
+        return ProviderResult(
+            status=status,
+            output=output,
+            raw_transcript_path=runner_result.transcript_path,
+        )
+
+    async def health_check(self) -> ProviderHealth:
+        """Verify binary availability and authentication.
+
+        :returns: Health status for startup diagnostics.
+        """
+        if shutil.which(self.config.bin) is None and not Path(self.config.bin).is_file():
+            return ProviderHealth(
+                healthy=False,
+                message=f"binary {self.config.bin!r} not found",
+                model=self.config.model,
+            )
+
+        runner_result = await run_cli(
+            (*self._argv_prefix(), *self._health_check_args),
+            cwd=Path.cwd(),
+            bl_id="BL-health-check",
+            role="DEV",
+            provider=self.name,
+            timeout_seconds=30.0,
+            sequence=1,
+            artifacts_root=Path.cwd() / ".forge-health",
+        )
+        if runner_result.status is not RunnerStatus.OK:
+            message = (
+                runner_result.stderr.strip()
+                or runner_result.stdout.strip()
+                or "health-check failed"
+            )
+            return ProviderHealth(healthy=False, message=message, model=self.config.model)
+
+        reported_model = self.config.model
+        try:
+            payload = json.loads(runner_result.stdout)
+            if isinstance(payload, dict) and isinstance(payload.get("model"), str):
+                reported_model = payload["model"]
+        except json.JSONDecodeError:
+            pass
+
+        if reported_model != self.config.model:
+            return ProviderHealth(
+                healthy=False,
+                message=f"expected model {self.config.model!r}, got {reported_model!r}",
+                model=reported_model,
+            )
+
+        return ProviderHealth(
+            healthy=True,
+            message="claude health-check passed",
+            model=reported_model,
+        )
+
+
+def build_claude_provider(config: ProviderConfig) -> Provider:
+    """Factory building a :class:`ClaudeProvider` from registry configuration."""
+    return ClaudeProvider(config=config)
+
+
+def parse_claude_output(stdout: str) -> str:
+    """Parse Claude JSON output with a documented plain-text fallback.
+
+    :param stdout: Raw standard output captured from the CLI.
+    :returns: Primary textual output for orchestrator consumption.
+    """
+    text = stdout.strip()
+    if not text:
+        return ""
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return text
+    if isinstance(payload, str):
+        return payload
+    if isinstance(payload, dict):
+        for key in ("result", "output", "content", "message"):
+            value = payload.get(key)
+            if isinstance(value, str):
+                return value
+        return json.dumps(payload, ensure_ascii=True, sort_keys=True)
+    return text
+
+
+def classify_runner_result(
+    result: RunnerResult,
+    exhausted_patterns: tuple[str, ...],
+) -> ProviderStatus:
+    """Map runner output to provider status including exhaustion detection.
+
+    :param result: Subprocess runner outcome.
+    :param exhausted_patterns: Provider-specific exhaustion patterns.
+    :returns: Normalized provider status.
+    """
+    combined = f"{result.stdout}\n{result.stderr}"
+    if result.status is RunnerStatus.TIMEOUT:
+        return ProviderStatus.TIMEOUT
+    if _matches_exhaustion(combined, exhausted_patterns):
+        return ProviderStatus.EXHAUSTED
+    if result.status is RunnerStatus.ERROR:
+        return ProviderStatus.ERROR
+    return ProviderStatus.OK
+
+
+def _matches_exhaustion(text: str, patterns: tuple[str, ...]) -> bool:
+    lowered = text.lower()
+    if patterns:
+        return any(re.search(re.escape(pattern), text, flags=re.IGNORECASE) for pattern in patterns)
+    return any(hint in lowered for hint in DEFAULT_EXHAUSTED_HINTS)
