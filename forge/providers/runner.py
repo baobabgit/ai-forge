@@ -258,7 +258,7 @@ async def _terminate_process_group(process: asyncio.subprocess.Process) -> None:
     if process.returncode is not None:
         return
     if os.name == "nt":
-        process.kill()
+        await _terminate_windows_process_tree(process)
         return
     try:
         _kill_process_group_signal(process.pid, int(signal.SIGTERM))
@@ -266,6 +266,23 @@ async def _terminate_process_group(process: asyncio.subprocess.Process) -> None:
     except (ProcessLookupError, TimeoutError):
         if process.returncode is None:
             _kill_process_group_signal(process.pid, _sigkill())
+
+
+async def _terminate_windows_process_tree(process: asyncio.subprocess.Process) -> None:
+    try:
+        taskkill = await asyncio.create_subprocess_exec(
+            "taskkill",
+            "/PID",
+            str(process.pid),
+            "/T",
+            "/F",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await asyncio.wait_for(taskkill.communicate(), timeout=TERMINATION_GRACE_SECONDS)
+    except (OSError, TimeoutError):
+        if process.returncode is None:
+            process.kill()
 
 
 def _status_from_code(code: int) -> RunnerStatus:
