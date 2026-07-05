@@ -384,9 +384,7 @@ async def test_all_providers_exhausted_raises(tmp_path: Path) -> None:
         alpha_state = await get_provider_quota_state(
             db, provider_name="alpha", run_id="run-all-out"
         )
-        beta_state = await get_provider_quota_state(
-            db, provider_name="beta", run_id="run-all-out"
-        )
+        beta_state = await get_provider_quota_state(db, provider_name="beta", run_id="run-all-out")
         assert alpha_state is not None and alpha_state.status is QuotaStatus.EXHAUSTED
         assert beta_state is not None and beta_state.status is QuotaStatus.EXHAUSTED
     finally:
