@@ -260,6 +260,7 @@ id: FEAT-forge-999
 type: FEAT
 parent: UC-forge-001
 library: ai-forge
+target_version: 0.2.0
 status: TODO
 gates:
   auto: []
