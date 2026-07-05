@@ -1,0 +1,1 @@
+"""Typed role output contracts."""

@@ -1,0 +1,58 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ai-forge"
+version = "0.1.0"
+description = "Autonomous CLI-driven software development orchestrator."
+readme = "docs/001 - specs/README.md"
+requires-python = ">=3.13"
+license = "MIT"
+authors = [
+  { name = "Forge maintainers" },
+]
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "bandit>=1.8.6",
+  "black>=25.1.0",
+  "mypy>=1.17.0",
+  "pytest>=8.4.1",
+  "pytest-asyncio>=1.0.0",
+  "pytest-cov>=6.2.1",
+  "ruff>=0.12.2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["forge"]
+
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "C4", "SIM", "UP", "RUF"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"
+asyncio_mode = "auto"
+testpaths = ["forge", "tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["forge"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+skip_empty = true
