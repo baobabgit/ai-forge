@@ -1,0 +1,184 @@
+{
+  "library": "ai-forge",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "waves": [
+        [
+          "BL-forge-001"
+        ],
+        [
+          "BL-forge-002",
+          "BL-forge-005",
+          "BL-forge-010",
+          "BL-forge-012"
+        ],
+        [
+          "BL-forge-003",
+          "BL-forge-004",
+          "BL-forge-009",
+          "BL-forge-011"
+        ],
+        [
+          "BL-forge-006",
+          "BL-forge-007",
+          "BL-forge-008",
+          "BL-forge-013",
+          "BL-forge-014"
+        ],
+        [
+          "BL-forge-015"
+        ]
+      ],
+      "critical_path": [
+        "BL-forge-001",
+        "BL-forge-002",
+        "BL-forge-009",
+        "BL-forge-014",
+        "BL-forge-015"
+      ],
+      "critical_path_weight": 13,
+      "milestone": "Un BL de démonstration développé et mergé de bout en bout par une IA."
+    },
+    {
+      "version": "0.2.0",
+      "waves": [
+        [
+          "BL-forge-016",
+          "BL-forge-017",
+          "BL-forge-020",
+          "BL-forge-024"
+        ],
+        [
+          "BL-forge-018",
+          "BL-forge-019",
+          "BL-forge-026",
+          "BL-forge-027"
+        ],
+        [
+          "BL-forge-021",
+          "BL-forge-023"
+        ],
+        [
+          "BL-forge-022",
+          "BL-forge-025"
+        ]
+      ],
+      "critical_path": [
+        "BL-forge-016",
+        "BL-forge-018",
+        "BL-forge-021",
+        "BL-forge-025"
+      ],
+      "critical_path_weight": 10,
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule de provider démontrée sur épuisement simulé."
+    },
+    {
+      "version": "0.3.0",
+      "waves": [
+        [
+          "BL-forge-028",
+          "BL-forge-030",
+          "BL-forge-033"
+        ],
+        [
+          "BL-forge-029",
+          "BL-forge-031",
+          "BL-forge-034"
+        ],
+        [
+          "BL-forge-032",
+          "BL-forge-035"
+        ]
+      ],
+      "critical_path": [
+        "BL-forge-028",
+        "BL-forge-029"
+      ],
+      "critical_path_weight": 6,
+      "milestone": "Specs complètes générées pour un projet cible d'essai ; planning publié."
+    },
+    {
+      "version": "0.4.0",
+      "waves": [
+        [
+          "BL-forge-036",
+          "BL-forge-037"
+        ],
+        [
+          "BL-forge-038",
+          "BL-forge-039"
+        ]
+      ],
+      "critical_path": [
+        "BL-forge-037",
+        "BL-forge-039"
+      ],
+      "critical_path_weight": 5,
+      "milestone": "Deux BL du même dépôt développés simultanément et mergés sans intervention."
+    },
+    {
+      "version": "0.5.0",
+      "waves": [
+        [
+          "BL-forge-040",
+          "BL-forge-042",
+          "BL-forge-043"
+        ],
+        [
+          "BL-forge-041",
+          "BL-forge-044",
+          "BL-forge-045"
+        ]
+      ],
+      "critical_path": [
+        "BL-forge-040",
+        "BL-forge-041"
+      ],
+      "critical_path_weight": 4,
+      "milestone": "Un projet cible à deux librairies mené jusqu'à un jalon d'intégration tagué."
+    },
+    {
+      "version": "1.0.0",
+      "waves": [
+        [
+          "BL-forge-046",
+          "BL-forge-047"
+        ],
+        [
+          "BL-forge-048",
+          "BL-forge-049"
+        ]
+      ],
+      "critical_path": [
+        "BL-forge-046",
+        "BL-forge-049"
+      ],
+      "critical_path_weight": 8,
+      "milestone": "Un projet cible complet livré sans intervention humaine hors relances quota."
+    }
+  ],
+  "critical_bls": [
+    "BL-forge-001",
+    "BL-forge-002",
+    "BL-forge-004",
+    "BL-forge-005",
+    "BL-forge-009",
+    "BL-forge-011",
+    "BL-forge-012",
+    "BL-forge-013",
+    "BL-forge-015",
+    "BL-forge-016",
+    "BL-forge-017",
+    "BL-forge-021",
+    "BL-forge-024",
+    "BL-forge-033",
+    "BL-forge-034",
+    "BL-forge-036",
+    "BL-forge-037",
+    "BL-forge-041",
+    "BL-forge-042",
+    "BL-forge-046",
+    "BL-forge-049"
+  ]
+}

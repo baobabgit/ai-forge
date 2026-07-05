@@ -1,0 +1,45 @@
+---
+id: BL-forge-047
+type: BL
+parent: FEAT-forge-025
+library: ai-forge
+target_version: 1.0.0
+depends_on: [BL-forge-010, BL-forge-024]
+size: S
+critical: false
+status: TODO
+gates:
+  auto:
+    - "pytest -x --cov=forge --cov-fail-under=85"
+    - "ruff check ."
+    - "mypy --strict forge/"
+  ai_judged:
+    - "Les statistiques permettent d'identifier le provider le plus efficace par rôle"
+---
+
+# BL-forge-047 — Statistiques de consommation
+
+**FEAT parente :** FEAT-forge-025 — Status temps réel, report et statistiques
+**Version cible :** v1.0.0 · **Taille :** S (~0,5 j) · **Critique :** non
+
+## Description technique
+Implémenter EXG-QUO-04 : agrégation des invocations journalisées (par provider, rôle, BL, librairie : nombre, durées, issues OK/EXHAUSTED/ERROR/TIMEOUT, itérations induites) ; export dans forge report et dans un fichier stats.json ; les statistiques alimentent la fenêtre de charge de la rotation (BL-forge-027) pour l'affiner.
+
+## Fichiers / modules impactés
+- `forge/obs/stats.py`
+- `tests/obs/test_stats.py`
+
+## Dépendances
+- BL-forge-010 — Journalisation structurée JSONL et archivage
+- BL-forge-024 — États de quota et détection réactive
+
+## Definition of Done
+- [ ] Agrégats exacts sur un jeu d'invocations de test
+- [ ] Section consommation présente dans forge report
+- [ ] stats.json stable et documenté
+- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+
+## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
+- **Auto :** gates du frontmatter exécutées dans le worktree du BL.
+- **ai_judged :** critères du frontmatter évalués par le TESTER/REVIEWER (provider différent du DEV si disponible).
