@@ -4,9 +4,13 @@ import pytest
 from pydantic import ValidationError
 
 from forge.core import (
+    ADR,
     BL,
     FEAT,
     UC,
+    ConfidenceLevel,
+    DefinitionOfReady,
+    EventLogEntry,
     Gate,
     GoNoGo,
     Invariant,
@@ -14,8 +18,10 @@ from forge.core import (
     Library,
     Milestone,
     Project,
+    Provider,
     Role,
     RoleAssignment,
+    RoleContext,
     Size,
     Status,
     Verdict,
@@ -83,13 +89,34 @@ def test_glossary_models_accept_nominal_values() -> None:
     invariant = Invariant(
         id="INV-006", rule="No contributor attribution.", check=InvariantCheck.AUTO
     )
+    provider = Provider(name="codex", command="codex")
+    dor = DefinitionOfReady(
+        dependencies_done=True,
+        gates=make_gate(),
+        scope=["forge/core/models.py"],
+        spec_quality_score=95,
+    )
+    role_context = RoleContext(role=Role.TESTER, artifacts=["spec", "diff", "ci"])
+    event = EventLogEntry(event_type="BL_STARTED", bl_id="BL-forge-002", details={"role": "DEV"})
+    adr = ADR(
+        id="ADR-0001",
+        title="Choose strict models",
+        context="The core needs typed contracts.",
+        decision="Use pydantic v2 strict models.",
+    )
     verdict = GoNoGo(verdict=Verdict.GO, motifs=["All gates pass"], preuves=["CI quality"])
 
     assert project.libraries == [library]
     assert milestone.required_version == "0.1.0"
     assert assignment.role is Role.DEV
     assert invariant.check is InvariantCheck.AUTO
+    assert provider.command == "codex"
+    assert dor.spec_quality_score == 95
+    assert role_context.role is Role.TESTER
+    assert event.details == {"role": "DEV"}
+    assert adr.id == "ADR-0001"
     assert verdict.verdict is Verdict.GO
+    assert ConfidenceLevel.L2.value == "L2"
 
 
 @pytest.mark.parametrize(

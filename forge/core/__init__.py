@@ -1,9 +1,13 @@
 """Core domain models and specification parsing."""
 
 from forge.core.models import (
+    ADR,
     BL,
     FEAT,
     UC,
+    ConfidenceLevel,
+    DefinitionOfReady,
+    EventLogEntry,
     Gate,
     GoNoGo,
     Invariant,
@@ -11,17 +15,23 @@ from forge.core.models import (
     Library,
     Milestone,
     Project,
+    Provider,
     Role,
     RoleAssignment,
+    RoleContext,
     Size,
     Status,
     Verdict,
 )
 
 __all__ = [
+    "ADR",
     "BL",
     "FEAT",
     "UC",
+    "ConfidenceLevel",
+    "DefinitionOfReady",
+    "EventLogEntry",
     "Gate",
     "GoNoGo",
     "Invariant",
@@ -29,8 +39,10 @@ __all__ = [
     "Library",
     "Milestone",
     "Project",
+    "Provider",
     "Role",
     "RoleAssignment",
+    "RoleContext",
     "Size",
     "Status",
     "Verdict",

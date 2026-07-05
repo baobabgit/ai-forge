@@ -12,10 +12,12 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 
 LibraryName = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9-]*$")]
 ProviderName = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9-]*$")]
+NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 UCId = Annotated[str, StringConstraints(pattern=r"^UC-[a-z][a-z0-9-]*-\d{3}$")]
 FEATId = Annotated[str, StringConstraints(pattern=r"^FEAT-[a-z][a-z0-9-]*-\d{3}$")]
 BLId = Annotated[str, StringConstraints(pattern=r"^BL-[a-z][a-z0-9-]*-\d{3}$")]
 InvariantId = Annotated[str, StringConstraints(pattern=r"^INV-\d{3}$")]
+ADRId = Annotated[str, StringConstraints(pattern=r"^ADR-\d{4}$")]
 SemVer = Annotated[
     str,
     StringConstraints(
@@ -81,6 +83,14 @@ class InvariantCheck(StrEnum):
     AI_JUDGED = "ai_judged"
 
 
+class ConfidenceLevel(StrEnum):
+    """Human validation level for a run."""
+
+    L0 = "L0"
+    L1 = "L1"
+    L2 = "L2"
+
+
 class Gate(StrictDomainModel):
     """Automatic and judged validation gates."""
 
@@ -106,7 +116,7 @@ class Library(StrictDomainModel):
     """A software library managed as its own repository."""
 
     name: LibraryName
-    repository: str
+    repository: NonEmptyText
 
 
 class Project(StrictDomainModel):
@@ -120,8 +130,37 @@ class Invariant(StrictDomainModel):
     """A non-negotiable project rule."""
 
     id: InvariantId
-    rule: str
+    rule: NonEmptyText
     check: InvariantCheck
+
+
+class Provider(StrictDomainModel):
+    """CLI provider available to run a role."""
+
+    name: ProviderName
+    command: NonEmptyText
+
+
+class DefinitionOfReady(StrictDomainModel):
+    """Eligibility criteria for starting a backlog item."""
+
+    dependencies_done: bool
+    gates: Gate
+    scope: list[str] = Field(default_factory=list)
+    spec_quality_score: int | None = Field(default=None, ge=0, le=100)
+
+    @field_validator("scope")
+    @classmethod
+    def require_meaningful_scope_entries(cls, value: list[str]) -> list[str]:
+        """Reject empty scope entries.
+
+        :param value: Glob-like scope entries.
+        :returns: The validated list.
+        :raises ValueError: If an entry is blank.
+        """
+        if any(not item.strip() for item in value):
+            raise ValueError("scope entries must be non-empty strings")
+        return value
 
 
 class UC(StrictDomainModel):
@@ -192,6 +231,13 @@ class RoleAssignment(StrictDomainModel):
     provider: ProviderName
 
 
+class RoleContext(StrictDomainModel):
+    """Minimal artifact set supplied to a role."""
+
+    role: Role
+    artifacts: list[NonEmptyText] = Field(default_factory=list)
+
+
 class GoNoGo(StrictDomainModel):
     """Structured GO/NO-GO decision."""
 
@@ -211,3 +257,20 @@ class GoNoGo(StrictDomainModel):
         if any(not item.strip() for item in value):
             raise ValueError("decision entries must be non-empty strings")
         return value
+
+
+class EventLogEntry(StrictDomainModel):
+    """Append-only event log entry."""
+
+    event_type: NonEmptyText
+    bl_id: BLId | None = None
+    details: dict[str, str] = Field(default_factory=dict)
+
+
+class ADR(StrictDomainModel):
+    """Architecture decision record metadata."""
+
+    id: ADRId
+    title: NonEmptyText
+    context: NonEmptyText
+    decision: NonEmptyText
