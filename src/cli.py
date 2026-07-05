@@ -17,6 +17,8 @@ from src.phases.execute import (
     SequentialExecutionResult,
     SequentialExecutor,
 )
+from src.policy.approval_queue import ApprovalQueue, ApprovalQueueError
+from src.policy.pending_action import PendingAction
 from src.providers.bootstrap import create_provider, default_providers_path, load_registry
 from src.providers.registry import ProviderRegistryError
 from src.scheduler.shutdown import (
@@ -309,6 +311,51 @@ async def resume_forge(
         await database.close()
 
 
+async def approve_action(
+    action_id: str,
+    *,
+    forge_dir: Path,
+    approved_by: str = "human",
+) -> PendingAction:
+    """Approve a queued sensitive or destructive action (EXG-TRU, EXG-SAF).
+
+    :param action_id: Approval identifier (``pending-<n>``).
+    :param forge_dir: Directory holding forge state.
+    :param approved_by: Actor recorded as the approver.
+    :returns: The approved action.
+    :raises ForgeCliError: If forge is not initialized or the id is unknown/approved.
+    """
+    state_path = forge_dir / STATE_FILENAME
+    if not state_path.is_file():
+        raise ForgeCliError(
+            ExitCode.STATE_ERROR,
+            f"forge is not initialized; run 'forge init' first (expected {state_path})",
+        )
+    async with ApprovalQueue(state_path) as queue:
+        try:
+            return await queue.approve(action_id, approved_by=approved_by)
+        except ApprovalQueueError as error:
+            raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+
+async def list_pending_actions(*, forge_dir: Path) -> tuple[PendingAction, ...]:
+    """Return the actions awaiting approval for the current run.
+
+    :param forge_dir: Directory holding forge state.
+    :returns: Pending actions in queue order.
+    :raises ForgeCliError: If forge is not initialized.
+    """
+    state_path = forge_dir / STATE_FILENAME
+    if not state_path.is_file():
+        raise ForgeCliError(
+            ExitCode.STATE_ERROR,
+            f"forge is not initialized; run 'forge init' first (expected {state_path})",
+        )
+    run_id = (forge_dir / RUN_ID_FILENAME).read_text(encoding="utf-8").strip()
+    async with ApprovalQueue(state_path) as queue:
+        return await queue.list_pending(run_id)
+
+
 def resolve_bl_spec(repo_root: Path, bl_id: str) -> Path:
     """Return the BL specification path for ``bl_id``.
 
@@ -428,6 +475,52 @@ def resume_command(
     except ForgeCliError as error:
         _handle_cli_error(error)
     console.print(report.render())
+
+
+@app.command("approve")
+def approve_command(
+    pending_id: str | None = typer.Argument(
+        None,
+        help="Approval identifier to validate (pending-<n>). Omit with --list.",
+    ),
+    list_pending: bool = typer.Option(
+        False,
+        "--list",
+        help="List the actions awaiting approval instead of approving one.",
+    ),
+    forge_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_FORGE_DIR,
+        "--forge-dir",
+        help="Forge state directory.",
+    ),
+) -> None:
+    """Approve a pending sensitive/destructive action, or list the queue."""
+    if list_pending:
+        try:
+            actions = asyncio.run(list_pending_actions(forge_dir=forge_dir.resolve()))
+        except ForgeCliError as error:
+            _handle_cli_error(error)
+        if not actions:
+            console.print("[green]no actions awaiting approval[/green]")
+            return
+        for action in actions:
+            console.print(action.render())
+        return
+
+    if pending_id is None:
+        _handle_cli_error(
+            ForgeCliError(
+                ExitCode.USER_ERROR,
+                "provide a pending id to approve, or use --list to view the queue",
+            )
+        )
+    try:
+        approved = asyncio.run(
+            approve_action(pending_id or "", forge_dir=forge_dir.resolve()),
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    console.print(f"[green]approved {approved.action_id} ({approved.kind.value})[/green]")
 
 
 def main() -> None:
