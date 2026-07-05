@@ -21,7 +21,7 @@ GATE_PROVIDER = "auto"
 class GateStatus(StrEnum):
     """Normalized status for a single automatic gate."""
 
-    PASS = "PASS"
+    PASSED = "PASSED"
     FAIL = "FAIL"
     TIMEOUT = "TIMEOUT"
     ERROR = "ERROR"
@@ -147,7 +147,7 @@ def _gate_status(result: RunnerResult) -> GateStatus:
     if result.status is RunnerStatus.ERROR:
         return GateStatus.ERROR
     if result.code == 0:
-        return GateStatus.PASS
+        return GateStatus.PASSED
     return GateStatus.FAIL
 
 
@@ -157,7 +157,7 @@ def _collect_motifs(
 ) -> tuple[str, ...]:
     motifs: list[str] = []
     for index, gate in enumerate(gates, start=1):
-        if gate.status is GateStatus.PASS:
+        if gate.status is GateStatus.PASSED:
             continue
         motifs.append(
             f"gate {index} ({gate.command!r}) {gate.status.value.lower()}"

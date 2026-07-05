@@ -56,7 +56,7 @@ async def test_run_auto_gates_runs_all_commands_and_archives_report(
 
     assert report.verdict is Verdict.NO_GO
     assert len(report.gates) == 2
-    assert report.gates[0].status is GateStatus.PASS
+    assert report.gates[0].status is GateStatus.PASSED
     assert report.gates[1].status is GateStatus.FAIL
     assert report.report_path.is_file()
     payload = json.loads(report.report_path.read_text(encoding="utf-8"))
