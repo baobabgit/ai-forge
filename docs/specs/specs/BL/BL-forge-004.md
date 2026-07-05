@@ -31,7 +31,8 @@ Implémenter `src/providers/base.py` : Protocol Provider (name, model, execute(t
 ## Fichiers / modules impactés
 - `src/providers/base.py`
 - `src/providers/registry.py`
-- `tests/providers/test_base.py`
+- `src/providers/mock.py`
+- `tests/providers/test_mock.py`
 
 ## Dépendances
 - BL-forge-002 — Modèles de domaine pydantic

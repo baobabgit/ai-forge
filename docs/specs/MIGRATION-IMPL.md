@@ -13,7 +13,7 @@ L'implémentation actuelle sur `main` **avance sur cette spec** :
 |----------|-------------|-------------------------|-------------------|
 | `forge init` / `forge run` | v0.1.0 | ✅ Livré (BL-014) | v0.1.0 |
 | Parsing BL + event log | v0.1.0 | ✅ Livré (BL-003, 009, 010) | v0.1.0 |
-| Provider **mock** | v0.1.0 | ⚠️ Partiel — pas de mock dédié | v0.1.0 (gap) |
+| Provider **mock** | v0.1.0 | ✅ Livré (`src/providers/mock.py`, défaut CLI) | v0.1.0 |
 | Chaîne **dry-run** | v0.1.0 | ✅ `--dry-run` skip gates/tester/reviewer | v0.1.0 |
 | Adaptateurs Claude/Codex/Cursor | v0.1.1 | ✅ Livré (BL-006..008) | v0.1.1 |
 | PR réelle + merge | v0.1.1–v0.1.2 | ✅ Livré (BL-012, 013, 015) | v0.1.1 |

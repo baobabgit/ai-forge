@@ -8,6 +8,7 @@ from src.providers.base import Provider
 from src.providers.claude import ClaudeProvider
 from src.providers.codex import CodexProvider
 from src.providers.cursor import CursorProvider
+from src.providers.mock import MockProvider
 from src.providers.registry import ProviderFactory, ProviderRegistry
 
 DEFAULT_PROVIDERS_RELATIVE = Path("config") / "providers.toml"
@@ -16,6 +17,7 @@ _BUILTIN_FACTORIES: dict[str, ProviderFactory] = {
     "claude": ClaudeProvider,
     "codex": CodexProvider,
     "cursor": CursorProvider,
+    "mock": MockProvider,
 }
 
 

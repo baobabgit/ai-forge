@@ -21,10 +21,14 @@ Réalignement effectué :
 
 ## Prochaines actions
 
-1. Merger PR #32 si pas encore fait.
-2. **Gap v0.1.0** : implémenter provider `mock` explicite (BL-004).
-3. Taguer **v0.1.0** quand le jalon dry-run mock est démontrable.
-4. Poursuivre v0.2.0 (BL-020+) sans ouvrir parallélisme/multi-repo.
+1. Merger PR #32 (code v0.2) si pas encore fait.
+2. Taguer **v0.1.0** : `forge run --dry-run --bl BL-demo-001` avec provider mock.
+3. Poursuivre v0.2.0 (BL-020+) sans ouvrir parallélisme/multi-repo.
+
+## Gap v0.1.0 comblé
+
+- `src/providers/mock.py` — provider déterministe sans CLI externe
+- `forge run` utilise **mock** par défaut ; adaptateurs réels via `--provider claude|codex|cursor`
 
 ## Métriques
 

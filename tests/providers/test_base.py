@@ -109,7 +109,7 @@ def test_registry_loads_repo_providers_toml() -> None:
     """Load the committed providers.toml with bin, model and capabilities."""
     registry = ProviderRegistry.from_config(REPO_PROVIDERS)
 
-    assert registry.names == ("claude", "codex", "cursor")
+    assert registry.names == ("claude", "codex", "cursor", "mock")
 
     claude = registry.config("claude")
     assert claude.bin == "claude"
@@ -135,7 +135,7 @@ def test_registry_instantiates_registered_adapters() -> None:
 
     providers = registry.create_all()
 
-    assert set(providers) == {"claude", "codex", "cursor"}
+    assert set(providers) == {"claude", "codex", "cursor", "mock"}
     assert providers["claude"].model == "opus-4.8"
     assert providers["codex"].name == "codex"
 
