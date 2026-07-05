@@ -80,6 +80,24 @@ class BlStatusRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderStateRecord:
+    """Persisted quota row for a provider within a run.
+
+    :ivar provider_name: Provider identifier.
+    :ivar run_id: Owning run identifier.
+    :ivar status: Quota status label (AVAILABLE, EXHAUSTED, ERROR).
+    :ivar available_until: Estimated recharge time when exhausted.
+    :ivar updated_at: UTC timestamp of the last update.
+    """
+
+    provider_name: str
+    run_id: str
+    status: str
+    available_until: datetime | None
+    updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class EventRecord:
     """Append-only event stored in the state journal.
 
@@ -242,6 +260,67 @@ class StateDatabase:
         if row_id is None:
             raise StateDatabaseError("failed to append event: missing row id")
         return int(row_id)
+
+    async def get_provider_state(
+        self,
+        provider_name: str,
+        run_id: str,
+    ) -> ProviderStateRecord | None:
+        """Return the quota row for ``provider_name`` in ``run_id``.
+
+        :param provider_name: Provider identifier.
+        :param run_id: Run identifier.
+        :returns: Stored provider state, or ``None`` if absent.
+        """
+        cursor = await self._connection.execute(
+            """
+            SELECT provider_name, run_id, status, available_until, updated_at
+            FROM provider_state
+            WHERE provider_name = ? AND run_id = ?
+            """,
+            (provider_name, run_id),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        available_until = _parse_timestamp(str(row[3])) if row[3] is not None else None
+        return ProviderStateRecord(
+            provider_name=str(row[0]),
+            run_id=str(row[1]),
+            status=str(row[2]),
+            available_until=available_until,
+            updated_at=_parse_timestamp(str(row[4])),
+        )
+
+    async def upsert_provider_state(
+        self,
+        *,
+        provider_name: str,
+        run_id: str,
+        status: str,
+        available_until: datetime | None = None,
+    ) -> None:
+        """Insert or replace the quota row for ``provider_name`` in ``run_id``.
+
+        :param provider_name: Provider identifier.
+        :param run_id: Run identifier.
+        :param status: Quota status label.
+        :param available_until: Optional recharge timestamp for EXHAUSTED rows.
+        """
+        now = _utc_now()
+        until_value = available_until.isoformat() if available_until is not None else None
+        await self._connection.execute(
+            """
+            INSERT INTO provider_state (provider_name, run_id, status, available_until, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(provider_name, run_id) DO UPDATE SET
+                status = excluded.status,
+                available_until = excluded.available_until,
+                updated_at = excluded.updated_at
+            """,
+            (provider_name, run_id, status, until_value, now.isoformat()),
+        )
+        await self._connection.commit()
 
     async def list_events(self, run_id: str) -> tuple[EventRecord, ...]:
         """Return every event for ``run_id`` ordered by insertion.
