@@ -7,7 +7,7 @@ target_version: 0.2.0
 depends_on: [BL-forge-003, BL-forge-016]
 size: M
 critical: true
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -38,11 +38,11 @@ Implémenter le support de forge-invariants.yaml (EXG-INV-01..03, annexe A4) : p
 - BL-forge-016 — Exécution des gates automatiques et diff-guard
 
 ## Definition of Done
-- [ ] INV-002/003/005/006 détectés sur des diffs de test dédiés
-- [ ] Message de commit avec attribution IA réécrit avant push
-- [ ] Invariants présents dans le contexte rendu des rôles DEV/TESTER/REVIEWER
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] INV-002/003/005/006 détectés sur des diffs de test dédiés
+- [x] Message de commit avec attribution IA réécrit avant push
+- [x] Invariants présents dans le contexte rendu des rôles DEV/TESTER/REVIEWER
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
