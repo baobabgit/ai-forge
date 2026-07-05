@@ -3,7 +3,7 @@ id: BL-forge-033
 type: BL
 parent: FEAT-forge-019
 library: ai-forge
-target_version: 0.3.0
+target_version: 0.5.0
 depends_on: [BL-forge-003]
 size: M
 critical: true
@@ -20,7 +20,7 @@ gates:
 # BL-forge-033 — Constructeur de DAG et détection de cycles
 
 **FEAT parente :** FEAT-forge-019 — Planner : DAG, vagues, chemin critique, publication
-**Version cible :** v0.3.0 · **Taille :** M (~1 j) · **Critique :** OUI
+**Version cible :** v0.5.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
 Implémenter src/planner/dag.py : construction du graphe networkx de tous les BL de toutes les librairies à partir des champs depends_on des frontmatters, des versions cibles (les BL d'une version dépendent du tag de la version précédente de leur librairie) et des jalons d'intégration ; détection des cycles avec diagnostic exploitable (liste ordonnée des BL du cycle et des arêtes fautives) destiné à la relance de la phase 2 sur les BL concernés (EXG-PLA-02).

@@ -3,7 +3,7 @@ id: BL-forge-013
 type: BL
 parent: FEAT-forge-007
 library: ai-forge
-target_version: 0.1.0
+target_version: 0.1.1
 depends_on: [BL-forge-011, BL-forge-004]
 size: M
 critical: true
@@ -20,7 +20,7 @@ gates:
 # BL-forge-013 — Rôle DEV
 
 **FEAT parente :** FEAT-forge-007 — Rôle DEV, prompts et verdicts structurés
-**Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** OUI
+**Version cible :** v0.1.1 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
 Implémenter src/roles/dev.py : construction de la RoleTask DEV depuis un BL (spec complète, périmètre de fichiers déclaré, Issue de correction et diff courant le cas échéant), exécution via le provider attribué, vérifications post-exécution : commits présents, tests ajoutés, diff limité au périmètre déclaré (préfiguration du diff-guard), corps de PR produit par le DEV et extrait pour l'orchestrateur.

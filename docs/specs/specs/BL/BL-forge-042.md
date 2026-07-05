@@ -3,7 +3,7 @@ id: BL-forge-042
 type: BL
 parent: FEAT-forge-023
 library: ai-forge
-target_version: 0.5.0
+target_version: 0.4.0
 depends_on: [BL-forge-016, BL-forge-020]
 size: M
 critical: true
@@ -20,7 +20,7 @@ gates:
 # BL-forge-042 — Gate de version, tags SemVer et releases
 
 **FEAT parente :** FEAT-forge-023 — Gates de version, tags SemVer et releases
-**Version cible :** v0.5.0 · **Taille :** M (~1 j) · **Critique :** OUI
+**Version cible :** v0.4.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
 Implémenter EXG-VER-01/02/03 dans src/phases/release.py : quand tous les BL d'une version d'une librairie sont DONE, exécution de la gate de version (gates de toutes les FEAT et de tous les UC de la version + suite d'intégration de la librairie) ; GO => l'INTEGRATOR pose le tag SemVer sur main et publie la release (gh release create) ; NO GO => Issue de version créée, BL fautifs rouverts (retour IN_PROGRESS), planning recalculé.

@@ -3,6 +3,7 @@ id: UC-forge-008
 type: UC
 parent: null
 library: ai-forge
+target_version: 0.3.0
 status: TODO
 gates:
   auto: []
@@ -12,6 +13,8 @@ gates:
 ---
 
 # UC-forge-008 — Développer en parallèle (workers, worktrees, rebase)
+
+> **Version cible : v0.3.0** — repoussé après stabilisation séquentielle v0.1.x–v0.2.0 (CDC v1.4 §6, EXG-PAR-01).
 
 ## Description
 Exécuter N BL simultanément (y compris sur la même librairie) via des worktrees Git isolés, synchroniser exclusivement par GitHub, rebaser les worktrees ouverts après chaque merge, et plafonner la concurrence par provider.

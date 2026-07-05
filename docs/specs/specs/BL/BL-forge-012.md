@@ -3,7 +3,7 @@ id: BL-forge-012
 type: BL
 parent: FEAT-forge-008
 library: ai-forge
-target_version: 0.1.0
+target_version: 0.1.1
 depends_on: [BL-forge-001]
 size: M
 critical: true
@@ -20,7 +20,7 @@ gates:
 # BL-forge-012 — Wrapper git et gh de base
 
 **FEAT parente :** FEAT-forge-008 — Wrapper git et GitHub
-**Version cible :** v0.1.0 · **Taille :** M (~1 j) · **Critique :** OUI
+**Version cible :** v0.1.1 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
 Implémenter src/ghub/ et src/workspace/gitio.py : exécution de git et gh en sous-processus avec erreurs typées (GitError, GhError avec code + stderr) ; opérations : clone, checkout -b, add/commit, push, gh pr create/view/diff/merge --squash, gh issue create/comment, gh pr review. Mode dry-run pour les tests (commandes journalisées, non exécutées). Interdiction structurelle des chemins relatifs entre dépôts (EXG-GIT-03).

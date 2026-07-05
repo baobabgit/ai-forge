@@ -3,8 +3,8 @@ id: BL-forge-049
 type: BL
 parent: FEAT-forge-026
 library: ai-forge
-target_version: 1.0.0
-depends_on: [BL-forge-032, BL-forge-035, BL-forge-041, BL-forge-042, BL-forge-046]
+target_version: 0.4.0
+depends_on: [BL-forge-041, BL-forge-042, BL-forge-045, BL-forge-038]
 size: L
 critical: true
 status: TODO
@@ -21,10 +21,10 @@ gates:
 # BL-forge-049 — Projet cible d'exemple de bout en bout
 
 **FEAT parente :** FEAT-forge-026 — Documentation et acceptation de bout en bout
-**Version cible :** v1.0.0 · **Taille :** L (~2 j) · **Critique :** OUI
+**Version cible :** v0.4.0 · **Taille :** L (~2 j) · **Critique :** OUI
 
 ## Description technique
-Construire et exécuter le test d'acceptation final (livrable §7.4 et jalon v1.0.0) : un projet cible d'exemple à deux librairies avec un jalon d'intégration, mené de bout en bout — architecture, specs, planning, développement parallèle, gates, releases — jusqu'au jalon tagué, sans intervention humaine hors relances quota ; le scénario est documenté, versionné et rejouable (CDC d'entrée fourni, critères de succès mesurables, script de vérification finale).
+Construire et exécuter le **test d'acceptation v0.4.0** (livrable §10.8 du CDC v1.4) : un projet cible d'exemple à deux librairies avec un jalon d'intégration, mené de bout en bout — multi-repo, parallélisme, gates, releases — jusqu'au jalon tagué ; le scénario est documenté, versionné et rejouable (CDC d'entrée fourni, critères de succès mesurables, script de vérification finale).
 
 ## Fichiers / modules impactés
 - `examples/target-project/cdc.md`
@@ -32,11 +32,10 @@ Construire et exécuter le test d'acceptation final (livrable §7.4 et jalon v1.
 - `docs/acceptance.md`
 
 ## Dépendances
-- BL-forge-032 — Contre-relecture des spécifications
-- BL-forge-035 — Publication et recalcul événementiel du planning
+- BL-forge-038 — Rebase post-merge et résolution de conflits
 - BL-forge-041 — Jalons d'intégration inter-librairies
 - BL-forge-042 — Gate de version, tags SemVer et releases
-- BL-forge-046 — Crash-safety éprouvée
+- BL-forge-045 — Dépendances inter-librairies épinglées
 
 ## Definition of Done
 - [ ] Run complet réussi : deux librairies développées, jalon d'intégration tagué
