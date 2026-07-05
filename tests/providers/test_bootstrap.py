@@ -32,3 +32,11 @@ def test_load_registry_rejects_missing_configuration(tmp_path: Path) -> None:
     """Surface registry errors for missing configuration files."""
     with pytest.raises(ProviderRegistryError, match="not found"):
         load_registry(tmp_path / "missing.toml")
+
+
+def test_load_registry_accepts_factory_overrides() -> None:
+    """Merge custom factories with built-in adapter factories."""
+    from tests.providers.test_base import _factory
+
+    registry = load_registry(REPO_PROVIDERS, factories={"claude": _factory})
+    assert registry.create("claude").name == "claude"
