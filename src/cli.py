@@ -202,7 +202,7 @@ def run_command(
         help="Forge state directory.",
     ),
     repo_root: Path = typer.Option(  # noqa: B008
-        Path.cwd(),
+        Path.cwd(),  # noqa: B008
         "--repo-root",
         help="Repository root path.",
     ),
