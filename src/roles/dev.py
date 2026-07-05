@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fnmatch
 import re
+import shutil
 import subprocess  # nosec B404 - read-only git inspection for post-run checks.
 from dataclasses import dataclass
 from pathlib import Path
@@ -296,8 +297,11 @@ def changed_files_since(workdir: Path, baseline_ref: str) -> tuple[str, ...]:
 
 
 def _git_lines(workdir: Path, *args: str) -> tuple[str, ...]:
+    git_bin = shutil.which("git")
+    if git_bin is None:
+        raise DevRoleError("GIT_COMMAND_FAILED", "git executable not found")
     result = subprocess.run(  # nosec B603 - fixed git argv, no shell.
-        ["git", *args],
+        [git_bin, *args],
         cwd=workdir,
         text=True,
         capture_output=True,
