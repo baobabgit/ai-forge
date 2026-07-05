@@ -1,0 +1,139 @@
+"""Tests for the Claude provider adapter."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import pytest
+
+from src.core.models.role import Role
+from src.providers.base import ProviderStatus, RoleTask
+from src.providers.claude import ClaudeProvider, classify_runner_result, parse_claude_output
+from src.providers.registry import ProviderCapabilities, ProviderConfig
+from src.providers.runner import RunnerResult, RunnerStatus
+
+FAKE_CLAUDE = (
+    Path(__file__).resolve().parent.parent / "fixtures" / "fake_cli" / "claude" / "fake_claude.py"
+)
+
+
+def _provider() -> ClaudeProvider:
+    config = ProviderConfig(
+        name="claude",
+        bin=sys.executable,
+        model="opus-4.8",
+        max_concurrency=1,
+        exhausted_patterns=("rate limit exceeded",),
+        capabilities=ProviderCapabilities(json_output=True, model_pinning=True),
+    )
+    return ClaudeProvider(config=config, _script=str(FAKE_CLAUDE))
+
+
+def _task(mode: str) -> RoleTask:
+    return RoleTask(
+        bl_id="BL-forge-006",
+        role=Role.DEV,
+        prompt=mode,
+        timeout_seconds=2 if mode == "hang" else 10,
+    )
+
+
+@pytest.mark.asyncio
+async def test_build_command_pins_opus_model() -> None:
+    """Force the configured model in every invocation."""
+    provider = _provider()
+    command = provider.build_command("implement feature")
+    assert command == (
+        sys.executable,
+        str(FAKE_CLAUDE),
+        "-p",
+        "implement feature",
+        "--output-format",
+        "json",
+        "--model",
+        "opus-4.8",
+    )
+
+
+@pytest.mark.asyncio
+async def test_execute_classifies_ok_json_and_text(tmp_path: Path) -> None:
+    """Accept JSON and plain-text success payloads."""
+    provider = _provider()
+
+    json_result = await provider.execute(_task("ok"), tmp_path)
+    assert json_result.status is ProviderStatus.OK
+    assert json_result.output == "completed successfully"
+
+    text_result = await provider.execute(_task("text-ok"), tmp_path)
+    assert text_result.status is ProviderStatus.OK
+    assert text_result.output == "plain text success"
+
+
+@pytest.mark.asyncio
+async def test_execute_classifies_exhausted_error_and_timeout(tmp_path: Path) -> None:
+    """Map quota, error and timeout outcomes from the fake CLI."""
+    provider = _provider()
+
+    exhausted = await provider.execute(_task("exhausted"), tmp_path)
+    assert exhausted.status is ProviderStatus.EXHAUSTED
+
+    error = await provider.execute(_task("error"), tmp_path)
+    assert error.status is ProviderStatus.ERROR
+
+    timeout = await provider.execute(_task("hang"), tmp_path)
+    assert timeout.status is ProviderStatus.TIMEOUT
+
+
+@pytest.mark.asyncio
+async def test_health_check_passes_and_fails(tmp_path: Path) -> None:
+    """Detect missing authentication during health-check."""
+    provider = ClaudeProvider(
+        config=ProviderConfig(
+            name="claude",
+            bin=sys.executable,
+            model="opus-4.8",
+            max_concurrency=1,
+            exhausted_patterns=(),
+            capabilities=ProviderCapabilities(),
+        ),
+        _script=str(FAKE_CLAUDE),
+    )
+    healthy = await provider.health_check()
+    assert healthy.healthy is True
+    assert healthy.model == "opus-4.8"
+
+    failing = ClaudeProvider(
+        config=ProviderConfig(
+            name="claude",
+            bin=sys.executable,
+            model="opus-4.8",
+            max_concurrency=1,
+            exhausted_patterns=(),
+            capabilities=ProviderCapabilities(),
+        ),
+        _script=str(FAKE_CLAUDE),
+        _health_check_args=("health-check", "--fail-auth"),
+    )
+    broken = await failing.health_check()
+    assert broken.healthy is False
+
+
+def test_parse_claude_output_tolerates_minor_format_changes() -> None:
+    """Keep parsing resilient to JSON shape variations."""
+    assert parse_claude_output('{"result":"ok"}') == "ok"
+    assert parse_claude_output('{"message":"still ok"}') == "still ok"
+    assert parse_claude_output("plain fallback") == "plain fallback"
+
+
+def test_classify_runner_result_uses_configured_patterns() -> None:
+    """Detect exhaustion using providers.toml patterns."""
+    result = RunnerResult(
+        status=RunnerStatus.ERROR,
+        code=1,
+        stdout="",
+        stderr="rate limit exceeded for this billing window",
+        duration_seconds=1.0,
+        transcript_path=Path("artifacts/transcript.txt"),
+    )
+    assert classify_runner_result(result, ("rate limit exceeded",)) is ProviderStatus.EXHAUSTED
