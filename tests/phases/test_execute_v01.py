@@ -506,19 +506,22 @@ async def test_execute_runs_real_gates_tester_and_reviewer_with_mocks(
             diff="diff",
         )
 
+    from src.roles.integrator import IntegratorRoleResult
+
+    async def _integrator(_self, _request):  # type: ignore[no-untyped-def]
+        _ = _self, _request
+        return IntegratorRoleResult(pr_number=9, merged=True, already_merged=False)
+
     monkeypatch.setattr("src.phases.execute.run_auto_gates", _passed_gates)
     monkeypatch.setattr("src.phases.execute.TesterRole.run", _tester)
     monkeypatch.setattr("src.phases.execute.ReviewerRole.run", _reviewer)
+    monkeypatch.setattr("src.phases.execute.IntegratorRole.run", _integrator)
     monkeypatch.setattr("src.phases.execute.gitio.push", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         "src.phases.execute.pr_create",
         lambda *args, **kwargs: subprocess.CompletedProcess(
             [], 0, "https://github.com/o/r/pull/9", ""
         ),
-    )
-    monkeypatch.setattr(
-        "src.phases.execute.pr_merge_squash",
-        lambda *args, **kwargs: subprocess.CompletedProcess([], 0, "", ""),
     )
 
     database = await StateDatabase.open(forge_dir / "state.db")

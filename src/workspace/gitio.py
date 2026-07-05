@@ -179,6 +179,52 @@ def push(
     )
 
 
+def checkout_branch(
+    repo: Path,
+    branch: str,
+    *,
+    dry_run: bool = False,
+    dry_run_log: CommandLog | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Check out an existing branch with ``git checkout``.
+
+    :param repo: Absolute target repository root.
+    :param branch: Branch name to check out.
+    :param dry_run: Record the command instead of executing it.
+    :param dry_run_log: Optional command journal populated in dry-run mode.
+    :returns: The completed subprocess result.
+    """
+    return _run_git(
+        ("checkout", _required_text(branch, "branch")),
+        cwd=repo_root(repo),
+        dry_run=dry_run,
+        dry_run_log=dry_run_log,
+    )
+
+
+def delete_local_branch(
+    repo: Path,
+    branch: str,
+    *,
+    dry_run: bool = False,
+    dry_run_log: CommandLog | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Delete a local branch with ``git branch -d``.
+
+    :param repo: Absolute target repository root.
+    :param branch: Branch name to delete.
+    :param dry_run: Record the command instead of executing it.
+    :param dry_run_log: Optional command journal populated in dry-run mode.
+    :returns: The completed subprocess result.
+    """
+    return _run_git(
+        ("branch", "-d", _required_text(branch, "branch")),
+        cwd=repo_root(repo),
+        dry_run=dry_run,
+        dry_run_log=dry_run_log,
+    )
+
+
 def repo_root(repo: Path, *, must_exist: bool = True) -> Path:
     """Resolve and validate an absolute target repository root.
 
