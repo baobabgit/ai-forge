@@ -284,28 +284,28 @@ def test_parse_cooldown_validation_errors(tmp_path: Path) -> None:
         '[mock]\nexhausted_patterns = []\ncooldown = { kind = "bad" }\n',
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="cooldown.kind"):
+    with pytest.raises(ValueError, match=r"cooldown\.kind"):
         load_provider_quota_config(path, "mock")
 
     path.write_text(
         '[mock]\nexhausted_patterns = []\ncooldown = { kind = "window", hours = 0 }\n',
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="cooldown.hours"):
+    with pytest.raises(ValueError, match=r"cooldown\.hours"):
         load_provider_quota_config(path, "mock")
 
     path.write_text(
         '[mock]\nexhausted_patterns = []\ncooldown = { kind = "window", weekly = "yes" }\n',
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="cooldown.weekly"):
+    with pytest.raises(ValueError, match=r"cooldown\.weekly"):
         load_provider_quota_config(path, "mock")
 
     path.write_text(
         '[mock]\nexhausted_patterns = []\ncooldown = { kind = "fixed", seconds = 0 }\n',
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="cooldown.seconds"):
+    with pytest.raises(ValueError, match=r"cooldown\.seconds"):
         load_provider_quota_config(path, "mock")
 
 
