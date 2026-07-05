@@ -13,9 +13,10 @@ from src.core.models.status import Status
 from src.core.models.verdict import Verdict
 from src.core.specparser import read_spec
 from src.gates.auto import AutoGatesRequest, run_auto_gates
-from src.ghub.cli import pr_create, pr_merge_squash
+from src.ghub.cli import pr_create
 from src.providers.base import Provider
 from src.roles.dev import DevRole, DevRoleRequest, resolve_scope
+from src.roles.integrator import IntegratorRole, IntegratorRoleRequest
 from src.roles.reviewer import ReviewerRole, ReviewerRoleRequest
 from src.roles.tester import TesterRole, TesterRoleRequest
 from src.state.db import StateDatabase
@@ -324,12 +325,17 @@ class SequentialExecutor:
                 if pr_number is None:
                     pr_number = await self._find_open_pr_number(request.run_id, request.bl_id)
                 await self._ensure_pre_merge_status(request.bl_id)
-                pr_merge_squash(
-                    repo,
-                    pr_number or 1,
-                    dry_run=request.dry_run,
-                    dry_run_log=dry_run_log,
+                integrator = IntegratorRole()
+                merge_result = await integrator.run(
+                    IntegratorRoleRequest(
+                        repo_root=repo,
+                        branch=branch,
+                        pr_number=pr_number or 1,
+                        dry_run=request.dry_run,
+                        dry_run_log=dry_run_log,
+                    )
                 )
+                pr_number = merge_result.pr_number
                 await self._machine.transition(
                     request.bl_id,
                     TransitionRequest(
@@ -343,7 +349,7 @@ class SequentialExecutor:
                     event_type="MERGED",
                     actor="INTEGRATOR",
                     bl_id=request.bl_id,
-                    details={"number": pr_number},
+                    details={"number": pr_number, "already_merged": merge_result.already_merged},
                 )
                 merged = True
 
