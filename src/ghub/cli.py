@@ -248,6 +248,83 @@ def pr_review(
     )
 
 
+def pr_checks(
+    repo: Path,
+    pull_request: int | str,
+    *,
+    json_fields: Sequence[str] = ("name", "state", "bucket"),
+    dry_run: bool = False,
+    dry_run_log: CommandLog | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Read pull-request check runs with ``gh pr checks``.
+
+    :param repo: Absolute target repository root.
+    :param pull_request: Pull request number, branch, or URL.
+    :param json_fields: gh JSON fields to request for each check.
+    :param dry_run: Record the command instead of executing it.
+    :param dry_run_log: Optional command journal populated in dry-run mode.
+    :returns: The completed subprocess result.
+    :raises ValueError: If inputs are invalid.
+    :raises GhError: If gh exits with a non-zero code.
+    """
+    args = ["pr", "checks", _identifier(pull_request, "pull_request")]
+    if json_fields:
+        args.extend(
+            ("--json", ",".join(_required_text(field, "json_field") for field in json_fields))
+        )
+    return _run_gh(args, repo=repo, dry_run=dry_run, dry_run_log=dry_run_log)
+
+
+def run_rerun(
+    repo: Path,
+    run_id: int | str,
+    *,
+    only_failed: bool = True,
+    dry_run: bool = False,
+    dry_run_log: CommandLog | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Rerun a workflow run with ``gh run rerun``.
+
+    :param repo: Absolute target repository root.
+    :param run_id: Workflow run identifier.
+    :param only_failed: Rerun only the failed jobs (``--failed``).
+    :param dry_run: Record the command instead of executing it.
+    :param dry_run_log: Optional command journal populated in dry-run mode.
+    :returns: The completed subprocess result.
+    :raises ValueError: If inputs are invalid.
+    :raises GhError: If gh exits with a non-zero code.
+    """
+    args = ["run", "rerun", _identifier(run_id, "run_id")]
+    if only_failed:
+        args.append("--failed")
+    return _run_gh(args, repo=repo, dry_run=dry_run, dry_run_log=dry_run_log)
+
+
+def run_view_log_failed(
+    repo: Path,
+    run_id: int | str,
+    *,
+    dry_run: bool = False,
+    dry_run_log: CommandLog | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Read failed-job logs with ``gh run view --log-failed`` (EXG-CI-06).
+
+    :param repo: Absolute target repository root.
+    :param run_id: Workflow run identifier.
+    :param dry_run: Record the command instead of executing it.
+    :param dry_run_log: Optional command journal populated in dry-run mode.
+    :returns: The completed subprocess result.
+    :raises ValueError: If inputs are invalid.
+    :raises GhError: If gh exits with a non-zero code.
+    """
+    return _run_gh(
+        ("run", "view", _identifier(run_id, "run_id"), "--log-failed"),
+        repo=repo,
+        dry_run=dry_run,
+        dry_run_log=dry_run_log,
+    )
+
+
 def _run_gh(
     args: Sequence[str],
     *,
