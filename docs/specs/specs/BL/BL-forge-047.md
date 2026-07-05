@@ -10,7 +10,7 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -37,7 +37,7 @@ Implémenter EXG-QUO-04 : agrégation des invocations journalisées (par provide
 - [ ] Agrégats exacts sur un jeu d'invocations de test
 - [ ] Section consommation présente dans forge report
 - [ ] stats.json stable et documenté
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

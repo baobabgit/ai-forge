@@ -10,7 +10,7 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -39,7 +39,7 @@ Campagne d'endurcissement EXG-NF-01/EXG-ETA-01 : harnais de test injectant des i
 - [ ] Matrice d'interruption couvrant chaque étape du cycle, 100 % des scénarios verts
 - [ ] Aucun double effet observable côté GitHub après reprise (PR, Issues, tags)
 - [ ] Scénarios rejouables en CI sur dépôts jetables
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

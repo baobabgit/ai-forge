@@ -10,7 +10,7 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -37,7 +37,7 @@ Implémenter EXG-VER-01/02/03 dans src/phases/release.py : quand tous les BL d'u
 - [ ] Version complète => gates FEAT/UC exécutées puis tag + release posés
 - [ ] Gate NO GO => Issue de version + réouverture des BL fautifs + recalcul
 - [ ] Tag idempotent : rejeu après crash sans doublon
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

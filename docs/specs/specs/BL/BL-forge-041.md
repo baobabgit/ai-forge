@@ -10,7 +10,7 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -37,7 +37,7 @@ Implémenter src/planner/milestones.py : parsing de milestones.md en contraintes
 - [ ] milestones.md parsé, erreurs de format localisées
 - [ ] Tag posé => BL dépendants prêts au recalcul suivant (test d'intégration)
 - [ ] Contrainte de jalon non satisfaite => BL dépendants jamais sélectionnés
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

@@ -10,7 +10,7 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -38,7 +38,7 @@ Implémenter src/quota/ : états AVAILABLE / EXHAUSTED(until) / ERROR par provid
 - [ ] Motif d'épuisement simulé => EXHAUSTED(until) avec estimation correcte selon la fenêtre
 - [ ] Modification de providers.toml prise en compte sans redémarrage
 - [ ] Heuristique N échecs consécutifs déclenchée et journalisée
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

@@ -53,6 +53,50 @@ async def test_exg_eta_01_event_types_cover_required_journal() -> None:
 
 
 @pytest.mark.asyncio
+async def test_get_bl_status_returns_none_for_unknown_bl(tmp_path: Path) -> None:
+    """Return None when a backlog item has not been registered."""
+    db = await StateDatabase.open(tmp_path / "state.db")
+    try:
+        assert await db.get_bl_status("BL-unknown") is None
+        assert db.path == tmp_path / "state.db"
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_open_wraps_execute_failures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Translate unexpected initialization failures into StateDatabaseError."""
+
+    class FakeConnection:
+        async def execute(self, *_args: object, **_kwargs: object) -> None:
+            raise RuntimeError("database unavailable")
+
+        async def close(self) -> None:
+            return None
+
+    async def fake_connect(_path: Path) -> FakeConnection:
+        return FakeConnection()
+
+    monkeypatch.setattr("src.state.db.aiosqlite.connect", fake_connect)
+    with pytest.raises(StateDatabaseError, match="failed to open state database"):
+        await StateDatabase.open(tmp_path / "state.db")
+
+
+@pytest.mark.asyncio
+async def test_open_rejects_schema_version_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Refuse to keep a database whose schema version does not match."""
+
+    async def fake_apply(_connection: object) -> int:
+        return 0
+
+    monkeypatch.setattr("src.state.db.apply_migrations", fake_apply)
+    with pytest.raises(StateDatabaseError, match="schema version mismatch"):
+        await StateDatabase.open(tmp_path / "state.db")
+
+
+@pytest.mark.asyncio
 async def test_register_bl_and_list_events(tmp_path: Path) -> None:
     """Persist initial BL rows and append journal events."""
     db = await StateDatabase.open(tmp_path / "state.db")

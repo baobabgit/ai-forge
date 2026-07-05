@@ -10,7 +10,7 @@ critical: true
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -37,7 +37,7 @@ Implémenter src/providers/base.py : Protocol Provider (name, model, execute(tas
 - [ ] Le registre charge providers.toml et instancie les adaptateurs déclarés
 - [ ] Un provider factice de test implémente le Protocol et passe le typage strict
 - [ ] ProviderResult couvre les quatre statuts avec verdict optionnel
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

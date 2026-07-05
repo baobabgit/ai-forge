@@ -10,7 +10,7 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -38,7 +38,7 @@ Implémenter EXG-PAR-03 : après le merge d'un BL, tous les worktrees encore ouv
 - [ ] Merge d'un BL => rebase automatique des worktrees frères avant reprise
 - [ ] Conflit simulé => tâche de résolution DEV exécutée puis cycle repris
 - [ ] Rebase échoué de manière répétée => BL traité par la boucle d'itérations (BLOCKED au plafond)
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

@@ -10,7 +10,7 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -37,7 +37,7 @@ Implémenter src/roles/dev.py : construction de la RoleTask DEV depuis un BL (sp
 - [ ] Sur provider factice, le rôle produit commits + corps de PR vérifiés
 - [ ] Absence de commit ou diff hors périmètre => échec typé du rôle
 - [ ] Le contexte de relance (Issue + diff) est correctement injecté
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

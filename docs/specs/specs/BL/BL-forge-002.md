@@ -10,7 +10,7 @@ critical: true
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -38,7 +38,7 @@ Implémenter src/core/models.py en pydantic v2 mode strict : Project, Library, U
 - [ ] Tous les modèles valident les cas nominaux et rejettent les cas invalides (ids malformés, SemVer invalide, statut inconnu)
 - [ ] Round-trip model_dump_json / model_validate_json sans perte
 - [ ] Couverture du module >= 95 %
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

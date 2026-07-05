@@ -10,7 +10,7 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -40,7 +40,7 @@ Implémenter src/scheduler/loop.py : boucle asyncio principale — sélection co
 - [ ] N BL prêts développés en parallèle par N workers, chacun dans son worktree
 - [ ] Événement DONE en cours de run => nouveaux BL prêts pris en charge sans redémarrage
 - [ ] Arrêt sur SIGINT propre : état persisté, reprise par forge resume validée
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

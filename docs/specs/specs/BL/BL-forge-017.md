@@ -10,7 +10,7 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -38,7 +38,7 @@ Implémenter src/roles/verdict.py : format de sortie exigé des rôles jugeants 
 - [ ] Sorties conformes, bruitées et invalides couvertes par les tests
 - [ ] La relance de reformatage n'est tentée qu'une fois
 - [ ] Chaque verdict conserve motifs et preuves pour archivage (EXG-NF-02)
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

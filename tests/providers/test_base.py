@@ -193,3 +193,42 @@ def test_registry_rejects_invalid_configuration(tmp_path: Path) -> None:
 
     with pytest.raises(ProviderRegistryError, match="provider 'bad': 'bin' must be"):
         ProviderRegistry.from_config(broken)
+
+
+def test_registry_rejects_missing_configuration_file(tmp_path: Path) -> None:
+    """Surface a clear error when providers.toml is absent."""
+    with pytest.raises(ProviderRegistryError, match="not found"):
+        ProviderRegistry.from_config(tmp_path / "missing.toml")
+
+
+@pytest.mark.parametrize(
+    ("content", "match"),
+    [
+        ('[bad]\nbin = ""\nmodel = "x"\n', "'bin' must be a non-empty string"),
+        ('[bad]\nbin = "cli"\nmodel = ""\n', "'model' must be a non-empty string"),
+        ('[bad]\nbin = "cli"\nmodel = "x"\nmax_concurrency = 0\n', "max_concurrency"),
+        (
+            '[bad]\nbin = "cli"\nmodel = "x"\nexhausted_patterns = [""]\n',
+            "exhausted_patterns",
+        ),
+        ('[bad]\nbin = "cli"\nmodel = "x"\ncapabilities = "bad"\n', "capabilities"),
+        (
+            '[bad]\nbin = "cli"\nmodel = "x"\ncapabilities = { json_output = "yes" }\n',
+            "capabilities.json_output",
+        ),
+        (
+            '[bad]\nbin = "cli"\nmodel = "x"\ncapabilities = { max_session_minutes = -1 }\n',
+            "max_session_minutes",
+        ),
+        (
+            '[bad]\nbin = "cli"\nmodel = "x"\ncapabilities = { known_limitations = [""] }\n',
+            "known_limitations",
+        ),
+    ],
+)
+def test_registry_rejects_field_level_errors(tmp_path: Path, content: str, match: str) -> None:
+    """Reject invalid provider sections with scoped error messages."""
+    config_path = tmp_path / "providers.toml"
+    config_path.write_text(content, encoding="utf-8")
+    with pytest.raises(ProviderRegistryError, match=match):
+        ProviderRegistry.from_config(config_path)

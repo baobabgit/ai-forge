@@ -10,7 +10,7 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -38,7 +38,7 @@ Garantir EXG-ROL-03 : chaque rôle s'exécute en session neuve de la CLI (aucune
 - [ ] Test d'inspection des prompts vert : aucun marqueur du transcript DEV ne fuit
 - [ ] Chaque invocation démarre une session CLI neuve (vérifié sur les trois adaptateurs)
 - [ ] Le mode mono-provider déroule les trois rôles avec la même qualité de contexte
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

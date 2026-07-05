@@ -10,7 +10,7 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -38,7 +38,7 @@ Implémenter src/providers/claude.py : invocation `claude -p --output-format jso
 - [ ] Le modèle opus-4.8 est forcé à chaque invocation (visible dans la commande journalisée)
 - [ ] Les quatre statuts sont correctement classés sur le faux binaire
 - [ ] health_check échoue proprement si le binaire est absent ou non authentifié
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

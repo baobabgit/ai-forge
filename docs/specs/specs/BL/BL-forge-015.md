@@ -10,7 +10,7 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -43,7 +43,7 @@ Implémenter src/phases/execute.py en version minimale séquentielle : prendre u
 - [ ] Scénario de démonstration rejouable : BL manuel -> PR mergée, entièrement piloté par AI-Forge
 - [ ] Interruption à chaque étape puis reprise : aucune étape rejouée avec double effet GitHub
 - [ ] Toutes les étapes tracées en base et en JSONL
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

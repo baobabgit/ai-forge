@@ -10,7 +10,7 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -36,7 +36,7 @@ Implémenter src/planner/waves.py : tri topologique par vagues (à tout instant,
 - [ ] Vagues conformes sur fixtures (vérifiées contre un calcul manuel)
 - [ ] Chemin critique correct, recalculé quand un BL passe BLOCKED
 - [ ] ready_bls priorise les BL du chemin critique
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

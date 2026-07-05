@@ -10,7 +10,7 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -41,7 +41,7 @@ gates:
 - [ ] Scénario NO GO -> Issue -> correction DEV -> GO -> merge rejoué en test d'intégration
 - [ ] L'Issue contient critères en échec, preuves et attendus
 - [ ] Le compteur d'itérations est incrémenté et persisté à chaque boucle
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

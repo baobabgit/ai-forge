@@ -10,7 +10,7 @@ critical: false
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -37,7 +37,7 @@ Implémenter src/core/specparser.py : lecture d'un fichier UC/FEAT/BL via python
 - [ ] Round-trip lecture/écriture strictement identique sur les fixtures
 - [ ] Id dupliqué, parent manquant et depends_on inconnu produisent des erreurs localisées
 - [ ] SpecIndex expose UC -> FEAT -> BL et la liste plate des BL
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

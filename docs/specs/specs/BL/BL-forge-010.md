@@ -10,7 +10,7 @@ critical: false
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -36,7 +36,7 @@ Implémenter src/obs/logging.py : événements JSON lines (event, ts, run_id, bl
 - [ ] Chaque ligne est un JSON valide autonome
 - [ ] Rotation par run, aucun verrou bloquant en écriture concurrente asyncio
 - [ ] Champs obligatoires validés à l'émission
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

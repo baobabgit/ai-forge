@@ -81,3 +81,43 @@ def test_secret_guard_inspects_nested_mappings() -> None:
                 "artefacts": {"nested": {"TOKEN": "value"}},
             },
         )
+
+
+def test_templates_root_points_to_prompts_directory() -> None:
+    """Expose the directory used to resolve role templates."""
+    renderer = PromptRenderer()
+    assert renderer.templates_root.name == "prompts"
+    assert (renderer.templates_root / "dev.md.j2").is_file()
+
+
+def test_render_role_expands_named_template(tmp_path: Path) -> None:
+    """Render arbitrary role templates through the generic entry point."""
+    renderer = PromptRenderer()
+    rendered = renderer.render_role(
+        "dev",
+        {
+            "bl_id": "BL-forge-011",
+            "spec_body": "Spec",
+            "scope": ["src/roles/rendering.py"],
+            "auto_gates": ["pytest -x"],
+            "artefacts": {"spec": str(tmp_path / "spec.md")},
+        },
+    )
+    assert "BL-forge-011" in rendered
+
+
+def test_secret_guard_inspects_lists() -> None:
+    """Reject forbidden keys nested inside list entries."""
+    renderer = PromptRenderer()
+    with pytest.raises(SecretContextError, match=r"items\[0\]\.PASSWORD"):
+        renderer.render_role(
+            "dev",
+            {
+                "bl_id": "BL-forge-011",
+                "spec_body": "x",
+                "scope": [],
+                "auto_gates": [],
+                "artefacts": {},
+                "items": [{"PASSWORD": "secret"}],
+            },
+        )

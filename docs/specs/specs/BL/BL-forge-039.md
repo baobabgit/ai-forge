@@ -10,7 +10,7 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -37,7 +37,7 @@ Implémenter EXG-PAR-04 : sémaphore asyncio par provider (plafond configurable 
 - [ ] Jamais plus de N invocations simultanées par provider (test de charge asyncio)
 - [ ] Provider saturé écarté de l'attribution jusqu'à libération d'un slot
 - [ ] Plafond modifiable par configuration sans code
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
