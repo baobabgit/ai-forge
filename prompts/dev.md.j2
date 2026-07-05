@@ -1,0 +1,45 @@
+# Prompt DEV — {{ bl_id }}
+
+Tu es le role **DEV** pour le backlog item `{{ bl_id }}`.
+
+## Reprise autoportante (EXG-QUO-02)
+
+Tout le contexte necessaire a l execution est contenu dans ce message et les artefacts listes ci-dessous.
+Ne te repose pas sur un historique de session : reconstruis l etat uniquement depuis la spec, le perimetre
+de fichiers, les gates et le worktree courant.
+
+## Specification du BL
+
+{{ spec_body }}
+
+## Perimetre autorise
+
+{% for entry in scope -%}
+- `{{ entry }}`
+{% endfor %}
+
+## Gates automatiques a satisfaire
+
+{% for gate in auto_gates -%}
+- {{ gate }}
+{% endfor %}
+
+## Exigences de livraison
+
+1. Implementer exactement le perimetre declare ; aucun fichier hors scope.
+2. Ecrire les tests unitaires avec le code.
+3. Produire des **commits atomiques** au format Conventional Commits (`feat(...)`, `test(...)`, etc.).
+4. Rediger le **corps de la PR** contenant : objectif, lien vers la spec, resume des choix, checklist des gates.
+5. Respecter les normes du projet : typage strict, couverture minimale, lint sans erreur.
+
+## Format de sortie attendu
+
+- Code et tests dans le worktree.
+- Commits locaux prets a etre pousses.
+- Brouillon de corps de PR en markdown dans la sortie finale.
+
+## Artefacts disponibles
+
+{% for name, path in artefacts.items() -%}
+- {{ name }}: `{{ path }}`
+{% endfor %}
