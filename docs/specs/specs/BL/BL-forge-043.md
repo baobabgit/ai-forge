@@ -3,7 +3,7 @@ id: BL-forge-043
 type: BL
 parent: FEAT-forge-025
 library: ai-forge
-target_version: 0.5.0
+target_version: 0.4.0
 depends_on: [BL-forge-009, BL-forge-014]
 size: M
 critical: false
@@ -20,7 +20,7 @@ gates:
 # BL-forge-043 — forge status temps réel
 
 **FEAT parente :** FEAT-forge-025 — Status temps réel, report et statistiques
-**Version cible :** v0.5.0 · **Taille :** M (~1 j) · **Critique :** non
+**Version cible :** v0.4.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
 Implémenter `forge status` (rich) : tableau de bord temps réel lisant l'état persisté — BL par état, vague courante, états et heures de recharge des providers, itérations en cours, workers actifs et leurs BL ; rafraîchissement continu, écart avec l'état réel < 2 s (EXG-NF-05) ; utilisable pendant qu'un run tourne (lecture seule, WAL).

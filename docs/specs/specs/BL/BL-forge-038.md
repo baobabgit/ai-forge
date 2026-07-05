@@ -3,7 +3,7 @@ id: BL-forge-038
 type: BL
 parent: FEAT-forge-020
 library: ai-forge
-target_version: 0.4.0
+target_version: 0.3.0
 depends_on: [BL-forge-036, BL-forge-021]
 size: M
 critical: false
@@ -20,7 +20,7 @@ gates:
 # BL-forge-038 — Rebase post-merge et résolution de conflits
 
 **FEAT parente :** FEAT-forge-020 — Worktrees isolés et rebase post-merge
-**Version cible :** v0.4.0 · **Taille :** M (~1 j) · **Critique :** non
+**Version cible :** v0.3.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
 Implémenter EXG-PAR-03 : après le merge d'un BL, tous les worktrees encore ouverts sur le même dépôt sont rebasés sur main avant la reprise de leur rôle DEV ; en cas de conflit de rebase, création d'une tâche de résolution confiée au rôle DEV du BL concerné (prompt dédié : conflits, spec du BL, diff des deux branches), puis reprise du cycle normal.

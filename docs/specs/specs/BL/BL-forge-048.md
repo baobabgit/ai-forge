@@ -23,7 +23,7 @@ gates:
 **Version cible :** v1.0.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
-Rédiger la documentation d'exploitation (livrable §7.3) : installation et authentification des trois CLI (claude, codex, cursor-agent), configuration commentée de src.toml et providers.toml (patterns d'épuisement, fenêtres de recharge, plafonds), déroulé complet init -> architect -> spec -> plan -> run, procédure de reprise après épuisement des quotas, guide de diagnostic (status, logs JSONL, transcripts, Issues de synthèse).
+Rédiger la documentation d'exploitation (livrable §10 du CDC v1.4) : installation et authentification des trois CLI (claude, codex, cursor-agent), configuration commentée de src.toml et providers.toml (patterns d'épuisement, fenêtres de recharge, plafonds), déroulé complet init -> architect -> spec -> plan -> run, procédure de reprise après épuisement des quotas, guide de diagnostic (status, logs JSONL, transcripts, Issues de synthèse).
 
 ## Fichiers / modules impactés
 - `docs/installation.md`

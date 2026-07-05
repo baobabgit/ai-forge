@@ -3,7 +3,7 @@ id: BL-forge-039
 type: BL
 parent: FEAT-forge-021
 library: ai-forge
-target_version: 0.4.0
+target_version: 0.3.0
 depends_on: [BL-forge-037, BL-forge-024]
 size: S
 critical: false
@@ -20,7 +20,7 @@ gates:
 # BL-forge-039 — Plafond de concurrence par provider
 
 **FEAT parente :** FEAT-forge-021 — Scheduler multi-workers et plafonds de concurrence
-**Version cible :** v0.4.0 · **Taille :** S (~0,5 j) · **Critique :** non
+**Version cible :** v0.3.0 · **Taille :** S (~0,5 j) · **Critique :** non
 
 ## Description technique
 Implémenter EXG-PAR-04 : sémaphore asyncio par provider (plafond configurable dans providers.toml, défaut 2) appliqué à toute invocation ; l'attribution des rôles tient compte des slots restants ; un provider saturé n'est pas sélectionné pour une nouvelle tâche tant qu'un slot ne se libère pas, afin d'éviter l'épuisement en rafale.

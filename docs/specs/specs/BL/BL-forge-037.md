@@ -3,8 +3,8 @@ id: BL-forge-037
 type: BL
 parent: FEAT-forge-021
 library: ai-forge
-target_version: 0.4.0
-depends_on: [BL-forge-034, BL-forge-009, BL-forge-027]
+target_version: 0.3.0
+depends_on: [BL-forge-009, BL-forge-027, BL-forge-036]
 size: L
 critical: true
 status: TODO
@@ -15,13 +15,13 @@ gates:
     - "mypy --strict src/"
   ai_judged:
     - "Le scheduler ne contient aucune logique métier de rôle (séparation stricte orchestration/rôles)"
-    - "Jalon v0.4 : deux BL du même dépôt développés simultanément et mergés sans intervention"
+    - "Jalon v0.3.0 : deux BL du même dépôt développés simultanément et mergés sans intervention"
 ---
 
 # BL-forge-037 — Scheduler asyncio multi-workers
 
 **FEAT parente :** FEAT-forge-021 — Scheduler multi-workers et plafonds de concurrence
-**Version cible :** v0.4.0 · **Taille :** L (~2 j) · **Critique :** OUI
+**Version cible :** v0.3.0 · **Taille :** L (~2 j) · **Critique :** OUI
 
 ## Description technique
 Implémenter src/scheduler/loop.py : boucle asyncio principale — sélection continue des BL prêts via le planner, pool de N workers concurrents (configurable, défaut 3), chaque worker déroulant le cycle complet d'un BL dans son worktree dédié ; réaction aux événements (BL DONE => recalcul planning + déblocage, BL BLOCKED => retrait), intégration de l'attribution des rôles et de la bascule de provider ; arrêt propre sur signal et reprise via l'état persisté. Câbler `forge run --workers N`.

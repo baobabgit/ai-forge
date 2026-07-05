@@ -3,7 +3,7 @@ id: BL-forge-035
 type: BL
 parent: FEAT-forge-019
 library: ai-forge
-target_version: 0.3.0
+target_version: 0.5.0
 depends_on: [BL-forge-034]
 size: M
 critical: false
@@ -20,7 +20,7 @@ gates:
 # BL-forge-035 — Publication et recalcul événementiel du planning
 
 **FEAT parente :** FEAT-forge-019 — Planner : DAG, vagues, chemin critique, publication
-**Version cible :** v0.3.0 · **Taille :** M (~1 j) · **Critique :** non
+**Version cible :** v0.5.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
 Implémenter EXG-PLA-04/05 : génération de planning.md (vagues lisibles, chemin critique, correspondance BL -> version -> jalon) et planning.json (machine) ; publication dans le dépôt programme (dossier local du run en v0.3, dépôt programme en v0.5) ; recalcul et republication après chaque événement modifiant le graphe : BL DONE, BL BLOCKED, Issue de correction créée. Câbler `forge plan` dans la CLI.

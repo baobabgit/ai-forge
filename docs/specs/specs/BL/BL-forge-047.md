@@ -3,7 +3,7 @@ id: BL-forge-047
 type: BL
 parent: FEAT-forge-025
 library: ai-forge
-target_version: 1.0.0
+target_version: 0.1.3
 depends_on: [BL-forge-010, BL-forge-024]
 size: S
 critical: false
@@ -20,7 +20,7 @@ gates:
 # BL-forge-047 — Statistiques de consommation
 
 **FEAT parente :** FEAT-forge-025 — Status temps réel, report et statistiques
-**Version cible :** v1.0.0 · **Taille :** S (~0,5 j) · **Critique :** non
+**Version cible :** v0.1.3 · **Taille :** S (~0,5 j) · **Critique :** non
 
 ## Description technique
 Implémenter EXG-QUO-04 : agrégation des invocations journalisées (par provider, rôle, BL, librairie : nombre, durées, issues OK/EXHAUSTED/ERROR/TIMEOUT, itérations induites) ; export dans forge report et dans un fichier stats.json ; les statistiques alimentent la fenêtre de charge de la rotation (BL-forge-027) pour l'affiner.

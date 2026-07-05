@@ -3,7 +3,7 @@ id: BL-forge-044
 type: BL
 parent: FEAT-forge-025
 library: ai-forge
-target_version: 0.5.0
+target_version: 0.4.0
 depends_on: [BL-forge-009, BL-forge-040]
 size: S
 critical: false
@@ -20,7 +20,7 @@ gates:
 # BL-forge-044 — forge report
 
 **FEAT parente :** FEAT-forge-025 — Status temps réel, report et statistiques
-**Version cible :** v0.5.0 · **Taille :** S (~0,5 j) · **Critique :** non
+**Version cible :** v0.4.0 · **Taille :** S (~0,5 j) · **Critique :** non
 
 ## Description technique
 Implémenter `forge report` : rapport Markdown de synthèse du run — BL livrés/bloqués par librairie et version, itérations par BL, Issues ouvertes, jalons atteints, durées — généré depuis l'état persisté et poussé dans le dépôt programme (commit dédié).

@@ -3,7 +3,7 @@ id: BL-forge-031
 type: BL
 parent: FEAT-forge-018
 library: ai-forge
-target_version: 0.3.0
+target_version: 0.5.0
 depends_on: [BL-forge-030]
 size: M
 critical: false
@@ -21,7 +21,7 @@ gates:
 # BL-forge-031 — Dérivation des FEAT et des BL
 
 **FEAT parente :** FEAT-forge-018 — Phase 2 : génération et contre-relecture des specs
-**Version cible :** v0.3.0 · **Taille :** M (~1 j) · **Critique :** non
+**Version cible :** v0.5.0 · **Taille :** M (~1 j) · **Critique :** non
 
 ## Description technique
 Étendre le rôle SPEC : dérivation des FEAT depuis chaque UC (identifiant, UC parent, description, comportement Given/When/Then, interfaces, gates) conforme EXG-SPE-03, puis des BL depuis chaque FEAT (description technique, fichiers/modules impactés, definition of done, depends_on y compris inter-librairies, taille S/M/L, version cible, gates auto + ai_judged) conforme EXG-SPE-04. Instruction de granularité EXG-SPE-06 : un BL = une session d'agent (ordre demi-journée humaine), avec consigne de découpage par module pour limiter les conflits Git (parade §6).

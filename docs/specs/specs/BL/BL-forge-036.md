@@ -3,7 +3,7 @@ id: BL-forge-036
 type: BL
 parent: FEAT-forge-020
 library: ai-forge
-target_version: 0.4.0
+target_version: 0.3.0
 depends_on: [BL-forge-012]
 size: M
 critical: true
@@ -20,7 +20,7 @@ gates:
 # BL-forge-036 — Gestion des worktrees Git
 
 **FEAT parente :** FEAT-forge-020 — Worktrees isolés et rebase post-merge
-**Version cible :** v0.4.0 · **Taille :** M (~1 j) · **Critique :** OUI
+**Version cible :** v0.3.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
 Implémenter src/workspace/worktrees.py : création `git worktree add ../wt/<BL-id> -b feat/<BL-id>`, verrou d'unicité (un seul worktree actif par BL, enregistré en base), nettoyage garanti (worktree remove + prune) y compris pour les worktrees orphelins détectés après crash, reset propre (`git reset --hard` + clean) avant toute reprise de rôle sur un worktree existant (EXG-NF-01). Isolation totale des fichiers entre tâches simultanées (EXG-PAR-01), synchronisation exclusivement via GitHub (EXG-PAR-02).
