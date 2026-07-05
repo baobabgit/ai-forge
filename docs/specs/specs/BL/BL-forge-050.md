@@ -7,7 +7,7 @@ target_version: 0.1.2
 depends_on: [BL-forge-009, BL-forge-014]
 size: M
 critical: true
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -38,11 +38,11 @@ Implémenter les niveaux de confiance L0/L1/L2 (EXG-TRU-01..03) et le safe_mode 
 - BL-forge-014 — CLI typer : forge init et run minimal
 
 ## Definition of Done
-- [ ] Action sensible en L0 mise en file, exécutée après forge approve, refusée avant
-- [ ] safe_mode intercepte les actions destructrices y compris en L2
-- [ ] File d'attente persistée et visible (données pour forge status)
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Action sensible en L0 mise en file, exécutée après forge approve, refusée avant
+- [x] safe_mode intercepte les actions destructrices y compris en L2
+- [x] File d'attente persistée et visible (données pour forge status)
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
