@@ -11,6 +11,14 @@ from rich.console import Console
 
 from src.core.models.status import Status
 from src.core.specparser import SpecParseError, read_spec
+from src.phases.execute import (
+    ExecutionError,
+    SequentialExecutionRequest,
+    SequentialExecutionResult,
+    SequentialExecutor,
+)
+from src.providers.bootstrap import create_provider, default_providers_path, load_registry
+from src.providers.registry import ProviderRegistryError
 from src.state.db import StateDatabase, StateDatabaseError
 from src.state.machine import BlStateMachine, IllegalTransitionError, TransitionRequest
 
@@ -23,6 +31,7 @@ ARTIFACTS_DIRNAME = "artifacts"
 RUN_ID_FILENAME = "run_id"
 BL_SPEC_DIR = Path("docs") / "specs" / "specs" / "BL"
 RUNNABLE_STATUSES = frozenset({Status.TODO, Status.READY})
+DEFAULT_PROVIDER = "cursor"
 
 
 class ExitCode(IntEnum):
@@ -85,13 +94,25 @@ async def init_forge(cdc_path: Path, *, forge_dir: Path, run_id: str) -> None:
         await database.close()
 
 
-async def run_bl(bl_id: str, *, forge_dir: Path, repo_root: Path) -> None:
-    """Validate and start sequential execution for ``bl_id``.
+async def run_bl(
+    bl_id: str,
+    *,
+    forge_dir: Path,
+    repo_root: Path,
+    provider_name: str = DEFAULT_PROVIDER,
+    providers_config: Path | None = None,
+    dry_run: bool = False,
+) -> SequentialExecutionResult:
+    """Validate and run sequential execution for ``bl_id``.
 
     :param bl_id: Backlog item identifier.
     :param forge_dir: Directory holding forge state.
     :param repo_root: Repository root used to resolve BL specifications.
-    :raises ForgeCliError: If the BL is unknown, the state store is missing, or the BL is not ready.
+    :param provider_name: Provider identifier from ``providers.toml``.
+    :param providers_config: Optional override for the providers configuration file.
+    :param dry_run: When true, git/gh operations are logged but not executed.
+    :returns: Final sequential execution outcome.
+    :raises ForgeCliError: If the BL is unknown, the state store is missing, or execution fails.
     """
     state_path = forge_dir / STATE_FILENAME
     if not state_path.is_file():
@@ -147,8 +168,31 @@ async def run_bl(bl_id: str, *, forge_dir: Path, repo_root: Path) -> None:
             event_type="DEV_STARTED",
             actor="cli",
             bl_id=bl_id,
-            details={"spec_path": str(spec_path.resolve())},
+            details={"spec_path": str(spec_path.resolve()), "provider": provider_name},
         )
+
+        config_path = providers_config or default_providers_path(repo_root)
+        try:
+            registry = load_registry(config_path)
+            provider = create_provider(registry, provider_name)
+        except ProviderRegistryError as error:
+            raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+        executor = SequentialExecutor(database)
+        try:
+            return await executor.execute(
+                SequentialExecutionRequest(
+                    bl_id=bl_id,
+                    spec_path=spec_path,
+                    repo_root=repo_root,
+                    forge_dir=forge_dir,
+                    run_id=run_id,
+                    provider=provider,
+                    dry_run=dry_run,
+                )
+            )
+        except ExecutionError as error:
+            raise ForgeCliError(ExitCode.EXECUTION_ERROR, str(error)) from error
     finally:
         await database.close()
 
@@ -206,19 +250,40 @@ def run_command(
         "--repo-root",
         help="Repository root path.",
     ),
+    provider: str = typer.Option(
+        DEFAULT_PROVIDER,
+        "--provider",
+        help="Provider identifier from config/providers.toml.",
+    ),
+    providers_config: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--providers-config",
+        help="Override path to providers.toml.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Log git/gh operations without executing them.",
+    ),
 ) -> None:
     """Run sequential execution for a backlog item."""
     try:
-        asyncio.run(
+        result = asyncio.run(
             run_bl(
                 bl_id,
                 forge_dir=forge_dir.resolve(),
                 repo_root=repo_root.resolve(),
+                provider_name=provider,
+                providers_config=providers_config.resolve() if providers_config else None,
+                dry_run=dry_run,
             )
         )
     except ForgeCliError as error:
         _handle_cli_error(error)
-    console.print(f"[green]{bl_id} execution started[/green]")
+    if result.merged:
+        console.print(f"[green]{bl_id} merged on {result.branch} (PR #{result.pr_number})[/green]")
+    else:
+        console.print(f"[green]{bl_id} execution completed[/green]")
 
 
 def main() -> None:
