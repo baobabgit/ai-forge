@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import subprocess
+import subprocess  # nosec B404 - fixed git argv for deterministic mock commits.
 from dataclasses import dataclass
 from pathlib import Path
 
