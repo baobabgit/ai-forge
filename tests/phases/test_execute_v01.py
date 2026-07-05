@@ -147,7 +147,10 @@ async def test_sequential_executor_runs_demo_chain_in_dry_run(tmp_path: Path) ->
         event_types = [event.event_type for event in events if event.bl_id == "BL-demo-001"]
         assert "WORKTREE_CREATED" in event_types
         assert "DEV_COMPLETED" in event_types
+        assert "GATES_COMPLETED" in event_types
+        assert "TESTER_COMPLETED" in event_types
         assert "PR_OPENED" in event_types
+        assert "REVIEWER_COMPLETED" in event_types
         assert "MERGED" in event_types
         status = await database.get_bl_status("BL-demo-001")
         assert status is not None
@@ -191,7 +194,25 @@ async def test_sequential_executor_resumes_without_duplicating_steps(tmp_path: P
             event_type="DEV_COMPLETED",
             actor="DEV",
             bl_id="BL-demo-001",
-            details={"commits": 1, "changed_files": ["examples/demo-bl/demo.txt"]},
+            details={
+                "commits": 1,
+                "changed_files": ["examples/demo-bl/demo.txt"],
+                "baseline_ref": "abc123",
+            },
+        )
+        await database.append_event(
+            run_id=run_id,
+            event_type="GATES_COMPLETED",
+            actor="GATE",
+            bl_id="BL-demo-001",
+            details={"verdict": "GO", "dry_run": True},
+        )
+        await database.append_event(
+            run_id=run_id,
+            event_type="TESTER_COMPLETED",
+            actor="TESTER",
+            bl_id="BL-demo-001",
+            details={"verdict": "GO", "dry_run": True},
         )
         executor = SequentialExecutor(database)
         result = await executor.execute(
@@ -312,14 +333,31 @@ async def test_sequential_executor_completes_merge_from_pr_open_state(tmp_path: 
     try:
         await database.create_run(run_id)
         await database.register_bl("BL-demo-001", run_id, status=Status.IN_REVIEW)
-        for event_type in ("WORKTREE_CREATED", "DEV_COMPLETED", "PR_OPENED"):
+        for event_type in (
+            "WORKTREE_CREATED",
+            "DEV_COMPLETED",
+            "GATES_COMPLETED",
+            "TESTER_COMPLETED",
+            "PR_OPENED",
+        ):
             await database.append_event(
                 run_id=run_id,
                 event_type=event_type,
                 actor="executor",
                 bl_id="BL-demo-001",
-                details={"number": 3} if event_type == "PR_OPENED" else {},
+                details=(
+                    {"number": 3, "baseline_ref": "abc123"}
+                    if event_type == "PR_OPENED"
+                    else {"verdict": "GO"}
+                ),
             )
+        await database.append_event(
+            run_id=run_id,
+            event_type="REVIEWER_COMPLETED",
+            actor="REVIEWER",
+            bl_id="BL-demo-001",
+            details={"verdict": "GO", "dry_run": True},
+        )
         executor = SequentialExecutor(database)
         result = await executor.execute(
             SequentialExecutionRequest(
@@ -372,3 +410,249 @@ def test_git_head_raises_when_git_is_missing(
     with pytest.raises(ExecutionError) as exc:
         execute_module._git_head(repo, dry_run=False)
     assert exc.value.step is ExecutionStep.DEV
+
+
+@pytest.mark.asyncio
+async def test_sequential_executor_fails_when_auto_gates_reject(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stop the chain when automatic gates return NO GO."""
+    from src.core.models.verdict import Verdict
+    from src.gates.auto import AutoGatesReport
+
+    repo = _init_repo(tmp_path)
+    forge_dir = tmp_path / ".forge"
+    forge_dir.mkdir()
+    (forge_dir / "artifacts").mkdir()
+    spec_path = Path("examples/demo-bl/BL-demo-001.md").resolve()
+    run_id = "run-demo"
+
+    async def _failed_gates(_request):  # type: ignore[no-untyped-def]
+        return AutoGatesReport(
+            bl_id="BL-demo-001",
+            verdict=Verdict.NO_GO,
+            gates=(),
+            diff_guard=None,
+            report_path=forge_dir / "artifacts" / "BL-demo-001" / "auto-gates.json",
+            motifs=("pytest failed",),
+        )
+
+    monkeypatch.setattr("src.phases.execute.run_auto_gates", _failed_gates)
+
+    database = await StateDatabase.open(forge_dir / "state.db")
+    try:
+        await database.create_run(run_id)
+        await database.register_bl("BL-demo-001", run_id, status=Status.IN_PROGRESS)
+        executor = SequentialExecutor(database)
+        with pytest.raises(ExecutionError) as exc:
+            await executor.execute(
+                SequentialExecutionRequest(
+                    bl_id="BL-demo-001",
+                    spec_path=spec_path,
+                    repo_root=repo,
+                    forge_dir=forge_dir,
+                    run_id=run_id,
+                    provider=_provider(),
+                    dry_run=False,
+                )
+            )
+        assert exc.value.step is ExecutionStep.GATES
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_execute_runs_real_gates_tester_and_reviewer_with_mocks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Cover non-dry-run gate, tester and reviewer steps with mocked dependencies."""
+    from src.core.models.go_no_go import GoNoGo
+    from src.core.models.verdict import Verdict
+    from src.gates.auto import AutoGatesReport
+    from src.roles.reviewer import ReviewerRoleResult
+    from src.roles.tester import TesterRoleResult
+
+    repo = _init_repo(tmp_path)
+    forge_dir = tmp_path / ".forge"
+    forge_dir.mkdir()
+    (forge_dir / "artifacts").mkdir()
+    spec_path = Path("examples/demo-bl/BL-demo-001.md").resolve()
+    run_id = "run-demo"
+    baseline = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
+
+    async def _passed_gates(_request):  # type: ignore[no-untyped-def]
+        return AutoGatesReport(
+            bl_id="BL-demo-001",
+            verdict=Verdict.GO,
+            gates=(),
+            diff_guard=None,
+            report_path=forge_dir / "artifacts" / "BL-demo-001" / "auto-gates.json",
+            motifs=(),
+        )
+
+    async def _tester(_self, _request):  # type: ignore[no-untyped-def]
+        _ = _self
+        return TesterRoleResult(
+            gates_report=await _passed_gates(None),
+            verdict=GoNoGo(verdict=Verdict.GO, motifs=["ok"], preuves=["report"]),
+            changed_files=("examples/demo-bl/demo.txt",),
+        )
+
+    async def _reviewer(_self, _request):  # type: ignore[no-untyped-def]
+        _ = _self
+        return ReviewerRoleResult(
+            verdict=GoNoGo(verdict=Verdict.GO, motifs=["ok"], preuves=["diff"]),
+            review_event="approve",
+            diff="diff",
+        )
+
+    monkeypatch.setattr("src.phases.execute.run_auto_gates", _passed_gates)
+    monkeypatch.setattr("src.phases.execute.TesterRole.run", _tester)
+    monkeypatch.setattr("src.phases.execute.ReviewerRole.run", _reviewer)
+    monkeypatch.setattr("src.phases.execute.gitio.push", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "src.phases.execute.pr_create",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            [], 0, "https://github.com/o/r/pull/9", ""
+        ),
+    )
+    monkeypatch.setattr(
+        "src.phases.execute.pr_merge_squash",
+        lambda *args, **kwargs: subprocess.CompletedProcess([], 0, "", ""),
+    )
+
+    database = await StateDatabase.open(forge_dir / "state.db")
+    try:
+        await database.create_run(run_id)
+        await database.register_bl("BL-demo-001", run_id, status=Status.IN_TEST)
+        await database.append_event(
+            run_id=run_id,
+            event_type="WORKTREE_CREATED",
+            actor="executor",
+            bl_id="BL-demo-001",
+            details={"branch": "feat/bl-demo-001", "path": str(repo)},
+        )
+        await database.append_event(
+            run_id=run_id,
+            event_type="DEV_COMPLETED",
+            actor="DEV",
+            bl_id="BL-demo-001",
+            details={"commits": 1, "baseline_ref": baseline, "changed_files": []},
+        )
+        executor = SequentialExecutor(database)
+        result = await executor.execute(
+            SequentialExecutionRequest(
+                bl_id="BL-demo-001",
+                spec_path=spec_path,
+                repo_root=repo,
+                forge_dir=forge_dir,
+                run_id=run_id,
+                provider=_provider(),
+                dry_run=False,
+            )
+        )
+    finally:
+        await database.close()
+
+    assert ExecutionStep.GATES in result.completed_steps
+    assert ExecutionStep.TESTER in result.completed_steps
+
+
+@pytest.mark.asyncio
+async def test_execute_fails_when_tester_returns_no_go(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stop the chain when the TESTER verdict is NO GO."""
+    from src.core.models.go_no_go import GoNoGo
+    from src.core.models.verdict import Verdict
+    from src.gates.auto import AutoGatesReport
+    from src.roles.tester import TesterRoleResult
+
+    repo = _init_repo(tmp_path)
+    forge_dir = tmp_path / ".forge"
+    forge_dir.mkdir()
+    (forge_dir / "artifacts").mkdir()
+    spec_path = Path("examples/demo-bl/BL-demo-001.md").resolve()
+    run_id = "run-demo"
+    baseline = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
+
+    async def _passed_gates(_request):  # type: ignore[no-untyped-def]
+        return AutoGatesReport(
+            bl_id="BL-demo-001",
+            verdict=Verdict.GO,
+            gates=(),
+            diff_guard=None,
+            report_path=forge_dir / "artifacts" / "BL-demo-001" / "auto-gates.json",
+            motifs=(),
+        )
+
+    async def _tester_no_go(_self, _request):  # type: ignore[no-untyped-def]
+        _ = _self
+        return TesterRoleResult(
+            gates_report=await _passed_gates(None),
+            verdict=GoNoGo(verdict=Verdict.NO_GO, motifs=["tests missing"], preuves=["log"]),
+            changed_files=(),
+        )
+
+    monkeypatch.setattr("src.phases.execute.run_auto_gates", _passed_gates)
+    monkeypatch.setattr("src.phases.execute.TesterRole.run", _tester_no_go)
+
+    database = await StateDatabase.open(forge_dir / "state.db")
+    try:
+        await database.create_run(run_id)
+        await database.register_bl("BL-demo-001", run_id, status=Status.IN_TEST)
+        for event_type, details in (
+            ("WORKTREE_CREATED", {"branch": "feat/bl-demo-001", "path": str(repo)}),
+            (
+                "DEV_COMPLETED",
+                {"commits": 1, "baseline_ref": baseline, "changed_files": []},
+            ),
+            ("GATES_COMPLETED", {"verdict": "GO"}),
+        ):
+            await database.append_event(
+                run_id=run_id,
+                event_type=event_type,
+                actor="executor",
+                bl_id="BL-demo-001",
+                details=details,
+            )
+        executor = SequentialExecutor(database)
+        with pytest.raises(ExecutionError) as exc:
+            await executor.execute(
+                SequentialExecutionRequest(
+                    bl_id="BL-demo-001",
+                    spec_path=spec_path,
+                    repo_root=repo,
+                    forge_dir=forge_dir,
+                    run_id=run_id,
+                    provider=_provider(),
+                    dry_run=False,
+                )
+            )
+        assert exc.value.step is ExecutionStep.TESTER
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_read_baseline_ref_raises_when_missing(tmp_path: Path) -> None:
+    """Fail gates execution when the DEV baseline was not persisted."""
+    forge_dir = tmp_path / ".forge"
+    forge_dir.mkdir()
+    run_id = "run-demo"
+    database = await StateDatabase.open(forge_dir / "state.db")
+    try:
+        await database.create_run(run_id)
+        await database.append_event(
+            run_id=run_id,
+            event_type="DEV_COMPLETED",
+            actor="DEV",
+            bl_id="BL-demo-001",
+            details={"commits": 1},
+        )
+        executor = SequentialExecutor(database)
+        with pytest.raises(ExecutionError) as exc:
+            await executor._read_baseline_ref(run_id, "BL-demo-001")
+        assert exc.value.step is ExecutionStep.GATES
+    finally:
+        await database.close()
