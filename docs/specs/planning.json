@@ -46,22 +46,62 @@
     {
       "exigence": "forge approve + safe_mode (v0.1.2)",
       "target_version": "0.1.2",
-      "status": "no_bl"
+      "status": "specified",
+      "bls": ["BL-forge-050"]
+    },
+    {
+      "exigence": "Interprétation robuste des checks CI + reprise kill -9 (v0.1.2)",
+      "target_version": "0.1.2",
+      "status": "specified",
+      "bls": ["BL-forge-051", "BL-forge-052"]
+    },
+    {
+      "exigence": "ADR outillés + status/report initiaux (v0.1.3)",
+      "target_version": "0.1.3",
+      "status": "specified",
+      "bls": ["BL-forge-068", "BL-forge-069"]
+    },
+    {
+      "exigence": "Locks, invariants, manifeste de contexte/run, banc v1 (v0.2.0)",
+      "target_version": "0.2.0",
+      "status": "specified",
+      "bls": ["BL-forge-053", "BL-forge-054", "BL-forge-070", "BL-forge-055"]
     },
     {
       "exigence": "forge revert + cleanup-orphans (v0.3.0)",
       "target_version": "0.3.0",
-      "status": "no_bl"
+      "status": "specified",
+      "bls": ["BL-forge-057"]
+    },
+    {
+      "exigence": "Ordonnancement concurrent avancé, budgets, escalade, anti-injection (v0.3.0)",
+      "target_version": "0.3.0",
+      "status": "specified",
+      "bls": ["BL-forge-059", "BL-forge-060", "BL-forge-061", "BL-forge-062"]
     },
     {
       "exigence": "forge rollback-version + repair-state (v0.4.0)",
       "target_version": "0.4.0",
-      "status": "no_bl"
+      "status": "specified",
+      "bls": ["BL-forge-058"]
     },
     {
       "exigence": "forge doctor + forge validate-specs (v0.3.0+)",
       "target_version": "0.3.0",
-      "status": "no_bl"
+      "status": "specified",
+      "bls": ["BL-forge-056"]
+    },
+    {
+      "exigence": "Templates-plugins + gates documentaires (v0.4.0)",
+      "target_version": "0.4.0",
+      "status": "specified",
+      "bls": ["BL-forge-063", "BL-forge-064"]
+    },
+    {
+      "exigence": "Mode audit, scoring providers, sécurité étendue (v1.0.0)",
+      "target_version": "1.0.0",
+      "status": "specified",
+      "bls": ["BL-forge-065", "BL-forge-066", "BL-forge-067"]
     }
   ],
   "versions": [
@@ -107,21 +147,23 @@
       "version": "0.1.2",
       "default_trust_level": "L0",
       "workers_default": 1,
-      "waves": [],
-      "critical_path": [],
-      "critical_path_weight": 0,
-      "milestone": "PR avec CI verte mergée via forge approve ; run tué puis repris sans incohérence.",
-      "note": "Exigences CDC sans BL dédiés — voir gaps."
+      "waves": [
+        ["BL-forge-050", "BL-forge-051", "BL-forge-052"]
+      ],
+      "critical_path": ["BL-forge-050"],
+      "critical_path_weight": 2,
+      "milestone": "PR avec CI verte mergée via forge approve ; run tué puis repris sans incohérence."
     },
     {
       "version": "0.1.3",
       "default_trust_level": "L0",
       "workers_default": 1,
       "waves": [
-        ["BL-forge-047"]
+        ["BL-forge-047", "BL-forge-068"],
+        ["BL-forge-069"]
       ],
-      "critical_path": ["BL-forge-047"],
-      "critical_path_weight": 1,
+      "critical_path": ["BL-forge-047", "BL-forge-069"],
+      "critical_path_weight": 3,
       "milestone": "Rapport de run complet avec statistiques et ADR générés."
     },
     {
@@ -131,16 +173,18 @@
       "waves": [
         ["BL-forge-016", "BL-forge-017", "BL-forge-020", "BL-forge-024"],
         ["BL-forge-018", "BL-forge-019", "BL-forge-026", "BL-forge-027"],
-        ["BL-forge-021", "BL-forge-023"],
-        ["BL-forge-022", "BL-forge-025"]
+        ["BL-forge-021", "BL-forge-023", "BL-forge-053", "BL-forge-054", "BL-forge-070"],
+        ["BL-forge-022", "BL-forge-025"],
+        ["BL-forge-055"]
       ],
       "critical_path": [
         "BL-forge-016",
         "BL-forge-018",
         "BL-forge-021",
-        "BL-forge-025"
+        "BL-forge-025",
+        "BL-forge-055"
       ],
-      "critical_path_weight": 10,
+      "critical_path_weight": 14,
       "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI."
     },
     {
@@ -148,11 +192,12 @@
       "default_trust_level": "L1",
       "workers_default": 3,
       "waves": [
-        ["BL-forge-036", "BL-forge-037"],
-        ["BL-forge-038", "BL-forge-039"]
+        ["BL-forge-036", "BL-forge-037", "BL-forge-056", "BL-forge-057"],
+        ["BL-forge-038", "BL-forge-039", "BL-forge-060", "BL-forge-061", "BL-forge-062"],
+        ["BL-forge-059"]
       ],
-      "critical_path": ["BL-forge-036", "BL-forge-037", "BL-forge-039"],
-      "critical_path_weight": 6,
+      "critical_path": ["BL-forge-037", "BL-forge-059"],
+      "critical_path_weight": 8,
       "milestone": "Deux BL du même dépôt en parallèle mergés sans intervention ; revert démontré."
     },
     {
@@ -161,7 +206,7 @@
       "workers_default": 3,
       "waves": [
         ["BL-forge-040", "BL-forge-042", "BL-forge-043"],
-        ["BL-forge-041", "BL-forge-044", "BL-forge-045"],
+        ["BL-forge-041", "BL-forge-044", "BL-forge-045", "BL-forge-058", "BL-forge-063", "BL-forge-064"],
         ["BL-forge-049"]
       ],
       "critical_path": ["BL-forge-040", "BL-forge-041", "BL-forge-049"],
@@ -186,7 +231,7 @@
       "default_trust_level": "L2",
       "workers_default": 3,
       "waves": [
-        ["BL-forge-046"],
+        ["BL-forge-046", "BL-forge-065", "BL-forge-066", "BL-forge-067"],
         ["BL-forge-048"]
       ],
       "critical_path": ["BL-forge-046"],
@@ -219,6 +264,15 @@
     "BL-forge-033",
     "BL-forge-034",
     "BL-forge-046",
-    "BL-forge-049"
+    "BL-forge-049",
+    "BL-forge-050",
+    "BL-forge-051",
+    "BL-forge-052",
+    "BL-forge-053",
+    "BL-forge-054",
+    "BL-forge-055",
+    "BL-forge-059",
+    "BL-forge-062",
+    "BL-forge-070"
   ]
 }

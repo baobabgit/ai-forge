@@ -30,6 +30,7 @@ Chaque rôle s'exécute en session neuve ; en mono-provider, le TESTER/REVIEWER 
 
 ## BL enfants
 - BL-forge-023
+- BL-forge-070
 
 ## Critères GO/NO-GO (niveau FEAT — EXG-SPE-07)
 - GO si tous les BL enfants sont DONE, les tests d'intégration de la feature sont verts, et le comportement Given/When/Then est validé par une IA n'ayant pas développé.

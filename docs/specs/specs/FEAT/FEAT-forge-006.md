@@ -31,6 +31,7 @@ Campagne d'interruptions brutales (kill -9) à chaque étape du cycle, vérifica
 - `tests/crash/`
 
 ## BL enfants
+- BL-forge-052
 - BL-forge-046
 
 ## Critères GO/NO-GO (niveau FEAT — EXG-SPE-07)
