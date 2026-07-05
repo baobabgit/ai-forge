@@ -85,7 +85,13 @@ class MockProvider:
         )
 
 
-async def _execute_dev(task: RoleTask, workdir: Path, transcript: Path) -> str:
+async def _execute_dev(
+    task: RoleTask,
+    workdir: Path,
+    transcript: Path,
+    *,
+    commit_message: str | None = None,
+) -> str:
     scope = _scope_from_prompt(task.prompt)
     target_dir = workdir / _primary_scope_directory(scope, task.bl_id)
     marker = _deterministic_token(task.bl_id)
@@ -104,7 +110,12 @@ async def _execute_dev(task: RoleTask, workdir: Path, transcript: Path) -> str:
 
     rel_source = _relative_path(workdir, source_file)
     rel_test = _relative_path(workdir, test_file)
-    _git_commit_files(workdir, (rel_source, rel_test), task.bl_id)
+    _git_commit_files(
+        workdir,
+        (rel_source, rel_test),
+        task.bl_id,
+        message=commit_message,
+    )
 
     output = _dev_output(task.bl_id, marker)
     transcript.write_text(task.prompt + "\n\n---\n\n" + output, encoding="utf-8")
@@ -169,7 +180,13 @@ def _relative_path(workdir: Path, path: Path) -> str:
     return path.resolve().relative_to(workdir.resolve()).as_posix()
 
 
-def _git_commit_files(workdir: Path, paths: tuple[str, ...], bl_id: str) -> None:
+def _git_commit_files(
+    workdir: Path,
+    paths: tuple[str, ...],
+    bl_id: str,
+    *,
+    message: str | None = None,
+) -> None:
     subprocess.run(["git", "add", *paths], cwd=workdir, check=True)  # nosec B603 B607
     staged = subprocess.run(
         ["git", "diff", "--cached", "--quiet"],
@@ -178,10 +195,69 @@ def _git_commit_files(workdir: Path, paths: tuple[str, ...], bl_id: str) -> None
     )  # nosec B603 B607
     if staged.returncode != 0:
         subprocess.run(
-            ["git", "commit", "-m", f"feat(mock): {bl_id}"],
+            ["git", "commit", "-m", message or f"feat(mock): {bl_id}"],
             cwd=workdir,
             check=True,
         )  # nosec B603 B607
+
+
+@dataclass(slots=True)
+class ScriptableMockProvider:
+    """Mock provider with scripted outputs for scenario-bank integration tests."""
+
+    config: ProviderConfig
+    judging_outputs: tuple[str, ...] = ()
+    dev_commit_message: str | None = None
+    _sequence: int = 1
+    _judging_index: int = 0
+
+    @property
+    def name(self) -> str:
+        return self.config.name
+
+    @property
+    def model(self) -> str:
+        return self.config.model
+
+    async def execute(self, task: RoleTask, workdir: Path) -> ProviderResult:
+        resolved = workdir.resolve()
+        transcript = transcript_path(
+            resolved / "artifacts",
+            task.bl_id,
+            self._sequence,
+            task.role.value,
+            self.name,
+        )
+        transcript.parent.mkdir(parents=True, exist_ok=True)
+
+        if task.role is Role.DEV:
+            output = await _execute_dev(
+                task,
+                resolved,
+                transcript,
+                commit_message=self.dev_commit_message,
+            )
+        elif self.judging_outputs:
+            index = min(self._judging_index, len(self.judging_outputs) - 1)
+            output = self.judging_outputs[index]
+            self._judging_index += 1
+            transcript.write_text(output, encoding="utf-8")
+        else:
+            output = _execute_judging_role(task)
+            transcript.write_text(output, encoding="utf-8")
+
+        return ProviderResult(
+            status=ProviderStatus.OK,
+            output=output,
+            raw_transcript_path=transcript,
+        )
+
+    async def health_check(self) -> ProviderHealth:
+        return ProviderHealth(
+            healthy=True,
+            message="scriptable mock provider ready",
+            model=self.model,
+        )
 
 
 def build_mock_provider(config: ProviderConfig) -> Provider:

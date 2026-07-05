@@ -7,7 +7,7 @@ target_version: 0.2.0
 depends_on: [BL-forge-004, BL-forge-021, BL-forge-025]
 size: L
 critical: true
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -37,11 +37,11 @@ Implémenter le banc de scénarios v1 (EXG-TST-01/02, annexe A9 : fake gh pour l
 - BL-forge-025 — Bascule de provider en cours de tâche
 
 ## Definition of Done
-- [ ] Les 11 scénarios du périmètre v0.2.0 passent en CI sans accès réseau
-- [ ] Chaque scénario documente l'exigence CDC qu'il protège
-- [ ] Le banc échoue si un scénario est retiré ou skippé (INV-002)
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Les 11 scénarios du périmètre v0.2.0 passent en CI sans accès réseau
+- [x] Chaque scénario documente l'exigence CDC qu'il protège
+- [x] Le banc échoue si un scénario est retiré ou skippé (INV-002)
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
