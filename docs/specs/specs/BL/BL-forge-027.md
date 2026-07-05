@@ -10,7 +10,7 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -36,7 +36,7 @@ Implémenter EXG-ROL-02/03 dans src/scheduler/assignment.py : sur chaque BL, DEV
 - [ ] À trois providers : trois rôles, trois providers distincts, DEV le moins chargé
 - [ ] Replis 2 providers et 1 provider conformes à EXG-ROL-03
 - [ ] Attributions visibles en base et en JSONL
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

@@ -4,7 +4,7 @@ trust_level = "L0"
 open_prs_max = 4
 
 [quality]
-coverage_fail_under = 85
+coverage_fail_under = 95
 version_coverage_fail_under = 95
 require_black = true
 require_ruff = true

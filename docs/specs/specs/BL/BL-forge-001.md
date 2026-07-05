@@ -10,7 +10,7 @@ critical: true
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -24,7 +24,7 @@ gates:
 **Version cible :** v0.1.0 · **Taille :** S (~0,5 j) · **Critique :** OUI
 
 ## Description technique
-Initialiser le dépôt ai-forge : pyproject.toml géré par uv avec Python >= 3.13, arborescence src/ conforme au §3.1 du CDC (sous-paquets core, providers, quota, roles, phases, planner, workspace, ghub, gates, state, scheduler vides avec __init__.py), configuration ruff, mypy --strict, pytest + pytest-asyncio + pytest-cov (seuil 85 %), et workflow GitHub Actions exécutant lint + typage + tests sur chaque PR. Protéger main : merge uniquement par PR avec CI verte.
+Initialiser le dépôt ai-forge : pyproject.toml géré par uv avec Python >= 3.13, arborescence src/ conforme au §3.1 du CDC (sous-paquets core, providers, quota, roles, phases, planner, workspace, ghub, gates, state, scheduler vides avec __init__.py), configuration ruff, mypy --strict, pytest + pytest-asyncio + pytest-cov (seuil 95 %), et workflow GitHub Actions exécutant lint + typage + tests sur chaque PR. Protéger main : merge uniquement par PR avec CI verte.
 
 ## Fichiers / modules impactés
 - `pyproject.toml`
@@ -42,7 +42,7 @@ Initialiser le dépôt ai-forge : pyproject.toml géré par uv avec Python >= 3.
 - [ ] ruff, mypy --strict et pytest passent sur le squelette
 - [ ] la CI bloque effectivement une PR rouge (vérifié par PR de démonstration)
 - [ ] main protégée, merge par PR uniquement
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

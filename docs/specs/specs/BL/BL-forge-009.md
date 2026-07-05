@@ -10,7 +10,7 @@ critical: true
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -40,7 +40,7 @@ Implémenter src/state/ : schéma SQLite (tables runs, bl_status, iterations, pr
 - [ ] Interruption simulée entre deux écritures : l'état relu est cohérent (dernière étape complétée)
 - [ ] Migrations rejouables et idempotentes
 - [ ] Couverture du paquet state >= 90 %
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

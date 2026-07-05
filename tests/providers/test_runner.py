@@ -121,3 +121,75 @@ def test_environment_rejects_secret_overrides() -> None:
     """Reject caller-provided secret-like environment keys."""
     with pytest.raises(ValueError):
         build_subprocess_environment({"API_KEY": "hidden"})
+
+
+def test_environment_accepts_safe_overrides() -> None:
+    """Merge non-secret overrides into the sanitized environment."""
+    env = build_subprocess_environment({"CUSTOM_FLAG": "enabled"})
+    assert env["CUSTOM_FLAG"] == "enabled"
+
+
+def test_environment_without_overrides_filters_secrets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Drop secret-like keys from the inherited environment."""
+    monkeypatch.setenv("SECRET_TOKEN", "hidden")
+    monkeypatch.setenv("PATH", "/usr/bin")
+    env = build_subprocess_environment(None)
+    assert "SECRET_TOKEN" not in env
+    assert "PATH" in env
+
+
+def test_transcript_path_rejects_invalid_sequence(tmp_path: Path) -> None:
+    """Reject non-positive sequence numbers."""
+    with pytest.raises(ValueError, match="sequence must be >= 1"):
+        transcript_path(tmp_path, "BL-forge-005", 0, "DEV", "codex")
+
+
+@pytest.mark.asyncio
+async def test_run_cli_rejects_invalid_inputs(tmp_path: Path) -> None:
+    """Validate command, timeout and working directory before spawn."""
+    with pytest.raises(ValueError, match="command must not be empty"):
+        await run_cli(
+            [], cwd=tmp_path, bl_id="BL-x", role="DEV", provider="codex", timeout_seconds=5
+        )
+
+    with pytest.raises(ValueError, match="timeout_seconds must be > 0"):
+        await run_cli(
+            [sys.executable, "-c", "print('x')"],
+            cwd=tmp_path,
+            bl_id="BL-x",
+            role="DEV",
+            provider="codex",
+            timeout_seconds=0,
+        )
+
+    file_path = tmp_path / "not-a-dir"
+    file_path.write_text("x", encoding="utf-8")
+    with pytest.raises(ValueError, match="cwd must be a directory"):
+        await run_cli(
+            [sys.executable, "-c", "print('x')"],
+            cwd=file_path,
+            bl_id="BL-x",
+            role="DEV",
+            provider="codex",
+            timeout_seconds=5,
+        )
+
+
+@pytest.mark.asyncio
+async def test_run_cli_spawn_failure_writes_transcript(tmp_path: Path) -> None:
+    """Return ERROR when the executable cannot be started."""
+    result = await run_cli(
+        ["__nonexistent_binary__"],
+        cwd=tmp_path,
+        bl_id="BL-forge-005",
+        role="DEV",
+        provider="codex",
+        timeout_seconds=5,
+    )
+
+    assert result.status is RunnerStatus.ERROR
+    assert result.code is None
+    assert result.stderr
+    assert "spawn failed" in result.transcript_path.read_text(encoding="utf-8")

@@ -10,7 +10,7 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -37,7 +37,7 @@ Implémenter EXG-QUO-02 : à la détection d'un épuisement pendant un rôle, ma
 - [ ] Épuisement simulé en plein rôle DEV puis TESTER : la tâche aboutit sur un autre provider
 - [ ] Reset propre du worktree avant relance d'un rôle écrivain
 - [ ] Bascule journalisée (provider quitté, provider repreneur, itération)
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

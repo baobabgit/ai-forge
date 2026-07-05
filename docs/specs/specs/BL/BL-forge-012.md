@@ -10,7 +10,7 @@ critical: true
 status: DONE
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -37,7 +37,7 @@ Implémenter src/ghub/ et src/workspace/gitio.py : exécution de git et gh en so
 - [ ] Toutes les opérations du cycle BL disponibles et testées en dry-run
 - [ ] Erreurs gh/git remontées typées avec stderr exploitable
 - [ ] Aucune opération n'accepte de chemin pointant hors du dépôt cible
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

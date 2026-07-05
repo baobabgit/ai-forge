@@ -10,7 +10,7 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -36,7 +36,7 @@ Implémenter EXG-GIT-03 : les librairies consommatrices référencent leurs dép
 - [ ] Tag posé => PR d'épinglage créée et mergée sur les libs consommatrices
 - [ ] Configuration registre privé optionnelle fonctionnelle
 - [ ] Détection et rejet de tout chemin relatif inter-dépôts
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

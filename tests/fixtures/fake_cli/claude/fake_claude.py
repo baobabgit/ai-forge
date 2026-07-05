@@ -21,6 +21,9 @@ def _parse_args(argv: list[str]) -> tuple[str, bool]:
             fail_auth = True
             index += 1
             continue
+        if arg == "--wrong-model":
+            index += 1
+            continue
         if arg.startswith("--"):
             index += 2 if index + 1 < len(argv) else 1
             continue
@@ -31,11 +34,16 @@ def _parse_args(argv: list[str]) -> tuple[str, bool]:
 
 def main() -> int:
     mode, fail_auth = _parse_args(sys.argv[1:])
+    if mode == "plain-health-check":
+        print("authenticated without json")
+        return 0
+
     if mode == "health-check":
         if fail_auth:
             print("not authenticated", file=sys.stderr)
             return 1
-        print(json.dumps({"model": "opus-4.8", "authenticated": True}))
+        model = "wrong-model" if "--wrong-model" in sys.argv[1:] else "opus-4.8"
+        print(json.dumps({"model": model, "authenticated": True}))
         return 0
 
     if mode == "ok":

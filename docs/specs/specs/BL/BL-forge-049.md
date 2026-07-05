@@ -10,7 +10,7 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -42,7 +42,7 @@ Construire et exécuter le test d'acceptation final (livrable §7.4 et jalon v1.
 - [ ] Run complet réussi : deux librairies développées, jalon d'intégration tagué
 - [ ] Zéro intervention humaine hors forge resume sur épuisement de quota
 - [ ] Script de vérification finale vert (tags présents, CI vertes, traçabilité BL -> code)
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

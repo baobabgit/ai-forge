@@ -10,7 +10,7 @@ critical: false
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -39,7 +39,7 @@ Générer et committer les livrables de la phase 1 : architecture.md (découpage
 - [ ] Chaque librairie dispose d'un CDC complet aux sections obligatoires présentes
 - [ ] milestones.md est parsable machine (format contraintes validé par test)
 - [ ] Documents commis dans le dépôt programme (ou dossier local en v0.3)
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

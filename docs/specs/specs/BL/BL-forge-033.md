@@ -10,7 +10,7 @@ critical: true
 status: TODO
 gates:
   auto:
-    - "pytest -x --cov=src --cov-fail-under=85"
+    - "pytest -x --cov=src --cov-fail-under=95"
     - "ruff check ."
     - "mypy --strict src/"
   ai_judged:
@@ -36,7 +36,7 @@ Implémenter src/planner/dag.py : construction du graphe networkx de tous les BL
 - [ ] Graphe correct sur fixtures multi-librairies avec dépendances croisées
 - [ ] Cycle injecté => rejet avec diagnostic listant exactement les BL du cycle
 - [ ] Les arêtes de version et de jalon sont matérialisées et typées
-- [ ] Gates automatiques vertes (pytest couverture >= 85 %, ruff, mypy --strict)
+- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
 - [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)

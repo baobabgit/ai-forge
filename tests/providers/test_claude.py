@@ -137,3 +137,113 @@ def test_classify_runner_result_uses_configured_patterns() -> None:
         transcript_path=Path("artifacts/transcript.txt"),
     )
     assert classify_runner_result(result, ("rate limit exceeded",)) is ProviderStatus.EXHAUSTED
+
+
+def test_classify_runner_result_uses_default_exhaustion_hints() -> None:
+    """Detect exhaustion from built-in hints when no patterns are configured."""
+    result = RunnerResult(
+        status=RunnerStatus.ERROR,
+        code=1,
+        stdout="",
+        stderr="provider quota exhausted for today",
+        duration_seconds=1.0,
+        transcript_path=Path("artifacts/transcript.txt"),
+    )
+    assert classify_runner_result(result, ()) is ProviderStatus.EXHAUSTED
+
+
+def test_parse_claude_output_handles_empty_and_json_variants() -> None:
+    """Cover empty output, string payloads and unknown dict keys."""
+    assert parse_claude_output("") == ""
+    assert parse_claude_output('"inline string"') == "inline string"
+    assert parse_claude_output('{"unknown": "value"}') == '{"unknown": "value"}'
+
+
+@pytest.mark.asyncio
+async def test_health_check_reports_missing_binary() -> None:
+    """Fail fast when the configured CLI binary is unavailable."""
+    provider = ClaudeProvider(
+        config=ProviderConfig(
+            name="claude",
+            bin="__missing_claude_binary__",
+            model="opus-4.8",
+            max_concurrency=1,
+            exhausted_patterns=(),
+            capabilities=ProviderCapabilities(),
+        ),
+    )
+    health = await provider.health_check()
+    assert health.healthy is False
+    assert "not found" in health.message
+
+
+def test_build_command_uses_configured_bin_without_script_override() -> None:
+    """Invoke the configured CLI binary when no test script override is set."""
+    provider = ClaudeProvider(
+        config=ProviderConfig(
+            name="claude",
+            bin="claude",
+            model="opus-4.8",
+            max_concurrency=1,
+            exhausted_patterns=(),
+            capabilities=ProviderCapabilities(),
+        ),
+    )
+    command = provider.build_command("hello")
+    assert command[:4] == ("claude", "-p", "hello", "--output-format")
+
+
+@pytest.mark.asyncio
+async def test_health_check_rejects_model_mismatch() -> None:
+    """Reject health-check when the CLI reports a different model."""
+    provider = ClaudeProvider(
+        config=ProviderConfig(
+            name="claude",
+            bin=sys.executable,
+            model="opus-4.8",
+            max_concurrency=1,
+            exhausted_patterns=(),
+            capabilities=ProviderCapabilities(),
+        ),
+        _script=str(FAKE_CLAUDE),
+        _health_check_args=("health-check", "--wrong-model"),
+    )
+    broken = await provider.health_check()
+    assert broken.healthy is False
+    assert "expected model" in broken.message
+
+
+@pytest.mark.asyncio
+async def test_health_check_tolerates_non_json_stdout() -> None:
+    """Accept plain-text health-check output when the process exits cleanly."""
+    provider = ClaudeProvider(
+        config=ProviderConfig(
+            name="claude",
+            bin=sys.executable,
+            model="opus-4.8",
+            max_concurrency=1,
+            exhausted_patterns=(),
+            capabilities=ProviderCapabilities(),
+        ),
+        _script=str(FAKE_CLAUDE),
+        _health_check_args=("plain-health-check",),
+    )
+    health = await provider.health_check()
+    assert health.healthy is True
+
+
+def test_build_claude_provider_factory() -> None:
+    """Expose a registry-compatible factory."""
+    config = ProviderConfig(
+        name="claude",
+        bin="claude",
+        model="opus-4.8",
+        max_concurrency=1,
+        exhausted_patterns=(),
+        capabilities=ProviderCapabilities(),
+    )
+    from src.providers.claude import build_claude_provider
+
+    provider = build_claude_provider(config)
+    assert provider.name == "claude"
+    assert provider.model == "opus-4.8"

@@ -28,7 +28,7 @@ Mettre en place le dépôt ai-forge, sa chaîne qualité non négociable (lint, 
 1. Le DEV initialise le dépôt : pyproject (uv), arborescence src/, configuration ruff / mypy --strict / pytest+couverture, workflow CI.
 2. Le DEV implémente les modèles pydantic du domaine avec validation stricte et enums de statuts/rôles.
 3. Le DEV implémente le parser de specs : lecture/écriture frontmatter, validation vers les modèles, index des specs d'un dossier.
-4. La CI valide chaque PR (lint + typage + tests + couverture >= 85 %) avant merge sur main protégée.
+4. La CI valide chaque PR (lint + typage + tests + couverture >= 95 %) avant merge sur main protégée.
 
 ## Scénarios alternatifs et d'erreur
 - Frontmatter invalide (champ manquant, id dupliqué, depends_on inconnu) : le parser lève une erreur explicite localisée (fichier + champ).
@@ -39,7 +39,7 @@ Mettre en place le dépôt ai-forge, sa chaîne qualité non négociable (lint, 
 
 ## Exigences non fonctionnelles applicables
 - EXG-NF-02 traçabilité (ids stables)
-- Qualité §3.3 : couverture >= 85 %, mypy --strict, ruff
+- Qualité §3.3 : couverture >= 95 %, mypy --strict, ruff
 
 ## Critères GO/NO-GO (niveau UC — EXG-SPE-07)
 - GO si toutes les FEAT enfants sont GO **et** le scénario de bout en bout est exécuté et validé.
