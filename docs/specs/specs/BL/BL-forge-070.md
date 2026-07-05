@@ -7,7 +7,7 @@ target_version: 0.2.0
 depends_on: [BL-forge-009, BL-forge-011]
 size: M
 critical: true
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -38,11 +38,11 @@ Rendre le contexte des rôles reproductible et tracé (EXG-CTX-02/03) : manifest
 - BL-forge-011 — Moteur de prompts jinja2 et template DEV
 
 ## Definition of Done
-- [ ] Manifeste reproductible (chemins + hashes) journalisé à chaque invocation
-- [ ] Troncature priorisée testée avec signalement dans le prompt rendu
-- [ ] forge-run.yaml créé à l'init et mis à jour avec ADR + événement sur modification
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Manifeste reproductible (chemins + hashes) journalisé à chaque invocation
+- [x] Troncature priorisée testée avec signalement dans le prompt rendu
+- [x] forge-run.yaml créé à l'init et mis à jour avec ADR + événement sur modification
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
