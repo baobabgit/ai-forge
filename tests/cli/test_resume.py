@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner
+from typer.testing import CliRunner, Result
 
 from src.cli import ExitCode, app, init_forge
 from src.core.models.status import Status
@@ -165,6 +167,29 @@ async def _set_quota(
         await database.close()
 
 
+async def _seed_recovery_state(forge_dir: Path) -> None:
+    database = await StateDatabase.open(forge_dir / "state.db")
+    try:
+        run_id = _run_id(forge_dir)
+        await database.register_bl("BL-forge-026", run_id, status=Status.IN_REVIEW)
+        for event_type in (
+            "DEV_STARTED",
+            "WORKTREE_CREATED",
+            "DEV_COMPLETED",
+            "GATES_COMPLETED",
+            "TESTER_COMPLETED",
+        ):
+            await database.append_event(
+                run_id=run_id,
+                event_type=event_type,
+                actor="test",
+                bl_id="BL-forge-026",
+                details={},
+            )
+    finally:
+        await database.close()
+
+
 def _exhaust_all(forge_dir: Path, *, hours_ahead: int = 2) -> datetime:
     until = datetime.now(tz=UTC) + timedelta(hours=hours_ahead)
     for index, name in enumerate(THREE_PROVIDERS):
@@ -179,6 +204,30 @@ def _exhaust_all(forge_dir: Path, *, hours_ahead: int = 2) -> datetime:
     return until
 
 
+def _init_git_repo(repo: Path) -> None:
+    _git(repo, "init")
+    _git(repo, "config", "user.email", "dev@test")
+    _git(repo, "config", "user.name", "Dev")
+    (repo / "README.md").write_text("base\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "chore: init")
+
+
+def _add_git_worktree(repo: Path, worktree: Path, branch: str) -> Path:
+    _git(repo, "worktree", "add", "-b", branch, str(worktree))
+    return worktree
+
+
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+
 async def _events_of_type(forge_dir: Path, event_type: str) -> list[dict[str, object]]:
     database = await StateDatabase.open(forge_dir / "state.db")
     try:
@@ -188,7 +237,7 @@ async def _events_of_type(forge_dir: Path, event_type: str) -> list[dict[str, ob
         await database.close()
 
 
-def _invoke_run(forge_dir: Path, repo: Path) -> object:
+def _invoke_run(forge_dir: Path, repo: Path) -> Result:
     return runner.invoke(
         app,
         [
@@ -283,6 +332,53 @@ def test_resume_lifts_stop_exactly_once(tmp_path: Path, monkeypatch: pytest.Monk
 
     resumes = asyncio.run(_events_of_type(forge_dir, "RESUMED"))
     assert len(resumes) == 1, "resume must never replay its side effect"
+
+
+def test_resume_reconciles_real_pr_and_resets_residual_worktree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """forge resume wires the real probe and reset into crash recovery."""
+    forge_dir, repo = _setup_workspace(tmp_path)
+    _init_git_repo(repo)
+    worktree = _add_git_worktree(repo, tmp_path / "wt-bl-forge-026", "feat/bl-forge-026")
+    readme = worktree / "README.md"
+    scratch = worktree / "scratch.txt"
+    readme.write_text("dirty\n", encoding="utf-8")
+    scratch.write_text("temp\n", encoding="utf-8")
+    asyncio.run(_seed_recovery_state(forge_dir))
+
+    def _fake_pr_view(
+        repo_arg: Path,
+        pull_request: int | str,
+        *,
+        json_fields: object | None = None,
+        dry_run: bool = False,
+        dry_run_log: object | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        _ = json_fields, dry_run, dry_run_log
+        assert repo_arg == repo.resolve()
+        assert pull_request == "feat/bl-forge-026"
+        return subprocess.CompletedProcess(
+            ["gh"],
+            0,
+            json.dumps({"number": 55, "state": "OPEN"}),
+            "",
+        )
+
+    monkeypatch.setattr("src.state.recovery.gh_cli.pr_view", _fake_pr_view)
+
+    result = runner.invoke(
+        app,
+        ["resume", "--forge-dir", str(forge_dir), "--repo-root", str(repo)],
+    )
+
+    assert result.exit_code == ExitCode.OK
+    assert "PR #55 ouverte adoptee" in result.stdout
+    assert "worktree residuel reinitialise" in result.stdout
+    assert readme.read_text(encoding="utf-8") == "base\n"
+    assert not scratch.exists()
+    pr_events = asyncio.run(_events_of_type(forge_dir, "PR_OPENED"))
+    assert pr_events == [{"number": 55, "reconciled": True}]
 
 
 def test_interrupted_bl_continues_after_resume(
