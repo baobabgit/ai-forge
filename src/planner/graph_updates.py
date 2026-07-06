@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from src.core.models.bl import BL
@@ -169,3 +169,80 @@ def runnable_backlog_items(
     """
     runnable = [bl.id for bl in index.backlog_items if is_backlog_item_runnable(bl, statuses)]
     return tuple(sorted(runnable))
+
+
+@dataclass(frozen=True, slots=True)
+class VersionNoGoGraphUpdate:
+    """Side effects applied after a version gate NO GO (EXG-VER-03).
+
+    :ivar reopened_bl_ids: DONE backlog items moved back to IN_PROGRESS.
+    :ivar runnable_bl_ids: Backlog items runnable after reopening.
+    """
+
+    reopened_bl_ids: tuple[str, ...]
+    runnable_bl_ids: tuple[str, ...]
+
+
+async def apply_version_no_go_side_effects(
+    database: StateDatabase,
+    machine: BlStateMachine,
+    *,
+    run_id: str,
+    index: SpecIndex,
+    faulty_bl_ids: Iterable[str],
+    actor: str = "release",
+    reason: str,
+) -> VersionNoGoGraphUpdate:
+    """Reopen faulty DONE backlog items and rebuild runnable planning.
+
+    :param database: Open state store.
+    :param machine: Backlog state machine.
+    :param run_id: Owning run identifier.
+    :param index: Resolved specification index.
+    :param faulty_bl_ids: Backlog items to reopen after a version gate NO GO.
+    :param actor: Journal actor label.
+    :param reason: Human-readable reopen reason stored in the journal.
+    :returns: Reopened backlog items and the runnable backlog set afterwards.
+    """
+    reopened: list[str] = []
+    for bl_id in sorted(set(faulty_bl_ids)):
+        record = await database.get_bl_status(bl_id)
+        if record is None or record.status is not Status.DONE:
+            continue
+        await machine.transition(
+            bl_id,
+            TransitionRequest(
+                target=Status.IN_PROGRESS,
+                actor=actor,
+                reason=reason,
+                privileged_reopen=True,
+            ),
+        )
+        reopened.append(bl_id)
+        await database.append_event(
+            run_id=run_id,
+            event_type="ROLLED_BACK",
+            actor=actor,
+            bl_id=bl_id,
+            details={
+                "reason": reason,
+                "source": "version_gate_no_go",
+            },
+        )
+
+    statuses = await _status_map_for_index(database, index)
+    return VersionNoGoGraphUpdate(
+        reopened_bl_ids=tuple(reopened),
+        runnable_bl_ids=runnable_backlog_items(index, statuses),
+    )
+
+
+async def _status_map_for_index(
+    database: StateDatabase,
+    index: SpecIndex,
+) -> dict[str, Status | None]:
+    statuses: dict[str, Status | None] = {}
+    for bl in index.backlog_items:
+        record = await database.get_bl_status(bl.id)
+        statuses[bl.id] = record.status if record is not None else None
+    return statuses
