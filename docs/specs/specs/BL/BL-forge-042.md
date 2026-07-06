@@ -7,7 +7,7 @@ target_version: 0.4.0
 depends_on: [BL-forge-016, BL-forge-020]
 size: M
 critical: true
-status: BLOCKED
+status: TODO
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -23,11 +23,14 @@ gates:
 **Version cible :** v0.4.0 · **Taille :** M (~1 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter EXG-VER-01/02/03 dans src/phases/release.py : quand tous les BL d'une version d'une librairie sont DONE, exécution de la gate de version (gates de toutes les FEAT et de tous les UC de la version + suite d'intégration de la librairie) ; GO => l'INTEGRATOR pose le tag SemVer sur main et publie la release (gh release create) ; NO GO => Issue de version créée, BL fautifs rouverts (retour IN_PROGRESS), planning recalculé.
+Implémenter EXG-VER-01/02/03 dans src/phases/release.py : quand tous les BL d'une version d'une librairie sont DONE, exécution de la gate de version (gates de toutes les FEAT et de tous les UC de la version + suite d'intégration de la librairie) ; GO => l'INTEGRATOR pose le tag SemVer sur main et publie la release (gh release create) ; NO GO => Issue de version créée, BL fautifs rouverts via ``privileged_reopen`` (retour IN_PROGRESS ou TODO, événement ``ROLLED_BACK``), planning recalculé.
 
 ## Fichiers / modules impactés
 - `src/phases/release.py`
+- `src/state/machine.py`
+- `src/planner/graph_updates.py`
 - `tests/phases/test_release.py`
+- `tests/state/test_machine.py`
 
 ## Dépendances
 - BL-forge-016 — Exécution des gates automatiques et diff-guard

@@ -7,7 +7,7 @@ target_version: 0.3.0
 depends_on: [BL-forge-022]
 size: M
 critical: false
-status: BLOCKED
+status: TODO
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -28,8 +28,10 @@ Implémenter le contrat EscalationReport (EXG-CON-01) et sa production à chaque
 ## Fichiers / modules impactés
 - `src/contracts/escalation_report.py`
 - `src/phases/escalation.py`
+- `src/phases/execute.py`
 - `prompts/partials/escalation.j2`
 - `tests/phases/test_escalation.py`
+- `tests/phases/test_blocked.py`
 
 ## Dépendances
 - BL-forge-022 — Plafond d'itérations et passage BLOCKED
