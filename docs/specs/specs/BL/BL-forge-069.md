@@ -7,7 +7,7 @@ target_version: 0.1.3
 depends_on: [BL-forge-009, BL-forge-047]
 size: M
 critical: false
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -37,11 +37,11 @@ Implémenter les versions initiales de forge status et forge report (jalon v0.1.
 - BL-forge-047 — Statistiques de consommation
 
 ## Definition of Done
-- [ ] forge status affiche BL par état, providers et statistiques depuis un event log de fixture
-- [ ] forge report produit un Markdown complet et déterministe depuis le même état
-- [ ] status exact après interruption simulée (état persisté uniquement)
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] forge status affiche BL par état, providers et statistiques depuis un event log de fixture
+- [x] forge report produit un Markdown complet et déterministe depuis le même état
+- [x] status exact après interruption simulée (état persisté uniquement)
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
