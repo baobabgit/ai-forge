@@ -14,6 +14,8 @@ from src.adr.adr_writer import AdrRecord, record_adr
 from src.core.models.status import Status
 from src.core.specparser import SpecParseError, read_spec
 from src.obs.report_builder import build_report
+from src.obs.stats import write_stats_json
+from src.obs.status import render_dashboard, watch_status
 from src.obs.status_view import StatusView, build_status_view
 from src.phases.execute import (
     ExecutionError,
@@ -749,6 +751,8 @@ async def report_forge(
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(build_report(view), encoding="utf-8", newline="\n")
+    stats_path = forge_dir / ARTIFACTS_DIRNAME / view.run_id / "stats.json"
+    write_stats_json(stats_path, view.stats)
     return output
 
 
@@ -769,19 +773,51 @@ def status_command(
         "--providers-config",
         help="Override path to providers.toml.",
     ),
+    providers: bool = typer.Option(
+        False,
+        "--providers",
+        help="Include detailed provider consumption statistics.",
+    ),
+    watch: bool = typer.Option(
+        False,
+        "--watch",
+        "-w",
+        help="Refresh the dashboard continuously (read-only WAL access).",
+    ),
+    interval: float = typer.Option(
+        1.0,
+        "--interval",
+        min=0.2,
+        help="Refresh interval in seconds when --watch is set.",
+    ),
 ) -> None:
     """Show the real-time run dashboard (forge status)."""
-    try:
-        view = asyncio.run(
-            status_forge(
-                forge_dir=forge_dir.resolve(),
-                repo_root=repo_root.resolve(),
-                providers_config=providers_config.resolve() if providers_config else None,
-            )
+    resolved_forge = forge_dir.resolve()
+    resolved_root = repo_root.resolve()
+    resolved_providers = providers_config.resolve() if providers_config else None
+
+    async def _load() -> StatusView:
+        return await status_forge(
+            forge_dir=resolved_forge,
+            repo_root=resolved_root,
+            providers_config=resolved_providers,
         )
+
+    try:
+        if watch:
+            asyncio.run(
+                watch_status(
+                    _load,
+                    console=console,
+                    interval_seconds=interval,
+                    show_providers=providers,
+                )
+            )
+            return
+        view = asyncio.run(_load())
     except ForgeCliError as error:
         _handle_cli_error(error)
-    console.print(view.render())
+    console.print(render_dashboard(view, show_providers=providers))
 
 
 @app.command("report")

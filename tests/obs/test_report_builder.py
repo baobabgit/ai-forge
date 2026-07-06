@@ -109,6 +109,10 @@ async def test_report_forge_writes_markdown_file(tmp_path: Path) -> None:
         await db2.close()
     assert content == build_report(view)
 
+    stats_path = forge_dir / "artifacts" / "default" / "stats.json"
+    assert stats_path.is_file()
+    assert '"total"' in stats_path.read_text(encoding="utf-8")
+
 
 def test_cli_status_and_report(tmp_path: Path) -> None:
     """forge status renders the dashboard and forge report writes the file."""
