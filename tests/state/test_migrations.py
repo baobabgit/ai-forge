@@ -19,7 +19,7 @@ async def test_apply_migrations_rejects_missing_version(tmp_path: Path) -> None:
     connection = await aiosqlite.connect(db_path)
     try:
         with (
-            patch.object(migrations, "CURRENT_SCHEMA_VERSION", 2),
+            patch.object(migrations, "CURRENT_SCHEMA_VERSION", 99),
             pytest.raises(RuntimeError, match="no migration statements registered"),
         ):
             await apply_migrations(connection)
@@ -53,3 +53,4 @@ async def test_apply_migrations_is_idempotent(tmp_path: Path) -> None:
     assert "bl_status" in tables
     assert "events" in tables
     assert "runs" in tables
+    assert "pending_actions" in tables

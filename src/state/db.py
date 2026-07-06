@@ -136,6 +136,16 @@ class StateDatabase:
         """Return the database file path."""
         return self._path
 
+    @property
+    def connection(self) -> aiosqlite.Connection:
+        """Return the underlying connection for co-located table owners.
+
+        Exposed so policy-layer stores such as the approval queue can run their
+        own scoped SQL against the migrated, WAL-configured schema instead of
+        opening a second, unmanaged connection to the same file.
+        """
+        return self._connection
+
     @classmethod
     async def open(cls, path: Path) -> StateDatabase:
         """Open ``path``, migrate schema and verify database integrity.
@@ -148,6 +158,7 @@ class StateDatabase:
         connection = await aiosqlite.connect(path)
         try:
             await connection.execute("PRAGMA foreign_keys = ON")
+            await connection.execute("PRAGMA busy_timeout = 5000")
             await _verify_integrity(connection, path)
             await connection.execute("PRAGMA journal_mode = WAL")
         except StateDatabaseError:

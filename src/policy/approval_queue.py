@@ -7,9 +7,10 @@ is released immediately. Queuing is non-blocking and touches only the approval
 table, so the rest of the DAG keeps progressing while an action waits
 (EXG-TRU-03).
 
-Pending actions are persisted in a ``pending_actions`` table that this module
-owns inside the run state database, keeping the approval state crash-safe and
-visible to ``forge status`` without coupling to the event journal schema.
+Pending actions are persisted in a ``pending_actions`` table created by the
+versioned state migrations (schema version 2) and consumed here, keeping the
+approval state crash-safe and visible to ``forge status`` while sharing the
+run state database's WAL mode and integrity guarantees.
 """
 
 from __future__ import annotations
@@ -30,23 +31,7 @@ from src.policy.trust_level import (
     is_sensitive,
     requires_approval,
 )
-
-_CREATE_TABLE = """
-CREATE TABLE IF NOT EXISTS pending_actions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    run_id TEXT NOT NULL,
-    kind TEXT NOT NULL,
-    summary TEXT NOT NULL,
-    target TEXT NOT NULL,
-    requested_by TEXT NOT NULL,
-    reason TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    status TEXT NOT NULL,
-    bl_id TEXT,
-    resolved_at TEXT,
-    resolved_by TEXT
-)
-"""
+from src.state.db import StateDatabase
 
 _ACTION_ID_PREFIX = "pending-"
 
@@ -70,9 +55,10 @@ class GateDecision:
 class ApprovalQueue:
     """Async persistence and lifecycle for pending-approval actions.
 
-    The queue opens its own short-lived connection to the run state database so
-    the approval schema stays owned by the policy module. Use it as an async
-    context manager, or call :meth:`close` explicitly.
+    The queue opens the shared run state database through :class:`StateDatabase`,
+    so it reuses the migrated schema, WAL journal mode and integrity checks
+    rather than managing a private connection. Use it as an async context
+    manager, or call :meth:`close` explicitly.
     """
 
     def __init__(self, db_path: Path) -> None:
@@ -81,7 +67,7 @@ class ApprovalQueue:
         :param db_path: Path to the run ``state.db`` file.
         """
         self._db_path = db_path
-        self._connection: aiosqlite.Connection | None = None
+        self._database: StateDatabase | None = None
 
     async def __aenter__(self) -> ApprovalQueue:
         """Open the connection and ensure the schema exists."""
@@ -98,10 +84,10 @@ class ApprovalQueue:
         await self.close()
 
     async def close(self) -> None:
-        """Close the underlying connection if it is open."""
-        if self._connection is not None:
-            await self._connection.close()
-            self._connection = None
+        """Close the underlying state database if it is open."""
+        if self._database is not None:
+            await self._database.close()
+            self._database = None
 
     async def gate(
         self,
@@ -221,6 +207,34 @@ class ApprovalQueue:
         row = await cursor.fetchone()
         return _row_to_action(row) if row is not None else None
 
+    async def latest_action(
+        self,
+        run_id: str,
+        bl_id: str,
+        kind: ActionKind,
+    ) -> PendingAction | None:
+        """Return the most recent ``kind`` action queued for ``bl_id``.
+
+        Used by callers to make gating idempotent across resumes: a caller can
+        detect an action it already queued (still ``PENDING``) or one that has
+        since been ``APPROVED`` without enqueuing a duplicate.
+
+        :param run_id: Owning run identifier.
+        :param bl_id: Related backlog item.
+        :param kind: Action kind to look up.
+        :returns: The latest matching action, or ``None`` when none exists.
+        """
+        connection = await self._ensure_open()
+        cursor = await connection.execute(
+            "SELECT id, run_id, kind, summary, target, requested_by, reason, "
+            "created_at, status, bl_id, resolved_at, resolved_by "
+            "FROM pending_actions WHERE run_id = ? AND bl_id = ? AND kind = ? "
+            "ORDER BY id DESC LIMIT 1",
+            (run_id, bl_id, kind.value),
+        )
+        row = await cursor.fetchone()
+        return _row_to_action(row) if row is not None else None
+
     async def list_pending(self, run_id: str) -> tuple[PendingAction, ...]:
         """Return the not-yet-approved actions of ``run_id`` in queue order.
 
@@ -278,13 +292,9 @@ class ApprovalQueue:
         )
 
     async def _ensure_open(self) -> aiosqlite.Connection:
-        if self._connection is None:
-            connection = await aiosqlite.connect(self._db_path)
-            await connection.execute("PRAGMA busy_timeout = 5000")
-            await connection.execute(_CREATE_TABLE)
-            await connection.commit()
-            self._connection = connection
-        return self._connection
+        if self._database is None:
+            self._database = await StateDatabase.open(self._db_path)
+        return self._database.connection
 
 
 def _gate_reason(
