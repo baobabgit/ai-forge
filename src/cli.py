@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 from enum import IntEnum
 from pathlib import Path
 
 import typer
 from rich.console import Console
 
+from src.adr.adr_writer import AdrRecord, record_adr
 from src.core.models.status import Status
 from src.core.specparser import SpecParseError, read_spec
 from src.phases.execute import (
@@ -36,6 +38,8 @@ from src.state.machine import BlStateMachine, IllegalTransitionError, Transition
 from src.state.recovery import RecoveryReport, default_reality_probe, recover_run
 
 app = typer.Typer(name="forge", no_args_is_help=True, add_completion=False)
+adr_app = typer.Typer(name="adr", no_args_is_help=True, add_completion=False)
+app.add_typer(adr_app, name="adr")
 console = Console()
 
 DEFAULT_FORGE_DIR = Path(".forge")
@@ -43,6 +47,7 @@ STATE_FILENAME = "state.db"
 ARTIFACTS_DIRNAME = "artifacts"
 RUN_ID_FILENAME = "run_id"
 BL_SPEC_DIR = Path("docs") / "specs" / "specs" / "BL"
+DEFAULT_ADR_DIR = Path("docs") / "adr"
 RUNNABLE_STATUSES = frozenset({Status.TODO, Status.READY})
 DEFAULT_PROVIDER = "mock"
 
@@ -565,6 +570,98 @@ def approve_command(
     except ForgeCliError as error:
         _handle_cli_error(error)
     console.print(f"[green]approved {approved.action_id} ({approved.kind.value})[/green]")
+
+
+async def adr_new(
+    *,
+    forge_dir: Path,
+    repo_root: Path,
+    title: str,
+    context: str,
+    decision: str,
+    alternatives: Sequence[str] = (),
+    consequences: str = "",
+) -> AdrRecord:
+    """Record a human ADR under ``docs/adr`` and journal it (EXG-ADR-01).
+
+    :param forge_dir: Directory holding forge state.
+    :param repo_root: Repository root receiving ``docs/adr``.
+    :param title: Short decision title.
+    :param context: Why the decision was needed.
+    :param decision: The decision taken.
+    :param alternatives: Alternatives considered and discarded.
+    :param consequences: Consequences of the decision.
+    :returns: The written ADR record.
+    :raises ForgeCliError: If forge is not initialized or inputs are invalid.
+    """
+    state_path = forge_dir / STATE_FILENAME
+    if not state_path.is_file():
+        raise ForgeCliError(
+            ExitCode.STATE_ERROR,
+            f"forge is not initialized; run 'forge init' first (expected {state_path})",
+        )
+    try:
+        database = await StateDatabase.open(state_path)
+    except StateDatabaseError as error:
+        raise ForgeCliError(ExitCode.STATE_ERROR, str(error)) from error
+    try:
+        run_id = (forge_dir / RUN_ID_FILENAME).read_text(encoding="utf-8").strip()
+        try:
+            return await record_adr(
+                database,
+                run_id=run_id,
+                actor="human",
+                adr_dir=repo_root / DEFAULT_ADR_DIR,
+                title=title,
+                context=context,
+                decision=decision,
+                alternatives=alternatives,
+                consequences=consequences,
+            )
+        except ValueError as error:
+            raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+    finally:
+        await database.close()
+
+
+@adr_app.command("new")
+def adr_new_command(
+    title: str = typer.Option(..., "--title", help="Short decision title."),
+    context: str = typer.Option(..., "--context", help="Why the decision was needed."),
+    decision: str = typer.Option(..., "--decision", help="The decision taken."),
+    alternative: list[str] = typer.Option(  # noqa: B008
+        [],
+        "--alternative",
+        help="An alternative considered and discarded (repeatable).",
+    ),
+    consequences: str = typer.Option("", "--consequences", help="Consequences of the decision."),
+    forge_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_FORGE_DIR,
+        "--forge-dir",
+        help="Forge state directory.",
+    ),
+    repo_root: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo-root",
+        help="Repository root receiving docs/adr.",
+    ),
+) -> None:
+    """Record a human architecture decision (forge adr new)."""
+    try:
+        record = asyncio.run(
+            adr_new(
+                forge_dir=forge_dir.resolve(),
+                repo_root=repo_root.resolve(),
+                title=title,
+                context=context,
+                decision=decision,
+                alternatives=alternative,
+                consequences=consequences,
+            )
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    console.print(f"[green]recorded {record.adr_id} at {record.path}[/green]")
 
 
 def main() -> None:
