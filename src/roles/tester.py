@@ -6,6 +6,7 @@ import shutil
 import subprocess  # nosec B404 - fixed git argv for branch checkout.
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 
 from src.core.models.bl import BL
 from src.core.models.go_no_go import GoNoGo
@@ -13,6 +14,11 @@ from src.core.models.role import Role
 from src.core.models.verdict import Verdict
 from src.core.specparser import read_spec
 from src.gates.auto import AutoGatesReport, AutoGatesRequest, run_auto_gates
+from src.obs.invocation_journal import (
+    InvocationJournal,
+    induced_iterations_for_verdict,
+    record_invocation,
+)
 from src.providers.base import Provider, ProviderStatus, RoleTask
 from src.roles.dev import changed_files_since, resolve_scope
 from src.roles.rendering import PromptRenderer
@@ -38,6 +44,7 @@ class TesterRoleRequest:
     baseline_ref: str
     artifacts_dir: Path
     timeout_seconds: float = 600.0
+    journal: InvocationJournal | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,8 +118,16 @@ class TesterRole:
             artefacts={"gates_report": gates_report.report_path},
             timeout_seconds=request.timeout_seconds,
         )
+        started_at = perf_counter()
         provider_result = await self._provider.execute(task, workdir)
         if provider_result.status is not ProviderStatus.OK:
+            await record_invocation(
+                request.journal,
+                self._provider,
+                task,
+                provider_result,
+                started_at=started_at,
+            )
             raise TesterRoleError(
                 "PROVIDER_FAILED",
                 f"provider returned {provider_result.status.value}",
@@ -124,9 +139,27 @@ class TesterRole:
                 task=task,
                 workdir=workdir,
                 raw_output=provider_result.output,
+                journal=request.journal,
             )
         except VerdictParseError as error:
+            await record_invocation(
+                request.journal,
+                self._provider,
+                task,
+                provider_result,
+                started_at=started_at,
+            )
             raise TesterRoleError("INVALID_VERDICT", str(error)) from error
+
+        await record_invocation(
+            request.journal,
+            self._provider,
+            task,
+            provider_result,
+            induced_iterations=induced_iterations_for_verdict(verdict.verdict),
+            verdict=verdict.verdict,
+            started_at=started_at,
+        )
 
         return TesterRoleResult(
             gates_report=gates_report,

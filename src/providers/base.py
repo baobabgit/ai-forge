@@ -75,12 +75,14 @@ class ProviderResult:
     :ivar output: Primary textual output captured from the CLI.
     :ivar verdict: Optional structured GO/NO-GO parsed from the output.
     :ivar raw_transcript_path: Path to the archived raw transcript.
+    :ivar duration_seconds: Wall-clock duration of the provider call.
     """
 
     status: ProviderStatus
     output: str
     raw_transcript_path: Path
     verdict: GoNoGo | None = None
+    duration_seconds: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 
 from src.core.models.bl import BL
 from src.core.models.go_no_go import GoNoGo
@@ -11,6 +12,11 @@ from src.core.models.role import Role
 from src.core.models.verdict import Verdict
 from src.core.specparser import read_spec
 from src.ghub.cli import ReviewEvent, pr_diff, pr_review
+from src.obs.invocation_journal import (
+    InvocationJournal,
+    induced_iterations_for_verdict,
+    record_invocation,
+)
 from src.providers.base import Provider, ProviderStatus, RoleTask
 from src.roles.rendering import PromptRenderer
 from src.roles.verdict import VerdictParseError, parse_provider_verdict
@@ -36,6 +42,7 @@ class ReviewerRoleRequest:
     timeout_seconds: float = 600.0
     dry_run: bool = False
     dry_run_log: gitio.CommandLog | None = None
+    journal: InvocationJournal | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,8 +99,16 @@ class ReviewerRole:
             artefacts={"spec": request.spec_path.resolve()},
             timeout_seconds=request.timeout_seconds,
         )
+        started_at = perf_counter()
         provider_result = await self._provider.execute(task, repo)
         if provider_result.status is not ProviderStatus.OK:
+            await record_invocation(
+                request.journal,
+                self._provider,
+                task,
+                provider_result,
+                started_at=started_at,
+            )
             raise ReviewerRoleError(
                 "PROVIDER_FAILED",
                 f"provider returned {provider_result.status.value}",
@@ -105,9 +120,27 @@ class ReviewerRole:
                 task=task,
                 workdir=repo,
                 raw_output=provider_result.output,
+                journal=request.journal,
             )
         except VerdictParseError as error:
+            await record_invocation(
+                request.journal,
+                self._provider,
+                task,
+                provider_result,
+                started_at=started_at,
+            )
             raise ReviewerRoleError("INVALID_VERDICT", str(error)) from error
+
+        await record_invocation(
+            request.journal,
+            self._provider,
+            task,
+            provider_result,
+            induced_iterations=induced_iterations_for_verdict(verdict.verdict),
+            verdict=verdict.verdict,
+            started_at=started_at,
+        )
 
         review_event: ReviewEvent = (
             "approve" if verdict.verdict is Verdict.GO else "request-changes"

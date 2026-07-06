@@ -5,11 +5,13 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from time import perf_counter
 
 from pydantic import ValidationError
 
 from src.core.models.go_no_go import GoNoGo
 from src.core.models.verdict import Verdict
+from src.obs.invocation_journal import InvocationJournal, record_invocation
 from src.providers.base import Provider, ProviderStatus, RoleTask
 
 FENCED_JSON_PATTERN = re.compile(
@@ -118,6 +120,7 @@ async def parse_provider_verdict(
     task: RoleTask,
     workdir: Path,
     raw_output: str,
+    journal: InvocationJournal | None = None,
 ) -> GoNoGo:
     """Parse a verdict and perform at most one provider reformat retry.
 
@@ -138,7 +141,15 @@ async def parse_provider_verdict(
             artefacts=task.artefacts,
             timeout_seconds=task.timeout_seconds,
         )
+        started_at = perf_counter()
         retry_result = await provider.execute(retry_task, workdir.resolve())
+        await record_invocation(
+            journal,
+            provider,
+            retry_task,
+            retry_result,
+            started_at=started_at,
+        )
         if retry_result.status is not ProviderStatus.OK:
             raise VerdictParseError("reformat retry failed", raw=raw_output) from None
         try:
