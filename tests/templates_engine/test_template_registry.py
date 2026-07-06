@@ -245,7 +245,7 @@ def test_validate_bootstrap_output_reports_missing_paths() -> None:
         description="demo",
         expected_paths=("README.md", "pyproject.toml"),
     )
-    with pytest.raises(TemplateContractError, match="README.md, pyproject.toml"):
+    with pytest.raises(TemplateContractError, match=r"README\.md, pyproject\.toml"):
         validate_bootstrap_output(metadata, {})
 
 
@@ -361,7 +361,7 @@ def test_src_toml_rejects_empty_entry_value(tmp_path: Path) -> None:
     plugin_dir = tmp_path / "empty-entry"
     plugin_dir.mkdir()
     src_toml = tmp_path / "src.toml"
-    src_toml.write_text(f'[templates.custom]\nentry = ""\n', encoding="utf-8")
+    src_toml.write_text('[templates.custom]\nentry = ""\n', encoding="utf-8")
     with pytest.raises(TemplateRegistryError, match="non-empty path"):
         TemplateRegistry.discover(default_templates_root(), src_toml=src_toml)
 
@@ -374,7 +374,7 @@ def test_plugin_directory_requires_manifest_and_module(tmp_path: Path) -> None:
     src_toml.write_text(
         f'[templates.incomplete]\nentry = "{plugin_dir.as_posix()}"\n', encoding="utf-8"
     )
-    with pytest.raises(TemplateRegistryError, match="template.toml"):
+    with pytest.raises(TemplateRegistryError, match=r"template\.toml"):
         TemplateRegistry.discover(default_templates_root(), src_toml=src_toml)
 
     (plugin_dir / "template.toml").write_text(
@@ -382,7 +382,7 @@ def test_plugin_directory_requires_manifest_and_module(tmp_path: Path) -> None:
         'description = "x"\nexpected_paths = ["README.md"]\n',
         encoding="utf-8",
     )
-    with pytest.raises(TemplateRegistryError, match="plugin.py"):
+    with pytest.raises(TemplateRegistryError, match=r"plugin\.py"):
         TemplateRegistry.discover(default_templates_root(), src_toml=src_toml)
 
 
@@ -452,5 +452,5 @@ def test_metadata_template_id_mismatch_in_plugin_is_rejected(tmp_path: Path) -> 
         f'[templates.wrong-meta]\nentry = "{plugin_dir.as_posix()}"\n',
         encoding="utf-8",
     )
-    with pytest.raises(TemplateContractError, match="metadata.template_id mismatch"):
+    with pytest.raises(TemplateContractError, match=r"metadata\.template_id mismatch"):
         TemplateRegistry.discover(default_templates_root(), src_toml=src_toml)
