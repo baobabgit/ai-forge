@@ -7,7 +7,7 @@ target_version: 0.3.0
 depends_on: [BL-forge-003, BL-forge-014]
 size: M
 critical: false
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -37,11 +37,11 @@ Implémenter forge doctor (EXG-DIA-01) : vérifications outillées de l'environn
 - BL-forge-014 — CLI typer : forge init et run minimal
 
 ## Definition of Done
-- [ ] doctor détecte CLI manquante, config invalide et base inaccessible avec remédiations
-- [ ] validate-specs localise id dupliqué, parent manquant, depends_on inconnu et cycle (fichier + champ)
-- [ ] Les deux commandes sont utilisables hors-run, sans effet de bord
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] doctor détecte CLI manquante, config invalide et base inaccessible avec remédiations
+- [x] validate-specs localise id dupliqué, parent manquant, depends_on inconnu et cycle (fichier + champ)
+- [x] Les deux commandes sont utilisables hors-run, sans effet de bord
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
