@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,8 @@ import pytest
 
 from src.core.models.verdict import Verdict
 from src.gates.auto import AutoGatesReport
+from src.obs.invocation_journal import INVOCATION_EVENT, InvocationJournal
+from src.obs.logging import JsonlRunLogger
 from src.providers.base import (
     ProviderCapabilities,
     ProviderHealth,
@@ -197,6 +200,56 @@ async def test_tester_role_parses_provider_verdict_on_green_gates(
 
 
 @pytest.mark.asyncio
+async def test_tester_role_journals_invocation_on_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Successful TESTER runs emit AI_INVOCATION rows when a journal is configured."""
+    repo, baseline = _init_repo(tmp_path)
+    spec_path = _write_spec(tmp_path)
+
+    async def _passed_gates(_request):  # type: ignore[no-untyped-def]
+        return AutoGatesReport(
+            bl_id="BL-forge-018",
+            verdict=Verdict.GO,
+            gates=(),
+            diff_guard=None,
+            report_path=tmp_path / "auto-gates.json",
+            motifs=(),
+        )
+
+    monkeypatch.setattr("src.roles.tester.run_auto_gates", _passed_gates)
+    logger = JsonlRunLogger(tmp_path / "artifacts", "run-tester-ok")
+    journal = InvocationJournal(logger, library="ai-forge")
+    provider = JudgeProvider(
+        ProviderConfig(
+            name="judge",
+            bin="judge",
+            model="judge",
+            max_concurrency=1,
+            exhausted_patterns=(),
+            capabilities=ProviderCapabilities(),
+        )
+    )
+    role = TesterRole(provider)
+
+    await role.run(
+        TesterRoleRequest(
+            spec_path=spec_path,
+            workdir=repo,
+            branch="feat/bl-test",
+            baseline_ref=baseline,
+            artifacts_dir=tmp_path / "artifacts",
+            journal=journal,
+        )
+    )
+
+    row = json.loads(logger.path.read_text(encoding="utf-8").strip())
+    assert row["event"] == INVOCATION_EVENT
+    assert row["role"] == "TESTER"
+    assert row["status"] == "OK"
+
+
+@pytest.mark.asyncio
 async def test_tester_role_raises_when_checkout_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -338,6 +391,8 @@ async def test_tester_role_raises_on_provider_failure(
             return ProviderHealth(healthy=True, message="ok", model=self.config.model)
 
     monkeypatch.setattr("src.roles.tester.run_auto_gates", _passed_gates)
+    logger = JsonlRunLogger(tmp_path / "artifacts", "run-tester-fail")
+    journal = InvocationJournal(logger, library="ai-forge")
     role = TesterRole(
         FailingProvider(
             ProviderConfig(
@@ -358,5 +413,11 @@ async def test_tester_role_raises_on_provider_failure(
                 branch="feat/bl-test",
                 baseline_ref=baseline,
                 artifacts_dir=tmp_path / "artifacts",
+                journal=journal,
             )
         )
+
+    row = json.loads(logger.path.read_text(encoding="utf-8").strip())
+    assert row["event"] == INVOCATION_EVENT
+    assert row["status"] == "ERROR"
+    assert row["role"] == "TESTER"

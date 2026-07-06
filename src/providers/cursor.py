@@ -92,6 +92,7 @@ class CursorProvider:
             status=status,
             output=output,
             raw_transcript_path=runner_result.transcript_path,
+            duration_seconds=runner_result.duration_seconds,
         )
 
     async def health_check(self) -> ProviderHealth:

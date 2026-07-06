@@ -8,6 +8,7 @@ import re
 import subprocess  # nosec B404 - fixed git argv for deterministic mock commits.
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 
 from src.core.models.role import Role
 from src.core.models.verdict import Verdict
@@ -51,6 +52,7 @@ class MockProvider:
         :returns: Typed provider result including transcript path.
         """
         resolved = workdir.resolve()
+        start = perf_counter()
         transcript = transcript_path(
             resolved / "artifacts",
             task.bl_id,
@@ -70,6 +72,7 @@ class MockProvider:
             status=ProviderStatus.OK,
             output=output,
             raw_transcript_path=transcript,
+            duration_seconds=perf_counter() - start,
         )
 
     async def health_check(self) -> ProviderHealth:
@@ -221,6 +224,7 @@ class ScriptableMockProvider:
 
     async def execute(self, task: RoleTask, workdir: Path) -> ProviderResult:
         resolved = workdir.resolve()
+        start = perf_counter()
         transcript = transcript_path(
             resolved / "artifacts",
             task.bl_id,
@@ -250,6 +254,7 @@ class ScriptableMockProvider:
             status=ProviderStatus.OK,
             output=output,
             raw_transcript_path=transcript,
+            duration_seconds=perf_counter() - start,
         )
 
     async def health_check(self) -> ProviderHealth:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -9,6 +10,8 @@ import pytest
 
 from src.core.models.role import Role
 from src.core.models.verdict import Verdict
+from src.obs.invocation_journal import INVOCATION_EVENT, InvocationJournal
+from src.obs.logging import JsonlRunLogger
 from src.providers.base import (
     ProviderCapabilities,
     ProviderHealth,
@@ -93,6 +96,17 @@ def test_extract_verdict_payload_rejects_invalid_json() -> None:
         extract_verdict_payload("```json\n{not json}\n```")
 
 
+def test_parse_go_no_go_fills_defaults_for_go_without_lists() -> None:
+    """GO verdicts without motifs or preuves receive deterministic defaults."""
+    payload = """```json
+{"verdict": "GO", "criteria_evaluated": []}
+```"""
+    verdict = parse_go_no_go(payload)
+    assert verdict.verdict is Verdict.GO
+    assert verdict.motifs
+    assert verdict.preuves
+
+
 @pytest.mark.asyncio
 async def test_parse_provider_verdict_retries_once_with_reformat_prompt() -> None:
     """Retry parsing once through the provider when the first output is invalid."""
@@ -120,6 +134,47 @@ async def test_parse_provider_verdict_retries_once_with_reformat_prompt() -> Non
         raw_output="not json",
     )
     assert verdict.verdict is Verdict.GO
+
+
+@pytest.mark.asyncio
+async def test_parse_provider_verdict_journals_reformat_retry(tmp_path: Path) -> None:
+    """Reformat retry invocations are written to the run journal."""
+    provider = VerdictProvider(
+        ProviderConfig(
+            name="judge",
+            bin="judge",
+            model="judge",
+            max_concurrency=1,
+            exhausted_patterns=(),
+            capabilities=ProviderCapabilities(),
+        ),
+        outputs=(VALID_VERDICT,),
+    )
+    logger = JsonlRunLogger(tmp_path, "run-retry")
+    journal = InvocationJournal(logger, library="ai-forge")
+    task = RoleTask(
+        bl_id="BL-forge-017",
+        role=Role.TESTER,
+        prompt="evaluate",
+        artefacts={},
+    )
+    verdict = await parse_provider_verdict(
+        provider,
+        task=task,
+        workdir=Path("."),
+        raw_output="not json",
+        journal=journal,
+    )
+    assert verdict.verdict is Verdict.GO
+
+    rows = [
+        json.loads(line)
+        for line in logger.path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert len(rows) == 1
+    assert rows[0]["event"] == INVOCATION_EVENT
+    assert rows[0]["role"] == "TESTER"
 
 
 def test_build_reformat_prompt_includes_invalid_output() -> None:

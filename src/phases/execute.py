@@ -17,6 +17,8 @@ from src.core.models.verdict import Verdict
 from src.core.specparser import build_index, read_spec
 from src.gates.auto import AutoGatesRequest, run_auto_gates
 from src.ghub.cli import issue_create, pr_create
+from src.obs.invocation_journal import InvocationJournal
+from src.obs.logging import JsonlRunLogger
 from src.planner.graph_updates import apply_blocked_side_effects
 from src.policy.approval_queue import ApprovalQueue
 from src.policy.pending_action import PendingActionStatus
@@ -162,6 +164,10 @@ class SequentialExecutor:
         bl = document.model
         scope = resolve_scope(bl, document.body)
         artifacts_dir = request.forge_dir / "artifacts"
+        journal = InvocationJournal(
+            JsonlRunLogger(artifacts_dir, request.run_id),
+            library=str(bl.library),
+        )
 
         branch = _branch_name(request.bl_id)
         pr_body = ""
@@ -215,6 +221,7 @@ class SequentialExecutor:
                                 workdir=repo,
                                 baseline_ref=dev_baseline,
                                 correction=correction,
+                                journal=journal,
                             )
                         )
                         pr_body = dev_result.pr_body
@@ -309,6 +316,7 @@ class SequentialExecutor:
                                     branch=branch,
                                     baseline_ref=dev_baseline,
                                     artifacts_dir=artifacts_dir,
+                                    journal=journal,
                                 )
                             )
                             if tester_result.verdict.verdict is Verdict.NO_GO:
@@ -395,6 +403,7 @@ class SequentialExecutor:
                                     pr_number=pr_number or 1,
                                     dry_run=request.dry_run,
                                     dry_run_log=dry_run_log,
+                                    journal=journal,
                                 )
                             )
                             if review_result.verdict.verdict is Verdict.NO_GO:

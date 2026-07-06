@@ -8,10 +8,12 @@ import shutil
 import subprocess  # nosec B404 - read-only git inspection for post-run checks.
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 
 from src.core.models.bl import BL
 from src.core.models.role import Role
 from src.core.specparser import SpecDocument, read_spec
+from src.obs.invocation_journal import InvocationJournal, record_invocation
 from src.providers.base import Provider, ProviderResult, ProviderStatus, RoleTask
 from src.roles.rendering import DevPromptContext, PromptRenderer
 
@@ -62,6 +64,7 @@ class DevRoleRequest:
     baseline_ref: str = "HEAD"
     correction: DevCorrectionContext | None = None
     timeout_seconds: float = 600.0
+    journal: InvocationJournal | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,7 +154,15 @@ class DevRole:
             raise DevRoleError("INVALID_SPEC", f"{request.spec_path} is not a BL specification")
 
         task = self.build_task(request)
+        started_at = perf_counter()
         provider_result = await self._provider.execute(task, request.workdir.resolve())
+        await record_invocation(
+            request.journal,
+            self._provider,
+            task,
+            provider_result,
+            started_at=started_at,
+        )
         if provider_result.status is not ProviderStatus.OK:
             raise DevRoleError(
                 "PROVIDER_FAILED",
