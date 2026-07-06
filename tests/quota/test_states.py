@@ -37,13 +37,16 @@ async def test_set_and_get_exhausted_state(tmp_path: Path) -> None:
     db = await StateDatabase.open(tmp_path / "state.db")
     try:
         await db.create_run("run-001")
-        until = datetime(2026, 7, 5, 18, 0, tzinfo=UTC)
+        # Use a recharge time relative to now so the EXHAUSTED window does not
+        # elapse with the wall clock (the getter auto-expires past windows).
+        now = datetime.now(tz=UTC)
+        until = now + timedelta(hours=6)
         state = ProviderQuotaState(
             provider_name="claude",
             run_id="run-001",
             status=QuotaStatus.EXHAUSTED,
             available_until=until,
-            updated_at=datetime(2026, 7, 5, 12, 0, tzinfo=UTC),
+            updated_at=now,
         )
         await set_provider_quota_state(db, state)
         loaded = await get_provider_quota_state(
