@@ -157,20 +157,31 @@ async def test_cleanup_unregisters_worktree_gone_after_crash(tmp_path: Path) -> 
         assert await manager.get("BL-forge-036", RUN_ID) is None
 
 
-async def test_cleanup_removes_unregistered_worktree(tmp_path: Path) -> None:
-    """A worktree present in Git but never registered is removed at cleanup."""
+async def test_cleanup_leaves_unregistered_worktree_untouched(tmp_path: Path) -> None:
+    """Cleanup never force-removes a worktree this run does not own (EXG-LCK)."""
     repo = _init_repo(tmp_path / "repo")
     db_path = await _init_state(tmp_path)
-    orphan = repo.parent / "wt" / "BL-forge-999"
-    orphan.parent.mkdir(parents=True, exist_ok=True)
-    _git(repo, "worktree", "add", str(orphan), "-b", "feat/bl-forge-999")
-    assert orphan.is_dir()
+    # A live worktree not registered by this run (e.g. another AI-Forge instance).
+    foreign = repo.parent / "wt" / "BL-forge-999"
+    foreign.parent.mkdir(parents=True, exist_ok=True)
+    _git(repo, "worktree", "add", str(foreign), "-b", "feat/bl-forge-999")
+    (foreign / "uncommitted.txt").write_text("precious", encoding="utf-8")
 
     async with WorktreeManager(repo, db_path) as manager:
         cleanup = await manager.cleanup_orphans(RUN_ID)
 
-    assert orphan.resolve() in {path.resolve() for path in cleanup.removed_worktrees}
-    assert not orphan.exists()
+    assert cleanup.unregistered == ()
+    assert foreign.is_dir(), "an unowned worktree must not be destroyed"
+    assert (foreign / "uncommitted.txt").read_text(encoding="utf-8") == "precious"
+
+
+async def test_cleanup_is_self_sufficient_on_fresh_db(tmp_path: Path) -> None:
+    """The manager applies migrations, so it works on a fresh state database."""
+    repo = _init_repo(tmp_path / "repo")
+    async with WorktreeManager(repo, tmp_path / "fresh.db") as manager:
+        record = await manager.create("BL-forge-036", RUN_ID)
+        assert record.path.is_dir()
+        assert await manager.get("BL-forge-036", RUN_ID) is not None
 
 
 async def test_list_registered_returns_active_worktrees(tmp_path: Path) -> None:

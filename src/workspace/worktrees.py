@@ -23,6 +23,8 @@ from typing import Any
 
 import aiosqlite
 
+from src.state.migrations import apply_migrations
+
 
 class WorktreeError(RuntimeError):
     """Raised when a worktree operation cannot be completed safely."""
@@ -50,11 +52,9 @@ class WorktreeRecord:
 class OrphanCleanup:
     """Summary of an orphan-cleanup pass.
 
-    :ivar removed_worktrees: Paths of unregistered worktrees removed from Git.
     :ivar unregistered: Backlog ids whose registration was dropped (worktree gone).
     """
 
-    removed_worktrees: tuple[Path, ...]
     unregistered: tuple[str, ...]
 
 
@@ -202,19 +202,22 @@ class WorktreeManager:
         return tuple(_row_to_record(tuple(row)) for row in rows)
 
     async def cleanup_orphans(self, run_id: str) -> OrphanCleanup:
-        """Reconcile registered worktrees with the real Git state (EXG-NF-01).
+        """Reconcile this run's registered worktrees with the real Git state.
 
-        Registered worktrees whose directory is gone are unregistered, and
-        actual worktrees living under ``../wt`` that are not registered are
-        removed from Git. ``git worktree prune`` clears stale administrative
-        files left by a crash.
+        Only the current run's own registrations are reconciled: rows whose
+        directory has vanished (e.g. after a crash) are unregistered, and
+        ``git worktree prune`` clears the stale administrative files Git keeps
+        for those deleted directories. Worktrees that are *not* registered by
+        this run are **never** force-removed — they may belong to another
+        AI-Forge instance sharing the repository (concurrent-instance conflicts
+        are prevented upstream by the repository lock, EXG-LCK), and blindly
+        deleting them would destroy another run's uncommitted work.
 
         :param run_id: Owning run identifier.
-        :returns: A summary of what was cleaned.
+        :returns: A summary of the reconciliation.
         """
         connection = await self._ensure_open()
         registered = await self.list_registered(run_id)
-        registered_paths = {record.path for record in registered}
 
         unregistered: list[str] = []
         for record in registered:
@@ -225,24 +228,8 @@ class WorktreeManager:
                 )
                 unregistered.append(record.bl_id)
         await connection.commit()
-
-        removed: list[Path] = []
-        for path in self._list_git_worktrees():
-            if path == self._repo_root:
-                continue
-            if _is_within(path, self.worktrees_root) and path not in registered_paths:
-                self._run_git("worktree", "remove", "--force", str(path))
-                removed.append(path)
         self._run_git("worktree", "prune")
-        return OrphanCleanup(removed_worktrees=tuple(removed), unregistered=tuple(unregistered))
-
-    def _list_git_worktrees(self) -> tuple[Path, ...]:
-        result = self._run_git("worktree", "list", "--porcelain")
-        paths: list[Path] = []
-        for line in result.stdout.splitlines():
-            if line.startswith("worktree "):
-                paths.append(Path(line[len("worktree ") :].strip()).resolve())
-        return tuple(paths)
+        return OrphanCleanup(unregistered=tuple(unregistered))
 
     def _run_git(
         self,
@@ -268,20 +255,16 @@ class WorktreeManager:
         if self._connection is None:
             connection = await aiosqlite.connect(self._db_path)
             await connection.execute("PRAGMA busy_timeout = 5000")
+            await connection.execute("PRAGMA journal_mode = WAL")
+            # Self-sufficient: ensure the migrated ``worktrees`` table exists,
+            # so the manager works on a fresh run database as well.
+            await apply_migrations(connection)
             self._connection = connection
         return self._connection
 
 
 def _branch_name(bl_id: str) -> str:
     return f"feat/{bl_id.lower().replace('_', '-')}"
-
-
-def _is_within(path: Path, base: Path) -> bool:
-    try:
-        path.resolve().relative_to(base.resolve())
-    except ValueError:
-        return False
-    return True
 
 
 def _row_to_record(row: tuple[Any, ...]) -> WorktreeRecord:
