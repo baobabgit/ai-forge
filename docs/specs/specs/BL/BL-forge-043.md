@@ -7,7 +7,7 @@ target_version: 0.4.0
 depends_on: [BL-forge-009, BL-forge-014]
 size: M
 critical: false
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -35,11 +35,11 @@ Implémenter `forge status` (rich) : tableau de bord temps réel lisant l'état 
 - BL-forge-014 — CLI typer : forge init et run minimal
 
 ## Definition of Done
-- [ ] Latence mesurée < 2 s entre transition d'état et affichage
-- [ ] Lecture concurrente sans verrouiller le run
-- [ ] Toutes les colonnes du tableau EXG-ETA-02 présentes
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Latence mesurée < 2 s entre transition d'état et affichage
+- [x] Lecture concurrente sans verrouiller le run
+- [x] Toutes les colonnes du tableau EXG-ETA-02 présentes
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
