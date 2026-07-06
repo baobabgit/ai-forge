@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import TypeGuard
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,9 +81,8 @@ def _scan_module(
         if isinstance(node, ast.ClassDef):
             _scan_class(node, module_name, rel_path, missing)
         elif _is_public_function(node):
-            function_node = cast(ast.FunctionDef | ast.AsyncFunctionDef, node)
             _record_if_missing(
-                function_node,
+                node,
                 f"{module_name}.{node.name}",
                 rel_path,
                 "function",
@@ -91,7 +90,7 @@ def _scan_module(
             )
 
 
-def _is_public_function(node: ast.AST) -> bool:
+def _is_public_function(node: ast.AST) -> TypeGuard[ast.FunctionDef | ast.AsyncFunctionDef]:
     return isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith(
         "_"
     )
