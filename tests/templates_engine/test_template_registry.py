@@ -332,7 +332,9 @@ def test_manifest_id_mismatch_is_rejected(tmp_path: Path) -> None:
     )
     (plugin_dir / "plugin.py").write_text("class TemplatePluginImpl: ...\n", encoding="utf-8")
     src_toml = tmp_path / "src.toml"
-    src_toml.write_text(f'[templates.mismatch]\nentry = "{plugin_dir.as_posix()}"\n', encoding="utf-8")
+    src_toml.write_text(
+        f'[templates.mismatch]\nentry = "{plugin_dir.as_posix()}"\n', encoding="utf-8"
+    )
 
     with pytest.raises(TemplateRegistryError, match="declares id"):
         TemplateRegistry.discover(default_templates_root(), src_toml=src_toml)
@@ -369,7 +371,9 @@ def test_plugin_directory_requires_manifest_and_module(tmp_path: Path) -> None:
     plugin_dir = tmp_path / "incomplete"
     plugin_dir.mkdir()
     src_toml = tmp_path / "src.toml"
-    src_toml.write_text(f'[templates.incomplete]\nentry = "{plugin_dir.as_posix()}"\n', encoding="utf-8")
+    src_toml.write_text(
+        f'[templates.incomplete]\nentry = "{plugin_dir.as_posix()}"\n', encoding="utf-8"
+    )
     with pytest.raises(TemplateRegistryError, match="template.toml"):
         TemplateRegistry.discover(default_templates_root(), src_toml=src_toml)
 
@@ -396,7 +400,9 @@ def test_plugin_class_must_implement_template_protocol(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     src_toml = tmp_path / "src.toml"
-    src_toml.write_text(f'[templates.bad-class]\nentry = "{plugin_dir.as_posix()}"\n', encoding="utf-8")
+    src_toml.write_text(
+        f'[templates.bad-class]\nentry = "{plugin_dir.as_posix()}"\n', encoding="utf-8"
+    )
     with pytest.raises(TemplateContractError, match="not a TemplatePlugin"):
         TemplateRegistry.discover(default_templates_root(), src_toml=src_toml)
 
@@ -411,8 +417,7 @@ def test_metadata_template_id_mismatch_in_plugin_is_rejected(tmp_path: Path) -> 
         encoding="utf-8",
     )
     (plugin_dir / "plugin.py").write_text(
-        textwrap.dedent(
-            '''
+        textwrap.dedent("""
             import tomllib
             from pathlib import Path
             from src.templates_engine.plugin_contract import (
@@ -439,9 +444,7 @@ def test_metadata_template_id_mismatch_in_plugin_is_rejected(tmp_path: Path) -> 
 
                 def bootstrap(self, context: BootstrapContext) -> dict[str, str]:
                     return {"README.md": "x"}
-            '''
-        ).strip()
-        + "\n",
+            """).strip() + "\n",
         encoding="utf-8",
     )
     src_toml = tmp_path / "src.toml"

@@ -162,7 +162,9 @@ def _import_plugin_module(plugin_path: Path, template_id: str) -> TemplatePlugin
     if isinstance(plugin_obj, type):
         instance = plugin_obj()
         if not isinstance(instance, TemplatePlugin):
-            raise TemplateContractError(template_id, f"{_PLUGIN_CLASS} instance is not a TemplatePlugin")
+            raise TemplateContractError(
+                template_id, f"{_PLUGIN_CLASS} instance is not a TemplatePlugin"
+            )
         return instance
     if isinstance(plugin_obj, TemplatePlugin):
         return plugin_obj
