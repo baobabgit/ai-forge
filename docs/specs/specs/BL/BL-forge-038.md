@@ -7,7 +7,7 @@ target_version: 0.3.0
 depends_on: [BL-forge-036, BL-forge-021]
 size: M
 critical: false
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -35,11 +35,11 @@ Implémenter EXG-PAR-03 : après le merge d'un BL, tous les worktrees encore ouv
 - BL-forge-021 — Boucle de correction par Issue GitHub
 
 ## Definition of Done
-- [ ] Merge d'un BL => rebase automatique des worktrees frères avant reprise
-- [ ] Conflit simulé => tâche de résolution DEV exécutée puis cycle repris
-- [ ] Rebase échoué de manière répétée => BL traité par la boucle d'itérations (BLOCKED au plafond)
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Merge d'un BL => rebase automatique des worktrees frères avant reprise
+- [x] Conflit simulé => tâche de résolution DEV exécutée puis cycle repris
+- [x] Rebase échoué de manière répétée => BL traité par la boucle d'itérations (BLOCKED au plafond)
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
