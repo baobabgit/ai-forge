@@ -7,7 +7,7 @@ target_version: 0.1.3
 depends_on: [BL-forge-009]
 size: S
 critical: false
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -34,11 +34,11 @@ Implémenter le module adr (EXG-ADR-01, annexe A5) : modèle ADR (contexte, déc
 - BL-forge-009 — Base d'état SQLite et machine à états BL
 
 ## Definition of Done
-- [ ] ADR rendu au format normalisé avec nommage séquentiel et statut de cycle de vie
-- [ ] forge adr new crée et committe un ADR humain valide
-- [ ] Événement ADR_RECORDED journalisé avec chemin de l'ADR
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] ADR rendu au format normalisé avec nommage séquentiel et statut de cycle de vie
+- [x] forge adr new crée et committe un ADR humain valide
+- [x] Événement ADR_RECORDED journalisé avec chemin de l'ADR
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
