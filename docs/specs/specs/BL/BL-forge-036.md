@@ -7,7 +7,7 @@ target_version: 0.3.0
 depends_on: [BL-forge-012]
 size: M
 critical: true
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -33,11 +33,11 @@ Implémenter src/workspace/worktrees.py : création `git worktree add ../wt/<BL-
 - BL-forge-012 — Wrapper git et gh de base
 
 ## Definition of Done
-- [ ] Deux worktrees simultanés sur le même dépôt sans interférence de fichiers
-- [ ] Worktree orphelin post-crash détecté et nettoyé au démarrage
-- [ ] Reset propre vérifié : reprise d'un rôle sur worktree sale => état déterministe
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Deux worktrees simultanés sur le même dépôt sans interférence de fichiers
+- [x] Worktree orphelin post-crash détecté et nettoyé au démarrage
+- [x] Reset propre vérifié : reprise d'un rôle sur worktree sale => état déterministe
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
