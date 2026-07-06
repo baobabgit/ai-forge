@@ -1,0 +1,76 @@
+# Rapport de run - {{ run_id }}
+
+## Synthese
+
+- BL suivis : {{ total }}
+- BL livres : {{ counts.DONE }}
+- BL bloques : {{ counts.BLOCKED }}
+- BL actifs : {{ active_count }}
+- Duree observee : {{ run_duration }}
+- Actions en attente : {{ pending_approvals|length }}
+
+## BL par librairie et version
+
+{% if library_versions %}
+{% for group in library_versions %}
+### {{ group.library }} {{ group.version }}
+
+{% for line in group.statuses %}
+- {{ line.status }} : {% if line.bl_ids %}{{ line.bl_ids|join(', ') }}{% else %}aucun{% endif %}
+{% endfor %}
+{% endfor %}
+{% else %}
+Aucun BL suivi.
+{% endif %}
+
+## Blocages ouverts
+
+{% if blockers %}
+{% for blocker in blockers %}
+- {{ blocker.bl_id }} ({{ blocker.library }} {{ blocker.version }}){% if blocker.issue_title %} : {{ blocker.issue_title }}{% endif %}{% if blocker.issue_url %} - {{ blocker.issue_url }}{% endif %}
+{% endfor %}
+{% else %}
+Aucun blocage ouvert.
+{% endif %}
+
+## Iterations par BL
+
+{% if iterations %}
+{% for item in iterations %}
+- {{ item.bl_id }} : iteration {{ item.iteration }} ({{ item.status }})
+{% endfor %}
+{% else %}
+Aucune iteration journalisee.
+{% endif %}
+
+## Issues ouvertes journalisees
+
+{% if issues %}
+{% for issue in issues %}
+- {% if issue.bl_id %}{{ issue.bl_id }} : {% endif %}{{ issue.title }}{% if issue.url %} - {{ issue.url }}{% endif %}
+{% endfor %}
+{% else %}
+Aucune issue ouverte journalisee.
+{% endif %}
+
+## Jalons atteints
+
+{% if milestones %}
+{% for milestone in milestones %}
+- {{ milestone.kind }} : {{ milestone.library }} {{ milestone.label }}
+{% endfor %}
+{% else %}
+Aucun jalon atteint.
+{% endif %}
+
+## Durees
+
+{% if durations %}
+{% for item in durations %}
+- {{ item.bl_id }} : {{ item.duration }} ({{ item.status }})
+{% endfor %}
+{% else %}
+Aucune duree par BL.
+{% endif %}
+
+{{ stats_section }}

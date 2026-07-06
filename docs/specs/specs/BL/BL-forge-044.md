@@ -7,7 +7,7 @@ target_version: 0.4.0
 depends_on: [BL-forge-009, BL-forge-040]
 size: S
 critical: false
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -36,11 +36,11 @@ Implémenter `forge report` : rapport Markdown de synthèse du run — BL livré
 - BL-forge-040 — Dépôt programme et création multi-repo
 
 ## Definition of Done
-- [ ] Rapport complet généré sur un run de test et poussé au dépôt programme
-- [ ] Rapport exact même sur run interrompu (état persisté seul)
-- [ ] Sections stables pour comparaison entre runs
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Rapport complet généré sur un run de test et poussé au dépôt programme
+- [x] Rapport exact même sur run interrompu (état persisté seul)
+- [x] Sections stables pour comparaison entre runs
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
