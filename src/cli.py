@@ -483,6 +483,12 @@ def run_command(
         _handle_cli_error(error)
     if result.merged:
         console.print(f"[green]{bl_id} merged on {result.branch} (PR #{result.pr_number})[/green]")
+    elif result.awaiting_approval:
+        console.print(
+            f"[yellow]{bl_id} merge awaiting approval "
+            f"({result.pending_action_id}); run 'forge approve {result.pending_action_id}'"
+            f"[/yellow]"
+        )
     else:
         console.print(f"[green]{bl_id} execution completed[/green]")
 
