@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+
+import pytest
 
 from src.core.models.status import Status
 from src.state.db import StateDatabase
@@ -10,6 +15,7 @@ from src.state.recovery import (
     ObservedReality,
     RecoveryReport,
     default_reality_probe,
+    default_worktree_reset,
     recover_run,
 )
 
@@ -68,7 +74,7 @@ def _fixed_reality(**overrides: object) -> ObservedReality:
     return ObservedReality(**base)  # type: ignore[arg-type]
 
 
-def _observe(reality: ObservedReality) -> object:
+def _observe(reality: ObservedReality) -> Callable[[str, Status], Awaitable[ObservedReality]]:
     async def _probe(bl_id: str, status: Status) -> ObservedReality:
         _ = bl_id, status
         return reality
@@ -300,6 +306,104 @@ async def test_default_probe_reports_branch_absent_outside_git(tmp_path: Path) -
     assert reality.pr_open is False
 
 
+async def test_default_probe_observes_real_branch_worktree_and_pr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The default probe reconciles git worktrees and open PRs by BL branch."""
+    repo = _init_git_repo(tmp_path)
+    branch = "feat/bl-forge-052"
+    _add_git_worktree(repo, tmp_path / "wt-bl-forge-052", branch)
+
+    def _fake_pr_view(
+        repo_arg: Path,
+        pull_request: int | str,
+        *,
+        json_fields: object | None = None,
+        dry_run: bool = False,
+        dry_run_log: object | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        _ = json_fields, dry_run, dry_run_log
+        assert repo_arg == repo
+        assert pull_request == branch
+        payload = {"number": 123, "state": "OPEN"}
+        return subprocess.CompletedProcess(["gh"], 0, json.dumps(payload), "")
+
+    monkeypatch.setattr("src.state.recovery.gh_cli.pr_view", _fake_pr_view)
+
+    reality = await default_reality_probe(repo)("BL-forge-052", Status.IN_PROGRESS)
+
+    assert reality.branch_exists is True
+    assert reality.worktree_present is True
+    assert reality.pr_open is True
+    assert reality.pr_number == 123
+
+
+async def test_default_worktree_reset_cleans_residual_worktree(tmp_path: Path) -> None:
+    """The injected reset restores tracked files and removes untracked files."""
+    repo = _init_git_repo(tmp_path)
+    worktree = _add_git_worktree(repo, tmp_path / "wt-bl-forge-052", "feat/bl-forge-052")
+    readme = worktree / "README.md"
+    scratch = worktree / "scratch.txt"
+    readme.write_text("dirty\n", encoding="utf-8")
+    scratch.write_text("temp\n", encoding="utf-8")
+
+    await default_worktree_reset(repo)("BL-forge-052")
+
+    assert readme.read_text(encoding="utf-8") == "base\n"
+    assert not scratch.exists()
+
+
+async def test_default_probe_ignores_primary_checkout_as_residual_worktree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The repository checkout itself is not reset as a residual worktree."""
+    repo = _init_git_repo(tmp_path)
+    _git(repo, "checkout", "-b", "feat/bl-forge-052")
+
+    def _missing_pr(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise OSError("gh unavailable")
+
+    monkeypatch.setattr("src.state.recovery.gh_cli.pr_view", _missing_pr)
+
+    reality = await default_reality_probe(repo)("BL-forge-052", Status.IN_PROGRESS)
+
+    assert reality.branch_exists is True
+    assert reality.worktree_present is False
+    await default_worktree_reset(repo)("BL-forge-052")
+    assert _git_output(repo, "status", "--short") == ""
+
+
 def test_recovery_report_render_lists_plans() -> None:
     """An empty report renders the no-op message."""
     assert "aucun BL interrompu" in RecoveryReport(run_id="r").render()
+
+
+def _init_git_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init")
+    _git(repo, "config", "user.email", "dev@test")
+    _git(repo, "config", "user.name", "Dev")
+    (repo / "README.md").write_text("base\n", encoding="utf-8")
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-m", "chore: init")
+    return repo
+
+
+def _add_git_worktree(repo: Path, worktree: Path, branch: str) -> Path:
+    _git(repo, "worktree", "add", "-b", branch, str(worktree))
+    return worktree
+
+
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+
+def _git_output(repo: Path, *args: str) -> str:
+    return subprocess.check_output(["git", *args], cwd=repo, text=True)

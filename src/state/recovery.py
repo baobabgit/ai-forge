@@ -15,12 +15,20 @@ is injected, so the reconciliation is fully unit-testable without git or gh.
 
 from __future__ import annotations
 
+import json
+import subprocess  # nosec B404 - fixed git argv for recovery probes/resets.
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from src.core.models.status import Status
+from src.ghub import cli as gh_cli
 from src.state.db import StateDatabase
+
+
+class RecoveryError(RuntimeError):
+    """Raised when recovery cannot safely reconcile or reset observed state."""
+
 
 #: BL statuses that indicate work interrupted mid-cycle.
 INTERRUPTED_STATUSES: frozenset[Status] = frozenset(
@@ -103,6 +111,14 @@ class RecoveryReport:
             for note in plan.reconciliations:
                 lines.append(f"      reconcilie: {note}")
         return "\n".join(lines)
+
+
+@dataclass(frozen=True, slots=True)
+class _GitWorktree:
+    """One entry returned by ``git worktree list --porcelain``."""
+
+    path: Path
+    branch: str | None
 
 
 ObserveReality = Callable[[str, Status], Awaitable[ObservedReality]]
@@ -252,39 +268,88 @@ async def _reconcile_pr(
 
 
 def default_reality_probe(repo_root: Path) -> ObserveReality:
-    """Build a read-only git/filesystem reality probe (best effort).
+    """Build a read-only git/GitHub/filesystem reality probe (best effort).
 
     The probe never raises: when git is unavailable or the branch cannot be
     resolved, the corresponding effect is reported as absent so recovery stays
-    conservative. Pull-request state is not probed here (it is trusted from the
-    journal); inject a gh-backed probe to reconcile PRs against GitHub.
+    conservative. Pull-request state is observed through ``gh pr view`` for the
+    BL feature branch; failures are treated as no open PR.
 
-    :param repo_root: Repository root used for branch and worktree checks.
+    :param repo_root: Repository root used for branch, PR and worktree checks.
     :returns: An async reality probe suitable for :func:`recover_run`.
     """
 
     async def _probe(bl_id: str, status: Status) -> ObservedReality:
         _ = status
-        branch = f"feat/{bl_id.lower().replace('_', '-')}"
+        branch = _branch_name(bl_id)
+        worktree = _find_residual_worktree(repo_root, branch)
+        pr_number = _open_pr_number(repo_root, branch)
         return ObservedReality(
-            branch_exists=_git_branch_exists(repo_root, branch),
-            worktree_present=False,
-            pr_open=False,
-            pr_number=None,
+            branch_exists=_git_branch_exists(repo_root, branch) or worktree is not None,
+            worktree_present=worktree is not None,
+            pr_open=pr_number is not None,
+            pr_number=pr_number,
         )
 
     return _probe
 
 
-def _git_branch_exists(repo_root: Path, branch: str) -> bool:
-    import subprocess  # nosec B404 - read-only branch existence probe.
+def default_worktree_reset(repo_root: Path) -> ResetWorktree:
+    """Build a reset implementation for residual BL worktrees.
 
+    The reset target is discovered from ``git worktree list --porcelain`` using
+    the BL feature branch. The primary repository checkout is never treated as
+    a residual worktree, which prevents ``forge resume`` from cleaning the
+    operator's current checkout.
+
+    :param repo_root: Repository root that owns the worktree list.
+    :returns: Async reset callback suitable for :func:`recover_run`.
+    """
+
+    async def _reset(bl_id: str) -> None:
+        branch = _branch_name(bl_id)
+        worktree = _find_residual_worktree(repo_root, branch)
+        if worktree is None:
+            return
+        _reset_git_worktree(worktree.path)
+
+    return _reset
+
+
+def _branch_name(bl_id: str) -> str:
+    slug = bl_id.lower().replace("_", "-")
+    return f"feat/{slug}"
+
+
+def _open_pr_number(repo_root: Path, branch: str) -> int | None:
+    try:
+        result = gh_cli.pr_view(repo_root, branch, json_fields=("number", "state"))
+    except (OSError, ValueError, gh_cli.GhError):
+        return None
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict) or payload.get("state") != "OPEN":
+        return None
+    number = payload.get("number")
+    return number if isinstance(number, int) else None
+
+
+def _git_branch_exists(repo_root: Path, branch: str) -> bool:
     git_bin = _which_git()
     if git_bin is None:
         return False
+    for ref in (f"refs/heads/{branch}", f"refs/remotes/origin/{branch}"):
+        if _git_ref_exists(repo_root, git_bin=git_bin, ref=ref):
+            return True
+    return False
+
+
+def _git_ref_exists(repo_root: Path, *, git_bin: str, ref: str) -> bool:
     try:
         result = subprocess.run(  # nosec B603 - fixed git argv, no shell.
-            [git_bin, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"],
+            [git_bin, "show-ref", "--verify", "--quiet", ref],
             cwd=repo_root,
             text=True,
             capture_output=True,
@@ -293,6 +358,76 @@ def _git_branch_exists(repo_root: Path, branch: str) -> bool:
     except OSError:
         return False
     return result.returncode == 0
+
+
+def _find_residual_worktree(repo_root: Path, branch: str) -> _GitWorktree | None:
+    root = repo_root.resolve()
+    for worktree in _git_worktrees(root):
+        if worktree.branch != branch:
+            continue
+        if worktree.path.resolve() == root:
+            continue
+        if worktree.path.is_dir():
+            return worktree
+    return None
+
+
+def _git_worktrees(repo_root: Path) -> tuple[_GitWorktree, ...]:
+    git_bin = _which_git()
+    if git_bin is None:
+        return ()
+    try:
+        result = subprocess.run(  # nosec B603 - fixed git argv, no shell.
+            [git_bin, "worktree", "list", "--porcelain"],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return ()
+    if result.returncode != 0:
+        return ()
+    return _parse_worktree_list(result.stdout)
+
+
+def _parse_worktree_list(stdout: str) -> tuple[_GitWorktree, ...]:
+    entries: list[_GitWorktree] = []
+    current_path: Path | None = None
+    current_branch: str | None = None
+    for raw_line in (*stdout.splitlines(), ""):
+        line = raw_line.strip()
+        if not line:
+            if current_path is not None:
+                entries.append(_GitWorktree(path=current_path, branch=current_branch))
+            current_path = None
+            current_branch = None
+            continue
+        if line.startswith("worktree "):
+            current_path = Path(line.removeprefix("worktree ")).resolve(strict=False)
+        elif line.startswith("branch refs/heads/"):
+            current_branch = line.removeprefix("branch refs/heads/")
+    return tuple(entries)
+
+
+def _reset_git_worktree(worktree: Path) -> None:
+    git_bin = _which_git()
+    if git_bin is None:
+        raise RecoveryError("git executable not found")
+    resolved = worktree.resolve(strict=False)
+    if not resolved.is_dir():
+        raise RecoveryError(f"residual worktree not found: {resolved}")
+    for args in (("reset", "--hard", "HEAD"), ("clean", "-fd")):
+        result = subprocess.run(  # nosec B603 - fixed git argv, no shell.
+            [git_bin, *args],
+            cwd=resolved,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            message = result.stderr.strip() or result.stdout.strip() or "git reset failed"
+            raise RecoveryError(message)
 
 
 def _which_git() -> str | None:

@@ -37,7 +37,13 @@ from src.scheduler.shutdown import (
 )
 from src.state.db import StateDatabase, StateDatabaseError
 from src.state.machine import BlStateMachine, IllegalTransitionError, TransitionRequest
-from src.state.recovery import RecoveryReport, default_reality_probe, recover_run
+from src.state.recovery import (
+    RecoveryError,
+    RecoveryReport,
+    default_reality_probe,
+    default_worktree_reset,
+    recover_run,
+)
 
 app = typer.Typer(name="forge", no_args_is_help=True, add_completion=False)
 adr_app = typer.Typer(name="adr", no_args_is_help=True, add_completion=False)
@@ -347,11 +353,15 @@ async def recover_forge(
         raise ForgeCliError(ExitCode.STATE_ERROR, str(error)) from error
     try:
         run_id = (forge_dir / RUN_ID_FILENAME).read_text(encoding="utf-8").strip()
-        return await recover_run(
-            database,
-            run_id=run_id,
-            observe=default_reality_probe(repo_root),
-        )
+        try:
+            return await recover_run(
+                database,
+                run_id=run_id,
+                observe=default_reality_probe(repo_root),
+                reset_worktree=default_worktree_reset(repo_root),
+            )
+        except RecoveryError as error:
+            raise ForgeCliError(ExitCode.STATE_ERROR, str(error)) from error
     finally:
         await database.close()
 
