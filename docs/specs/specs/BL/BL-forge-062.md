@@ -7,7 +7,7 @@ target_version: 0.3.0
 depends_on: [BL-forge-016, BL-forge-023]
 size: L
 critical: true
-status: BLOCKED
+status: TODO
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -30,9 +30,16 @@ Implémenter le moteur de politiques policies.toml (EXG-SEC-01) : allowlist de c
 - `src/policy/role_policy.py`
 - `src/policy/injection_detector.py`
 - `src/policy/secret_masker.py`
+- `src/providers/base.py`
+- `src/providers/runner.py`
+- `src/obs/logging.py`
+- `src/obs/invocation_journal.py`
+- `src/roles/rendering.py`
 - `config/policies.toml`
 - `tests/policy/test_role_policy.py`
 - `tests/policy/test_injection_detector.py`
+- `tests/providers/test_runner.py`
+- `tests/obs/test_logging.py`
 
 ## Dépendances
 - BL-forge-016 — Exécution des gates automatiques et diff-guard

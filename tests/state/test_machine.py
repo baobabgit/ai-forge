@@ -190,3 +190,89 @@ async def test_in_progress_without_no_go_flag_from_test_is_rejected(tmp_path: Pa
             )
     finally:
         await db.close()
+
+
+@pytest.mark.asyncio
+async def test_privileged_reopen_from_done(tmp_path: Path) -> None:
+    """Rollback and version-gate reopening use privileged DONE transitions."""
+    db, machine = await _bootstrapped_machine(tmp_path)
+    try:
+        for target in (
+            Status.IN_PROGRESS,
+            Status.IN_TEST,
+            Status.IN_REVIEW,
+            Status.DONE,
+        ):
+            await machine.transition(
+                "BL-forge-009",
+                TransitionRequest(target=target, actor="INTEGRATOR", reason="advance"),
+            )
+
+        reopened = await machine.transition(
+            "BL-forge-009",
+            TransitionRequest(
+                target=Status.IN_PROGRESS,
+                actor="release",
+                reason="version gate NO GO",
+                privileged_reopen=True,
+            ),
+        )
+        assert reopened.status is Status.IN_PROGRESS
+
+        for target in (
+            Status.IN_TEST,
+            Status.IN_REVIEW,
+            Status.DONE,
+        ):
+            await machine.transition(
+                "BL-forge-009",
+                TransitionRequest(target=target, actor="INTEGRATOR", reason="advance"),
+            )
+
+        rolled_back = await machine.transition(
+            "BL-forge-009",
+            TransitionRequest(
+                target=Status.TODO,
+                actor="rollback",
+                reason="forge revert",
+                privileged_reopen=True,
+            ),
+        )
+        assert rolled_back.status is Status.TODO
+
+        events = await db.list_events("run-001")
+        assert [event.event_type for event in events if event.event_type == "ROLLED_BACK"] == [
+            "ROLLED_BACK",
+            "ROLLED_BACK",
+        ]
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_privileged_reopen_without_flag_is_rejected(tmp_path: Path) -> None:
+    """DONE remains terminal unless privileged_reopen is set."""
+    db, machine = await _bootstrapped_machine(tmp_path)
+    try:
+        for target in (
+            Status.IN_PROGRESS,
+            Status.IN_TEST,
+            Status.IN_REVIEW,
+            Status.DONE,
+        ):
+            await machine.transition(
+                "BL-forge-009",
+                TransitionRequest(target=target, actor="INTEGRATOR", reason="advance"),
+            )
+
+        with pytest.raises(IllegalTransitionError, match="illegal transition DONE -> TODO"):
+            await machine.transition(
+                "BL-forge-009",
+                TransitionRequest(
+                    target=Status.TODO,
+                    actor="rollback",
+                    reason="forge revert",
+                ),
+            )
+    finally:
+        await db.close()

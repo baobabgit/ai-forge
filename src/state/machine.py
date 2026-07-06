@@ -48,12 +48,14 @@ class TransitionRequest:
     :ivar actor: Role or subsystem requesting the transition.
     :ivar reason: Human-readable reason stored in the event journal.
     :ivar no_go: Whether the transition follows a TEST/REVIEW NO GO verdict.
+    :ivar privileged_reopen: Whether a rollback/reopen from ``DONE`` is requested.
     """
 
     target: Status
     actor: str
     reason: str
     no_go: bool = False
+    privileged_reopen: bool = False
 
 
 class BlStateMachine:
@@ -76,14 +78,23 @@ class BlStateMachine:
         return LEGAL_TRANSITIONS[current]
 
     @staticmethod
-    def can_transition(current: Status, target: Status, *, no_go: bool = False) -> bool:
+    def can_transition(
+        current: Status,
+        target: Status,
+        *,
+        no_go: bool = False,
+        privileged_reopen: bool = False,
+    ) -> bool:
         """Return whether ``target`` is legal from ``current``.
 
         :param current: Current lifecycle status.
         :param target: Candidate target status.
         :param no_go: Whether the transition represents a NO GO return.
+        :param privileged_reopen: Whether a rollback/reopen from ``DONE`` is requested.
         :returns: ``True`` when the transition is permitted.
         """
+        if privileged_reopen:
+            return current is Status.DONE and target in {Status.IN_PROGRESS, Status.TODO}
         if target not in LEGAL_TRANSITIONS[current]:
             return False
         if no_go:
@@ -112,11 +123,20 @@ class BlStateMachine:
             raise IllegalTransitionError(bl_id, Status.TODO, request.target)
 
         current = record.status
-        if not self.can_transition(current, request.target, no_go=request.no_go):
+        if not self.can_transition(
+            current,
+            request.target,
+            no_go=request.no_go,
+            privileged_reopen=request.privileged_reopen,
+        ):
             raise IllegalTransitionError(bl_id, current, request.target)
 
         event_type = _event_type_for_transition(current, request)
-        details = {"reason": request.reason, "no_go": request.no_go}
+        details = {
+            "reason": request.reason,
+            "no_go": request.no_go,
+            "privileged_reopen": request.privileged_reopen,
+        }
         return await self._database._transition_bl_status(
             bl_id,
             new_status=request.target,
@@ -127,6 +147,8 @@ class BlStateMachine:
 
 
 def _event_type_for_transition(current: Status, request: TransitionRequest) -> str:
+    if request.privileged_reopen and current is Status.DONE:
+        return "ROLLED_BACK"
     if request.target is Status.BLOCKED:
         return "BL_BLOCKED"
     if request.no_go and current is Status.IN_TEST:

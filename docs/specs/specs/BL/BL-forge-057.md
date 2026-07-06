@@ -7,7 +7,7 @@ target_version: 0.3.0
 depends_on: [BL-forge-009, BL-forge-012]
 size: M
 critical: false
-status: BLOCKED
+status: TODO
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -29,8 +29,10 @@ Implémenter forge revert <BL-id> (EXG-RBK-01) : PR de revert soumise au cycle n
 ## Fichiers / modules impactés
 - `src/cli.py (commandes revert, cleanup-orphans)`
 - `src/state/rollback.py`
+- `src/state/machine.py`
 - `src/workspace/orphan_cleaner.py`
 - `tests/state/test_rollback.py`
+- `tests/state/test_machine.py`
 - `tests/workspace/test_orphan_cleaner.py`
 
 ## Dépendances

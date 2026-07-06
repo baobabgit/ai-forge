@@ -7,7 +7,7 @@ target_version: 0.3.0
 depends_on: [BL-forge-009, BL-forge-027, BL-forge-036]
 size: L
 critical: true
-status: BLOCKED
+status: TODO
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -24,17 +24,19 @@ gates:
 **Version cible :** v0.3.0 · **Taille :** L (~2 j) · **Critique :** OUI
 
 ## Description technique
-Implémenter src/scheduler/loop.py : boucle asyncio principale — sélection continue des BL prêts via le planner, pool de N workers concurrents (configurable, défaut 3), chaque worker déroulant le cycle complet d'un BL dans son worktree dédié ; réaction aux événements (BL DONE => recalcul planning + déblocage, BL BLOCKED => retrait), intégration de l'attribution des rôles et de la bascule de provider ; arrêt propre sur signal et reprise via l'état persisté. Câbler `forge run --workers N`.
+Implémenter src/scheduler/loop.py : boucle asyncio principale — sélection continue des BL prêts via ``ReadyBlSelector`` (dépendances DONE, statut TODO ou READY), pool de N workers concurrents (configurable, défaut 3), chaque worker déroulant le cycle complet d'un BL dans son worktree dédié ; réaction aux événements (BL DONE => recalcul planning + déblocage, BL BLOCKED => retrait), intégration de l'attribution des rôles et de la bascule de provider ; arrêt propre sur signal et reprise via l'état persisté. Câbler `forge run --workers N`.
 
 ## Fichiers / modules impactés
 - `src/scheduler/loop.py`
+- `src/scheduler/ready_selector.py`
 - `src/cli.py`
 - `tests/scheduler/test_loop.py`
+- `tests/scheduler/test_ready_selector.py`
 
 ## Dépendances
-- BL-forge-034 — Ordonnancement par vagues et chemin critique
 - BL-forge-009 — Base d'état SQLite et machine à états BL
 - BL-forge-027 — Attribution des rôles par rotation de charge
+- BL-forge-036 — Gestion des worktrees Git
 
 ## Definition of Done
 - [ ] N BL prêts développés en parallèle par N workers, chacun dans son worktree
