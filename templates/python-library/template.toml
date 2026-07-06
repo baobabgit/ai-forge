@@ -1,0 +1,10 @@
+id = "python-library"
+version = "1.0.0"
+kind = "python-library"
+description = "Python library scaffold with pyproject, tests and CI."
+expected_paths = [
+  "README.md",
+  "pyproject.toml",
+  "src/__init__.py",
+  ".github/workflows/ci.yml",
+]

@@ -1,0 +1,10 @@
+id = "program-repo"
+version = "1.0.0"
+kind = "program-repo"
+description = "Program repository scaffold with forge manifest and specs layout."
+expected_paths = [
+  "README.md",
+  "forge-run.yaml",
+  "forge-invariants.yaml",
+  "docs/specs/planning.md",
+]

@@ -1,0 +1,9 @@
+id = "react-front"
+version = "1.0.0"
+kind = "react-front"
+description = "React front-end scaffold with package manifest and app shell."
+expected_paths = [
+  "README.md",
+  "package.json",
+  "src/App.tsx",
+]
