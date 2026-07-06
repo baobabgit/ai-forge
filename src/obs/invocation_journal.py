@@ -42,11 +42,7 @@ class InvocationJournal:
         :param verdict: Optional structured GO/NO-GO when known (judging roles).
         :param duration_seconds: Optional override when ``result`` lacks duration.
         """
-        measured = (
-            duration_seconds
-            if duration_seconds is not None
-            else result.duration_seconds
-        )
+        measured = duration_seconds if duration_seconds is not None else result.duration_seconds
         if measured <= 0.0:
             measured = 0.0
         await self.logger.emit(
