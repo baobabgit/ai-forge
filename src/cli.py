@@ -13,7 +13,7 @@ from rich.console import Console
 from src.adr.adr_writer import AdrRecord, record_adr
 from src.core.models.status import Status
 from src.core.specparser import SpecParseError, read_spec
-from src.obs.report_builder import build_report
+from src.obs.report import build_run_report, commit_report
 from src.obs.stats import write_stats_json
 from src.obs.status import render_dashboard, watch_status
 from src.obs.status_view import StatusView, build_status_view
@@ -48,6 +48,7 @@ from src.state.recovery import (
     default_worktree_reset,
     recover_run,
 )
+from src.workspace import gitio
 
 app = typer.Typer(name="forge", no_args_is_help=True, add_completion=False)
 adr_app = typer.Typer(name="adr", no_args_is_help=True, add_completion=False)
@@ -736,6 +737,8 @@ async def report_forge(
     repo_root: Path,
     providers_config: Path | None = None,
     output: Path,
+    commit: bool = True,
+    push: bool = False,
 ) -> Path:
     """Write the Markdown run report and return its path.
 
@@ -743,6 +746,8 @@ async def report_forge(
     :param repo_root: Repository root receiving the report file.
     :param providers_config: Optional override for the providers configuration file.
     :param output: Report file path.
+    :param commit: Commit the report when ``repo_root`` is a Git worktree.
+    :param push: Push the current branch after committing the report.
     :returns: The written report path.
     :raises ForgeCliError: If forge is not initialized.
     """
@@ -751,10 +756,29 @@ async def report_forge(
         repo_root=repo_root,
         providers_config=providers_config,
     )
+    state_path = forge_dir / STATE_FILENAME
+    try:
+        database = await StateDatabase.open(state_path)
+    except StateDatabaseError as error:
+        raise ForgeCliError(ExitCode.STATE_ERROR, str(error)) from error
+    try:
+        events = await database.list_events(view.run_id)
+    finally:
+        await database.close()
+
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(build_report(view), encoding="utf-8", newline="\n")
+    output.write_text(
+        build_run_report(view, events, repo_root=repo_root),
+        encoding="utf-8",
+        newline="\n",
+    )
     stats_path = forge_dir / ARTIFACTS_DIRNAME / view.run_id / "stats.json"
     write_stats_json(stats_path, view.stats)
+    if commit:
+        try:
+            commit_report(repo_root, output, push=push)
+        except (ValueError, gitio.GitError) as error:
+            raise ForgeCliError(ExitCode.EXECUTION_ERROR, str(error)) from error
     return output
 
 
@@ -844,6 +868,16 @@ def report_command(
         "--providers-config",
         help="Override path to providers.toml.",
     ),
+    commit: bool = typer.Option(
+        True,
+        "--commit/--no-commit",
+        help="Commit the report in the program repository when possible.",
+    ),
+    push: bool = typer.Option(
+        False,
+        "--push/--no-push",
+        help="Push the report commit after it is created.",
+    ),
 ) -> None:
     """Write the Markdown run report (forge report)."""
     resolved_root = repo_root.resolve()
@@ -855,6 +889,8 @@ def report_command(
                 repo_root=resolved_root,
                 providers_config=providers_config.resolve() if providers_config else None,
                 output=destination,
+                commit=commit,
+                push=push,
             )
         )
     except ForgeCliError as error:
