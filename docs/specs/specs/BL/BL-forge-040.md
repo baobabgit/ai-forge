@@ -7,7 +7,7 @@ target_version: 0.4.0
 depends_on: [BL-forge-012, BL-forge-014]
 size: M
 critical: false
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -35,11 +35,11 @@ Implémenter EXG-GIT-01/02 : création (idempotente) de l'organisation ou du pr�
 - BL-forge-014 — CLI typer : forge init et run minimal
 
 ## Definition of Done
-- [ ] Création rejouable sans erreur si les dépôts existent déjà (idempotence)
-- [ ] main protégée vérifiée sur chaque dépôt créé
-- [ ] Le dépôt programme reçoit les livrables des phases 1-3
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Création rejouable sans erreur si les dépôts existent déjà (idempotence)
+- [x] main protégée vérifiée sur chaque dépôt créé
+- [x] Le dépôt programme reçoit les livrables des phases 1-3
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
