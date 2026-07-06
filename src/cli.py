@@ -17,12 +17,14 @@ from src.obs.report_builder import build_report
 from src.obs.stats import write_stats_json
 from src.obs.status import render_dashboard, watch_status
 from src.obs.status_view import StatusView, build_status_view
+from src.phases.doctor import DoctorReport, run_doctor
 from src.phases.execute import (
     ExecutionError,
     SequentialExecutionRequest,
     SequentialExecutionResult,
     SequentialExecutor,
 )
+from src.phases.validate_specs import ValidationReport, validate_specs
 from src.policy.approval_queue import ApprovalQueue, ApprovalQueueError
 from src.policy.pending_action import PendingAction
 from src.providers.bootstrap import create_provider, default_providers_path, load_registry
@@ -858,6 +860,88 @@ def report_command(
     except ForgeCliError as error:
         _handle_cli_error(error)
     console.print(f"[green]report written to {written}[/green]")
+
+
+def doctor_forge(
+    *,
+    repo_root: Path,
+    forge_dir: Path,
+    providers_config: Path | None = None,
+) -> DoctorReport:
+    """Run environment diagnostics (EXG-DIA-01).
+
+    :param repo_root: Repository root of the run.
+    :param forge_dir: Forge state directory.
+    :param providers_config: Optional override for the providers configuration file.
+    :returns: The doctor report.
+    """
+    config_path = providers_config or default_providers_path(repo_root)
+    provider_bins: tuple[str, ...] = ()
+    if config_path.is_file():
+        try:
+            registry = load_registry(config_path)
+            provider_bins = tuple(
+                registry.config(name).bin
+                for name in registry.names
+                if registry.config(name).bin != "mock"
+            )
+        except ProviderRegistryError:
+            provider_bins = ()
+    return run_doctor(
+        repo_root=repo_root,
+        forge_dir=forge_dir,
+        config_dir=config_path.parent,
+        provider_bins=provider_bins,
+    )
+
+
+@app.command("doctor")
+def doctor_command(
+    forge_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_FORGE_DIR,
+        "--forge-dir",
+        help="Forge state directory.",
+    ),
+    repo_root: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo-root",
+        help="Repository root path.",
+    ),
+    providers_config: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--providers-config",
+        help="Override path to providers.toml.",
+    ),
+) -> None:
+    """Diagnose the environment (forge doctor)."""
+    report = doctor_forge(
+        repo_root=repo_root.resolve(),
+        forge_dir=forge_dir.resolve(),
+        providers_config=providers_config.resolve() if providers_config else None,
+    )
+    console.print(report.render())
+    if not report.ok:
+        raise typer.Exit(int(ExitCode.STATE_ERROR))
+
+
+@app.command("validate-specs")
+def validate_specs_command(
+    specs_root: Path = typer.Option(  # noqa: B008
+        Path("docs") / "specs" / "specs",
+        "--specs-root",
+        help="Root directory of the UC/FEAT/BL specification tree.",
+    ),
+    library: str | None = typer.Option(
+        None,
+        "--lib",
+        help="Restrict the per-BL checks to a single library.",
+    ),
+) -> None:
+    """Validate the specification tree out of a run (forge validate-specs)."""
+    report: ValidationReport = validate_specs(specs_root.resolve(), library=library)
+    console.print(report.render())
+    if not report.ok:
+        raise typer.Exit(int(ExitCode.USER_ERROR))
 
 
 def main() -> None:
