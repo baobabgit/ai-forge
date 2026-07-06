@@ -7,7 +7,7 @@ target_version: 0.3.0
 depends_on: [BL-forge-009, BL-forge-012]
 size: M
 critical: false
-status: TODO
+status: BLOCKED
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
