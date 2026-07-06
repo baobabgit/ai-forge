@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from src.core.models.status import Status
@@ -21,7 +21,8 @@ from src.obs.stats import ConsumptionStats, aggregate, parse_invocation_records
 from src.policy.approval_queue import ApprovalQueue
 from src.policy.pending_action import PendingAction
 from src.quota.states import QuotaStatus, get_provider_quota_state
-from src.state.db import StateDatabase
+from src.state.db import EventRecord, StateDatabase
+from src.state.lock_manager import LockManager
 
 _ACTIVE_STATE_ORDER: tuple[Status, ...] = (
     Status.TODO,
@@ -49,6 +50,32 @@ class ProviderStatusLine:
 
 
 @dataclass(frozen=True, slots=True)
+class ActiveWorker:
+    """Worker holding an exclusive backlog-item lock.
+
+    :ivar owner_id: Worker or process identifier.
+    :ivar bl_id: Locked backlog item.
+    """
+
+    owner_id: str
+    bl_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class BlIterationLine:
+    """Iteration counter for one backlog item in the run.
+
+    :ivar bl_id: Backlog item identifier.
+    :ivar iteration: Current one-based iteration index.
+    :ivar status: Persisted lifecycle status.
+    """
+
+    bl_id: str
+    iteration: int
+    status: Status
+
+
+@dataclass(frozen=True, slots=True)
 class StatusView:
     """A projected snapshot of a run's state.
 
@@ -57,6 +84,9 @@ class StatusView:
     :ivar providers: Provider quota lines, in configured order.
     :ivar pending_approvals: Actions awaiting ``forge approve``.
     :ivar stats: Consumption statistics (EXG-SCO-01).
+    :ivar current_wave: Backlog items in the active scheduling wave.
+    :ivar active_workers: Workers currently holding BL locks.
+    :ivar iterations: Iteration counters for tracked backlog items.
     """
 
     run_id: str
@@ -64,6 +94,9 @@ class StatusView:
     providers: tuple[ProviderStatusLine, ...] = field(default_factory=tuple)
     pending_approvals: tuple[PendingAction, ...] = field(default_factory=tuple)
     stats: ConsumptionStats = field(default_factory=lambda: aggregate([]))
+    current_wave: tuple[str, ...] = field(default_factory=tuple)
+    active_workers: tuple[ActiveWorker, ...] = field(default_factory=tuple)
+    iterations: tuple[BlIterationLine, ...] = field(default_factory=tuple)
 
     def count(self, status: Status) -> int:
         """Return the number of backlog items in ``status``.
@@ -100,6 +133,22 @@ class StatusView:
         for action in self.pending_approvals:
             lines.append(f"  {action.action_id} {action.kind.value} {action.summary}")
         lines.append("")
+        if self.current_wave:
+            lines.append(f"Vague courante : {', '.join(self.current_wave)}")
+            lines.append("")
+        if self.active_workers:
+            lines.append("Workers actifs :")
+            for worker in self.active_workers:
+                lines.append(f"  {worker.owner_id} -> {worker.bl_id}")
+            lines.append("")
+        if self.iterations:
+            lines.append("Iterations en cours :")
+            for entry in self.iterations:
+                if entry.status not in {Status.DONE, Status.TODO}:
+                    lines.append(
+                        f"  {entry.bl_id}: iteration {entry.iteration} ({entry.status.value})"
+                    )
+            lines.append("")
         lines.append(f"Invocations : {self.stats.total.invocations}")
         return "\n".join(lines)
 
@@ -120,15 +169,22 @@ async def build_status_view(
     :returns: The projected status view.
     """
     bl_by_state = await _bl_by_state(db, run_id=run_id)
+    events = await db.list_events(run_id)
     providers = await _provider_lines(db, run_id=run_id, provider_names=provider_names)
     pending = await _pending_approvals(db.path, run_id=run_id)
     stats = _load_stats(run_id=run_id, artifacts_dir=artifacts_dir)
+    current_wave = _current_wave(events, bl_by_state)
+    active_workers = await _active_workers(db.path)
+    iterations = await _iteration_lines(db, run_id=run_id, bl_by_state=bl_by_state)
     return StatusView(
         run_id=run_id,
         bl_by_state=bl_by_state,
         providers=providers,
         pending_approvals=pending,
         stats=stats,
+        current_wave=current_wave,
+        active_workers=active_workers,
+        iterations=iterations,
     )
 
 
@@ -176,3 +232,60 @@ def _load_stats(*, run_id: str, artifacts_dir: Path | None) -> ConsumptionStats:
         if stripped:
             rows.append(json.loads(stripped))
     return aggregate(parse_invocation_records(rows))
+
+
+_WAVE_ACTIVE_STATUSES: frozenset[Status] = frozenset(
+    {Status.READY, Status.IN_PROGRESS, Status.IN_TEST, Status.IN_REVIEW}
+)
+
+
+def _current_wave(
+    events: tuple[EventRecord, ...],
+    bl_by_state: dict[Status, tuple[str, ...]],
+) -> tuple[str, ...]:
+    """Return backlog items in the current wave from journal or active statuses."""
+    for event in reversed(events):
+        if event.event_type != "WAVE_STARTED":
+            continue
+        raw_ids = event.details.get("bl_ids")
+        if isinstance(raw_ids, list):
+            wave = tuple(str(bl_id) for bl_id in raw_ids if str(bl_id))
+            if wave:
+                return wave
+    active: list[str] = []
+    for status in _WAVE_ACTIVE_STATUSES:
+        active.extend(bl_by_state.get(status, ()))
+    return tuple(sorted(active))
+
+
+async def _active_workers(db_path: Path) -> tuple[ActiveWorker, ...]:
+    manager = await LockManager.open(db_path)
+    try:
+        now = datetime.now(tz=UTC)
+        locks = await manager.list_locks("bl")
+        workers = [
+            ActiveWorker(lock.owner_id, lock.resource_id)
+            for lock in locks
+            if not lock.is_expired(now)
+        ]
+        return tuple(sorted(workers, key=lambda worker: (worker.owner_id, worker.bl_id)))
+    finally:
+        await manager.close()
+
+
+async def _iteration_lines(
+    db: StateDatabase,
+    *,
+    run_id: str,
+    bl_by_state: dict[Status, tuple[str, ...]],
+) -> tuple[BlIterationLine, ...]:
+    status_by_bl = {bl_id: status for status, ids in bl_by_state.items() for bl_id in ids}
+    lines = [
+        BlIterationLine(
+            bl_id=record.bl_id,
+            iteration=record.iteration,
+            status=status_by_bl.get(record.bl_id, Status.TODO),
+        )
+        for record in await db.list_iterations(run_id)
+    ]
+    return tuple(lines)

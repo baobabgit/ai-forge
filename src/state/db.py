@@ -98,6 +98,22 @@ class ProviderStateRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class IterationRecord:
+    """Current correction iteration counter for a backlog item.
+
+    :ivar bl_id: Backlog item identifier.
+    :ivar run_id: Owning run identifier.
+    :ivar iteration: One-based iteration index within the run.
+    :ivar started_at: UTC timestamp when the current iteration started.
+    """
+
+    bl_id: str
+    run_id: str
+    iteration: int
+    started_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class EventRecord:
     """Append-only event stored in the state journal.
 
@@ -350,6 +366,32 @@ class StateDatabase:
         )
         rows = await cursor.fetchall()
         return tuple(_row_to_event(tuple(row)) for row in rows)
+
+    async def list_iterations(self, run_id: str) -> tuple[IterationRecord, ...]:
+        """Return iteration counters for every backlog item in ``run_id``.
+
+        :param run_id: Run identifier.
+        :returns: Iteration rows ordered by backlog item id.
+        """
+        cursor = await self._connection.execute(
+            """
+            SELECT bl_id, run_id, iteration, started_at
+            FROM iterations
+            WHERE run_id = ?
+            ORDER BY bl_id ASC
+            """,
+            (run_id,),
+        )
+        rows = await cursor.fetchall()
+        return tuple(
+            IterationRecord(
+                bl_id=str(row[0]),
+                run_id=str(row[1]),
+                iteration=int(row[2]),
+                started_at=_parse_timestamp(str(row[3])),
+            )
+            for row in rows
+        )
 
     async def _transition_bl_status(
         self,
