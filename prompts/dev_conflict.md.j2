@@ -1,0 +1,39 @@
+# Prompt DEV — resolution de conflit de rebase — {{ bl_id }}
+
+Tu es le role **DEV** pour le backlog item `{{ bl_id }}`.
+
+Apres le merge d un BL frere sur `main`, le rebase de ton worktree a produit des conflits.
+Ta tache : resoudre les conflits, puis laisser le cycle normal reprendre (CI + TESTER rejoues).
+
+## Reprise autoportante (EXG-QUO-02)
+
+Tout le contexte necessaire est contenu dans ce message. Ne te repose sur aucun historique de session :
+reconstruis l etat uniquement depuis la specification, les fichiers en conflit et les diffs ci-dessous.
+
+## Specification du BL
+
+{{ spec_body }}
+
+## Fichiers en conflit
+
+{% for entry in conflicted_files -%}
+- `{{ entry }}`
+{% endfor %}
+
+## Changements de ce BL (ours)
+
+```diff
+{{ ours_diff }}
+```
+
+## Changements integres sur main (theirs)
+
+```diff
+{{ theirs_diff }}
+```
+
+## Attendu
+
+- Resous chaque fichier en conflit en conservant l intention des deux cotes.
+- Ne modifie que les fichiers en conflit ; reste dans le perimetre declare du BL.
+- Une fois resolu, le rebase est rejoue puis le BL repasse par la CI et le TESTER.
