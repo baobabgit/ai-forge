@@ -7,7 +7,7 @@ target_version: 0.1.2
 depends_on: [BL-forge-009, BL-forge-015]
 size: M
 critical: true
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -35,11 +35,11 @@ Première itération de la reprise crash-safe (EXG-ETA-02/03, jalon v0.1.2 du CD
 - BL-forge-015 — Chaîne séquentielle dry-run v0.1.0
 
 ## Definition of Done
-- [ ] Run tué à chaque étape du cycle mock puis repris sans incohérence (scénario jalon v0.1.2)
-- [ ] Les intentions non suivies d'effet sont détectées et réconciliées à la reprise
-- [ ] Worktrees résiduels réinitialisés proprement avant reprise de rôle
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Run tué à chaque étape du cycle mock puis repris sans incohérence (scénario jalon v0.1.2)
+- [x] Les intentions non suivies d'effet sont détectées et réconciliées à la reprise
+- [x] Worktrees résiduels réinitialisés proprement avant reprise de rôle
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
