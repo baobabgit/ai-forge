@@ -13,6 +13,8 @@ from rich.console import Console
 from src.adr.adr_writer import AdrRecord, record_adr
 from src.core.models.status import Status
 from src.core.specparser import SpecParseError, read_spec
+from src.obs.report_builder import build_report
+from src.obs.status_view import StatusView, build_status_view
 from src.phases.execute import (
     ExecutionError,
     SequentialExecutionRequest,
@@ -48,6 +50,7 @@ ARTIFACTS_DIRNAME = "artifacts"
 RUN_ID_FILENAME = "run_id"
 BL_SPEC_DIR = Path("docs") / "specs" / "specs" / "BL"
 DEFAULT_ADR_DIR = Path("docs") / "adr"
+DEFAULT_REPORT_FILE = Path("forge-report.md")
 RUNNABLE_STATUSES = frozenset({Status.TODO, Status.READY})
 DEFAULT_PROVIDER = "mock"
 
@@ -668,6 +671,147 @@ def adr_new_command(
     except ForgeCliError as error:
         _handle_cli_error(error)
     console.print(f"[green]recorded {record.adr_id} at {record.path}[/green]")
+
+
+async def status_forge(
+    *,
+    forge_dir: Path,
+    repo_root: Path,
+    providers_config: Path | None = None,
+) -> StatusView:
+    """Project the current run status from persisted state (EXG-ETA-05).
+
+    :param forge_dir: Directory holding forge state and artifacts.
+    :param repo_root: Repository root used to resolve the providers config.
+    :param providers_config: Optional override for the providers configuration file.
+    :returns: The projected status view.
+    :raises ForgeCliError: If forge is not initialized or the config is invalid.
+    """
+    state_path = forge_dir / STATE_FILENAME
+    if not state_path.is_file():
+        raise ForgeCliError(
+            ExitCode.STATE_ERROR,
+            f"forge is not initialized; run 'forge init' first (expected {state_path})",
+        )
+    provider_names: tuple[str, ...] = ()
+    config_path = providers_config or default_providers_path(repo_root)
+    if config_path.is_file():
+        try:
+            provider_names = load_registry(config_path).names
+        except ProviderRegistryError:
+            provider_names = ()
+    try:
+        database = await StateDatabase.open(state_path)
+    except StateDatabaseError as error:
+        raise ForgeCliError(ExitCode.STATE_ERROR, str(error)) from error
+    try:
+        run_id = (forge_dir / RUN_ID_FILENAME).read_text(encoding="utf-8").strip()
+        return await build_status_view(
+            database,
+            run_id=run_id,
+            provider_names=provider_names,
+            artifacts_dir=forge_dir / ARTIFACTS_DIRNAME,
+        )
+    finally:
+        await database.close()
+
+
+async def report_forge(
+    *,
+    forge_dir: Path,
+    repo_root: Path,
+    providers_config: Path | None = None,
+    output: Path,
+) -> Path:
+    """Write the Markdown run report and return its path.
+
+    :param forge_dir: Directory holding forge state and artifacts.
+    :param repo_root: Repository root receiving the report file.
+    :param providers_config: Optional override for the providers configuration file.
+    :param output: Report file path.
+    :returns: The written report path.
+    :raises ForgeCliError: If forge is not initialized.
+    """
+    view = await status_forge(
+        forge_dir=forge_dir,
+        repo_root=repo_root,
+        providers_config=providers_config,
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(build_report(view), encoding="utf-8", newline="\n")
+    return output
+
+
+@app.command("status")
+def status_command(
+    forge_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_FORGE_DIR,
+        "--forge-dir",
+        help="Forge state directory.",
+    ),
+    repo_root: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo-root",
+        help="Repository root path.",
+    ),
+    providers_config: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--providers-config",
+        help="Override path to providers.toml.",
+    ),
+) -> None:
+    """Show the real-time run dashboard (forge status)."""
+    try:
+        view = asyncio.run(
+            status_forge(
+                forge_dir=forge_dir.resolve(),
+                repo_root=repo_root.resolve(),
+                providers_config=providers_config.resolve() if providers_config else None,
+            )
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    console.print(view.render())
+
+
+@app.command("report")
+def report_command(
+    forge_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_FORGE_DIR,
+        "--forge-dir",
+        help="Forge state directory.",
+    ),
+    repo_root: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo-root",
+        help="Repository root receiving the report.",
+    ),
+    output: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--output",
+        help="Report output path (defaults to <repo-root>/forge-report.md).",
+    ),
+    providers_config: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--providers-config",
+        help="Override path to providers.toml.",
+    ),
+) -> None:
+    """Write the Markdown run report (forge report)."""
+    resolved_root = repo_root.resolve()
+    destination = output.resolve() if output else resolved_root / DEFAULT_REPORT_FILE
+    try:
+        written = asyncio.run(
+            report_forge(
+                forge_dir=forge_dir.resolve(),
+                repo_root=resolved_root,
+                providers_config=providers_config.resolve() if providers_config else None,
+                output=destination,
+            )
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    console.print(f"[green]report written to {written}[/green]")
 
 
 def main() -> None:
