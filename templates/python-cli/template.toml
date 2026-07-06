@@ -1,0 +1,10 @@
+id = "python-cli"
+version = "1.0.0"
+kind = "python-cli"
+description = "Python CLI package scaffold with entry point and tests."
+expected_paths = [
+  "README.md",
+  "pyproject.toml",
+  "src/__init__.py",
+  "src/cli.py",
+]

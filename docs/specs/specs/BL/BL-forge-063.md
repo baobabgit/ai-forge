@@ -7,7 +7,7 @@ target_version: 0.4.0
 depends_on: [BL-forge-040]
 size: L
 critical: false
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -35,11 +35,11 @@ Implémenter le système de templates en plugins (EXG-TPL-01/02, annexe A6) : co
 - BL-forge-040 — Dépôt programme et création multi-repo
 
 ## Definition of Done
-- [ ] Les cinq templates fournis sont découverts et validés par le contrat A6
-- [ ] Template utilisateur déclaré dans src.toml chargé sans modification du cœur
-- [ ] Template non conforme rejeté avec erreur localisée avant toute création de dépôt
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Les cinq templates fournis sont découverts et validés par le contrat A6
+- [x] Template utilisateur déclaré dans src.toml chargé sans modification du cœur
+- [x] Template non conforme rejeté avec erreur localisée avant toute création de dépôt
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.

@@ -1,0 +1,10 @@
+id = "fastapi-api"
+version = "1.0.0"
+kind = "fastapi-api"
+description = "FastAPI service scaffold with application entry point."
+expected_paths = [
+  "README.md",
+  "pyproject.toml",
+  "src/__init__.py",
+  "src/main.py",
+]
