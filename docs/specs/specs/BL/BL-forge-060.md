@@ -7,7 +7,7 @@ target_version: 0.3.0
 depends_on: [BL-forge-009, BL-forge-024]
 size: M
 critical: false
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
@@ -36,11 +36,11 @@ Implémenter le module budget (EXG-BUD-01..03) : lecture des budgets depuis src.
 - BL-forge-024 — États de quota et détection réactive
 
 ## Definition of Done
-- [ ] Chaque type de limite (invocations, PR, itérations, durée) bloque à 100 % et restreint à 80 %
-- [ ] Stop-loss par BL : 12e invocation ⇒ BLOCKED avec compteur persisté
-- [ ] Compteurs exacts après reprise (pas de remise à zéro au restart)
-- [ ] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
-- [ ] Diff limité au périmètre de fichiers déclaré ci-dessus
+- [x] Chaque type de limite (invocations, PR, itérations, durée) bloque à 100 % et restreint à 80 %
+- [x] Stop-loss par BL : 12e invocation ⇒ BLOCKED avec compteur persisté
+- [x] Compteurs exacts après reprise (pas de remise à zéro au restart)
+- [x] Gates automatiques vertes (pytest couverture >= 95 %, ruff, mypy --strict)
+- [x] Diff limité au périmètre de fichiers déclaré ci-dessus
 
 ## Critères GO/NO-GO (niveau BL — EXG-SPE-07)
 - **Auto :** gates du frontmatter exécutées dans le worktree du BL.
