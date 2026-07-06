@@ -87,8 +87,7 @@ name = "lib-api"
 dependencies = [
   "lib-core @ file:../lib-core",
 ]
-""".strip()
-        + "\n",
+""".strip() + "\n",
         encoding="utf-8",
     )
 
@@ -211,8 +210,7 @@ name = "lib-api"
 dependencies = [
   "lib-core @ file:../lib-core",
 ]
-""".strip()
-        + "\n",
+""".strip() + "\n",
         encoding="utf-8",
     )
 
