@@ -33,6 +33,7 @@ from src.scheduler.shutdown import (
 )
 from src.state.db import StateDatabase, StateDatabaseError
 from src.state.machine import BlStateMachine, IllegalTransitionError, TransitionRequest
+from src.state.recovery import RecoveryReport, default_reality_probe, recover_run
 
 app = typer.Typer(name="forge", no_args_is_help=True, add_completion=False)
 console = Console()
@@ -311,6 +312,42 @@ async def resume_forge(
         await database.close()
 
 
+async def recover_forge(
+    *,
+    forge_dir: Path,
+    repo_root: Path,
+) -> RecoveryReport:
+    """Reconcile crashed state and report safe resume points (EXG-ETA-03).
+
+    Replays the journal, inspects the observed reality with a read-only probe,
+    reconciles the two and resets residual worktrees. Safe to run repeatedly.
+
+    :param forge_dir: Directory holding forge state.
+    :param repo_root: Repository root used for branch/worktree inspection.
+    :returns: The recovery report.
+    :raises ForgeCliError: If forge is not initialized.
+    """
+    state_path = forge_dir / STATE_FILENAME
+    if not state_path.is_file():
+        raise ForgeCliError(
+            ExitCode.STATE_ERROR,
+            f"forge is not initialized; run 'forge init' first (expected {state_path})",
+        )
+    try:
+        database = await StateDatabase.open(state_path)
+    except StateDatabaseError as error:
+        raise ForgeCliError(ExitCode.STATE_ERROR, str(error)) from error
+    try:
+        run_id = (forge_dir / RUN_ID_FILENAME).read_text(encoding="utf-8").strip()
+        return await recover_run(
+            database,
+            run_id=run_id,
+            observe=default_reality_probe(repo_root),
+        )
+    finally:
+        await database.close()
+
+
 async def approve_action(
     action_id: str,
     *,
@@ -463,8 +500,14 @@ def resume_command(
         help="Override path to providers.toml.",
     ),
 ) -> None:
-    """Resume a run stopped after full provider exhaustion (human-only restart)."""
+    """Resume a run: reconcile crashed state, then lift any exhaustion stop."""
     try:
+        recovery = asyncio.run(
+            recover_forge(
+                forge_dir=forge_dir.resolve(),
+                repo_root=repo_root.resolve(),
+            )
+        )
         report = asyncio.run(
             resume_forge(
                 forge_dir=forge_dir.resolve(),
@@ -474,6 +517,7 @@ def resume_command(
         )
     except ForgeCliError as error:
         _handle_cli_error(error)
+    console.print(recovery.render())
     console.print(report.render())
 
 
