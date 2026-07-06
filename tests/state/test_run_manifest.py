@@ -110,6 +110,46 @@ async def test_update_run_manifest_writes_adr_and_event(tmp_path: Path) -> None:
         await db.close()
 
 
+@pytest.mark.asyncio
+async def test_update_run_manifest_uses_canonical_adr_writer(tmp_path: Path) -> None:
+    """Manifest updates use max+1 ADR numbering and the normalized A5 format."""
+    manifest_path = tmp_path / "forge-run.yaml"
+    adr_dir = tmp_path / "docs" / "adr"
+    adr_dir.mkdir(parents=True)
+    (adr_dir / "ADR-0001-first.md").write_text("existing", encoding="utf-8")
+    (adr_dir / "ADR-0003-with-gap.md").write_text("existing", encoding="utf-8")
+    write_run_manifest(manifest_path, _build_manifest())
+
+    db = await StateDatabase.open(tmp_path / "state.db")
+    try:
+        await db.create_run("run-gap")
+        await update_run_manifest(
+            manifest_path,
+            database=db,
+            run_id="run-gap",
+            actor="ORCHESTRATOR",
+            adr_dir=adr_dir,
+            changes={"safe_mode": True},
+        )
+        written = sorted(adr_dir.glob("ADR-0004-*.md"))
+        assert len(written) == 1
+        raw = written[0].read_bytes()
+        assert raw.endswith(b"\n")
+        assert b"\r\n" not in raw
+        text = raw.decode("utf-8")
+        assert "status: accepted" in text
+        assert "## Alternatives considered" in text
+        assert "## Consequences" in text
+        events = await db.list_events("run-gap")
+        recorded = [event for event in events if event.event_type == "ADR_RECORDED"]
+        assert len(recorded) == 1
+        assert recorded[0].details["adr_path"] == str(written[0])
+        assert recorded[0].details["manifest_path"] == str(manifest_path.resolve())
+        assert recorded[0].details["changes"] == {"safe_mode": True}
+    finally:
+        await db.close()
+
+
 def test_load_run_manifest_rejects_invalid_provider_and_trust_level(tmp_path: Path) -> None:
     """Provider rows and trust levels are validated strictly."""
     path = tmp_path / "forge-run.yaml"

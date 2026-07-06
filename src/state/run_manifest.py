@@ -10,6 +10,7 @@ from typing import Any
 import yaml  # type: ignore[import-untyped]
 
 from src import __version__
+from src.adr.adr_writer import write_adr
 from src.core.models.confidence_level import ConfidenceLevel
 from src.state.db import StateDatabase
 
@@ -165,7 +166,7 @@ async def update_run_manifest(
     if updated.to_yaml_dict() == previous.to_yaml_dict():
         return previous
 
-    adr_path = _write_adr(
+    adr_record = write_adr(
         adr_dir,
         title=f"Update forge-run.yaml during {run_id}",
         context=f"Run manifest changed by {actor}: {sorted(changes)}",
@@ -177,7 +178,7 @@ async def update_run_manifest(
         event_type="ADR_RECORDED",
         actor=actor,
         details={
-            "adr_path": str(adr_path),
+            "adr_path": str(adr_record.path),
             "manifest_path": str(path.resolve()),
             "changes": changes,
         },
@@ -314,25 +315,6 @@ def _parse_started_at(value: Any, path: Path) -> datetime:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=UTC)
     return parsed.astimezone(UTC)
-
-
-def _write_adr(adr_dir: Path, *, title: str, context: str, decision: str) -> Path:
-    adr_dir.mkdir(parents=True, exist_ok=True)
-    existing = sorted(adr_dir.glob("ADR-*.md"))
-    next_id = len(existing) + 1
-    adr_id = f"ADR-{next_id:04d}"
-    slug = title.lower().replace(" ", "-").replace("/", "-")
-    path = adr_dir / f"{adr_id}-{slug[:48]}.md"
-    body = (
-        f"---\n"
-        f"id: {adr_id}\n"
-        f"title: {title}\n"
-        f"---\n\n"
-        f"## Context\n\n{context}\n\n"
-        f"## Decision\n\n{decision}\n"
-    )
-    path.write_text(body, encoding="utf-8")
-    return path
 
 
 def _format_change_decision(
