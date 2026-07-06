@@ -9,7 +9,6 @@ from pathlib import Path
 from src.core.models.status import Status
 from src.obs.logging import run_log_path
 from src.obs.status_view import ProviderStatusLine, build_status_view
-from src.policy.approval_queue import ApprovalQueue
 from src.quota.states import ProviderQuotaState, QuotaStatus, set_provider_quota_state
 from src.state.db import StateDatabase
 
