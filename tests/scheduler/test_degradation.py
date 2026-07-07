@@ -28,6 +28,7 @@ from src.scheduler.pause_controller import (
 from src.state.db import EventRecord, StateDatabase
 
 runner = CliRunner()
+_BASE = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 
 
 def _event(event_type: str, details: dict[str, str]) -> EventRecord:
@@ -40,7 +41,6 @@ def _event(event_type: str, details: dict[str, str]) -> EventRecord:
         details=details,
         recorded_at=_BASE,
     )
-_BASE = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 
 
 # --------------------------------------------------------------------------- #
