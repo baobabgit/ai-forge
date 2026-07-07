@@ -19,6 +19,7 @@ class ProviderStatus(StrEnum):
     EXHAUSTED = "EXHAUSTED"
     ERROR = "ERROR"
     TIMEOUT = "TIMEOUT"
+    POLICY_VIOLATION = "POLICY_VIOLATION"
 
 
 @dataclass(frozen=True, slots=True)

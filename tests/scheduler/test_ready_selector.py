@@ -105,3 +105,12 @@ def test_is_bl_ready_rejects_blocked_dependency(tmp_path: Path) -> None:
 
     assert is_bl_ready(child.id, index, statuses) is False
     assert is_bl_ready(independent.id, index, statuses) is True
+
+
+def test_is_bl_ready_rejects_unknown_or_non_bl_documents(tmp_path: Path) -> None:
+    """Unknown ids and non-BL specs are never runnable."""
+    index, parent, _child, _independent = _fixture_index(tmp_path)
+    statuses = {parent.id: Status.DONE}
+
+    assert is_bl_ready("BL-missing-001", index, statuses) is False
+    assert is_bl_ready("UC-fix-001", index, statuses) is False

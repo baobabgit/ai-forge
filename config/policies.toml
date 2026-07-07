@@ -1,0 +1,60 @@
+# Role execution policies (EXG-SEC-01). Loaded by src.policy.role_policy.
+
+[global]
+forbidden_read_prefixes = [
+    "~/.ssh",
+    ".ssh/",
+    "/.ssh/",
+    "credentials",
+    ".env",
+    "id_rsa",
+    "id_ed25519",
+]
+
+[roles.DEV]
+allowed_executables = ["git", "uv", "python", "pytest", "black", "ruff", "mypy", "bandit", "gh"]
+forbidden_substrings = []
+write_within_worktree = true
+read_only = false
+
+[roles.TESTER]
+allowed_executables = ["git", "uv", "python", "pytest", "black", "ruff", "mypy", "bandit"]
+forbidden_substrings = ["git push", "gh pr merge", "gh pr create"]
+write_within_worktree = true
+read_only = false
+
+[roles.REVIEWER]
+allowed_executables = ["git"]
+forbidden_substrings = ["git push", "git commit", "git merge", "git rebase", "git cherry-pick"]
+write_within_worktree = true
+read_only = true
+
+[roles.GATE]
+allowed_executables = ["git", "uv", "python", "pytest", "black", "ruff", "mypy", "bandit"]
+forbidden_substrings = ["git push", "gh pr merge"]
+write_within_worktree = true
+read_only = false
+
+[injection]
+instruction_patterns = [
+    "ignore the rules",
+    "ignore les regles",
+    "ignore all instructions",
+    "ignore previous instructions",
+    "disregard the rules",
+    "disregard your instructions",
+    "merge without tests",
+    "merge sans tests",
+    "bypass the gates",
+    "bypass all checks",
+    "you are now",
+    "system prompt override",
+]
+
+[secrets]
+value_patterns = [
+    "(?i)(api[_-]?key|token|password|secret|credential)\\s*[:=]\\s*\\S+",
+    "ghp_[A-Za-z0-9]{20,}",
+    "github_pat_[A-Za-z0-9_]{20,}",
+    "sk-[A-Za-z0-9]{20,}",
+]

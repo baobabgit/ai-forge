@@ -19,6 +19,7 @@ from src.obs.invocation_journal import (
     induced_iterations_for_verdict,
     record_invocation,
 )
+from src.policy.injection_detector import scan_diff
 from src.providers.base import Provider, ProviderStatus, RoleTask
 from src.roles.dev import changed_files_since, resolve_scope
 from src.roles.rendering import PromptRenderer
@@ -100,6 +101,23 @@ class TesterRole:
             )
 
         diff = _branch_diff(workdir, request.baseline_ref)
+        injection_findings = scan_diff(diff)
+        blocking = tuple(finding for finding in injection_findings if finding.blocks_merge)
+        if blocking:
+            motifs = [
+                f"[INJECTION/{finding.kind.value}] {finding.pattern}: {finding.excerpt}"
+                for finding in injection_findings
+            ]
+            return TesterRoleResult(
+                gates_report=gates_report,
+                verdict=GoNoGo(
+                    verdict=Verdict.NO_GO,
+                    motifs=motifs,
+                    preuves=["diff scanned by injection_detector (EXG-SEC-06)"],
+                ),
+                changed_files=changed_files_since(workdir, request.baseline_ref),
+            )
+
         prompt = self._renderer.render_role(
             "tester",
             {

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from src.policy.role_policy import RolePolicyEngine
 from src.providers.runner import (
     RunnerStatus,
     build_subprocess_environment,
@@ -144,6 +145,37 @@ def test_transcript_path_rejects_invalid_sequence(tmp_path: Path) -> None:
     """Reject non-positive sequence numbers."""
     with pytest.raises(ValueError, match="sequence must be >= 1"):
         transcript_path(tmp_path, "BL-forge-005", 0, "DEV", "codex")
+
+
+@pytest.mark.asyncio
+async def test_run_cli_policy_violation_returns_status(tmp_path: Path) -> None:
+    """Return POLICY_VIOLATION when a role executes a forbidden command."""
+    engine = RolePolicyEngine.default()
+    result = await run_cli(
+        ["git", "push", "origin", "main"],
+        cwd=tmp_path,
+        bl_id="BL-forge-062",
+        role="GATE",
+        provider="auto",
+        timeout_seconds=5,
+        policy=engine,
+    )
+    assert result.status is RunnerStatus.POLICY_VIOLATION
+    assert "git push" in result.stderr
+
+
+@pytest.mark.asyncio
+async def test_run_cli_masks_secrets_in_output(tmp_path: Path) -> None:
+    """Mask secret-like values captured from subprocess output."""
+    result = await run_cli(
+        [sys.executable, "-c", "print('token=super-secret-value')"],
+        cwd=tmp_path,
+        bl_id="BL-forge-062",
+        role="DEV",
+        provider="codex",
+        timeout_seconds=5,
+    )
+    assert "[REDACTED]" in result.stdout
 
 
 @pytest.mark.asyncio

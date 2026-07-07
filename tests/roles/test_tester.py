@@ -21,7 +21,7 @@ from src.providers.base import (
     RoleTask,
 )
 from src.providers.registry import ProviderConfig
-from src.roles.tester import TesterRole, TesterRoleRequest
+from src.roles.tester import TesterRole, TesterRoleError, TesterRoleRequest
 
 VERDICT_OUTPUT = """```json
 {
@@ -197,6 +197,185 @@ async def test_tester_role_parses_provider_verdict_on_green_gates(
 
     assert result.verdict.verdict is Verdict.GO
     assert result.gates_report.verdict is Verdict.GO
+
+
+@pytest.mark.asyncio
+async def test_tester_role_no_go_when_diff_weakens_gates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Return NO GO when the branch diff weakens configured gates (EXG-SEC-06)."""
+    repo, baseline = _init_repo(tmp_path)
+    spec_path = _write_spec(tmp_path)
+    pyproject = repo / "pyproject.toml"
+    pyproject.write_text("[tool.pytest.ini_options]\ncov-fail-under = 50\n", encoding="utf-8")
+    subprocess.run(["git", "add", "pyproject.toml"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-m", "chore: weaken coverage"], cwd=repo, check=True)
+
+    async def _passed_gates(_request):  # type: ignore[no-untyped-def]
+        return AutoGatesReport(
+            bl_id="BL-forge-018",
+            verdict=Verdict.GO,
+            gates=(),
+            diff_guard=None,
+            report_path=tmp_path / "auto-gates.json",
+            motifs=(),
+        )
+
+    monkeypatch.setattr("src.roles.tester.run_auto_gates", _passed_gates)
+    provider = JudgeProvider(
+        ProviderConfig(
+            name="judge",
+            bin="judge",
+            model="judge",
+            max_concurrency=1,
+            exhausted_patterns=(),
+            capabilities=ProviderCapabilities(),
+        )
+    )
+    role = TesterRole(provider)
+
+    result = await role.run(
+        TesterRoleRequest(
+            spec_path=spec_path,
+            workdir=repo,
+            branch="feat/bl-test",
+            baseline_ref=baseline,
+            artifacts_dir=tmp_path / "artifacts",
+        )
+    )
+
+    assert result.verdict.verdict is Verdict.NO_GO
+    assert any("INJECTION" in motif for motif in result.verdict.motifs)
+
+
+@pytest.mark.asyncio
+async def test_tester_role_fails_when_git_is_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Surface a typed error when git is not on PATH."""
+    repo, baseline = _init_repo(tmp_path)
+    spec_path = _write_spec(tmp_path)
+    monkeypatch.setattr("src.roles.tester.shutil.which", lambda _name: None)
+    provider = JudgeProvider(
+        ProviderConfig(
+            name="judge",
+            bin="judge",
+            model="judge",
+            max_concurrency=1,
+            exhausted_patterns=(),
+            capabilities=ProviderCapabilities(),
+        )
+    )
+    role = TesterRole(provider)
+
+    with pytest.raises(TesterRoleError, match="git executable not found"):
+        await role.run(
+            TesterRoleRequest(
+                spec_path=spec_path,
+                workdir=repo,
+                branch="feat/bl-test",
+                baseline_ref=baseline,
+                artifacts_dir=tmp_path / "artifacts",
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_tester_role_fails_when_checkout_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Surface checkout failures before running gates."""
+    repo, baseline = _init_repo(tmp_path)
+    spec_path = _write_spec(tmp_path)
+
+    def _failed_checkout(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+        class _Result:
+            returncode = 1
+            stdout = ""
+            stderr = "checkout failed"
+
+        return _Result()
+
+    monkeypatch.setattr("src.roles.tester.subprocess.run", _failed_checkout)
+    provider = JudgeProvider(
+        ProviderConfig(
+            name="judge",
+            bin="judge",
+            model="judge",
+            max_concurrency=1,
+            exhausted_patterns=(),
+            capabilities=ProviderCapabilities(),
+        )
+    )
+    role = TesterRole(provider)
+
+    with pytest.raises(TesterRoleError, match="checkout failed"):
+        await role.run(
+            TesterRoleRequest(
+                spec_path=spec_path,
+                workdir=repo,
+                branch="feat/bl-test",
+                baseline_ref=baseline,
+                artifacts_dir=tmp_path / "artifacts",
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_tester_role_fails_when_diff_command_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Surface git diff failures after checkout."""
+    repo, baseline = _init_repo(tmp_path)
+    spec_path = _write_spec(tmp_path)
+
+    async def _passed_gates(_request):  # type: ignore[no-untyped-def]
+        return AutoGatesReport(
+            bl_id="BL-forge-018",
+            verdict=Verdict.GO,
+            gates=(),
+            diff_guard=None,
+            report_path=tmp_path / "auto-gates.json",
+            motifs=(),
+        )
+
+    def _git_commands(*args, **_kwargs):  # type: ignore[no-untyped-def]
+        command = args[0]
+
+        class _Result:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        if len(command) >= 3 and command[1] == "diff":
+            _Result.returncode = 1
+            _Result.stderr = "diff failed"
+        return _Result()
+
+    monkeypatch.setattr("src.roles.tester.run_auto_gates", _passed_gates)
+    monkeypatch.setattr("src.roles.tester.subprocess.run", _git_commands)
+    provider = JudgeProvider(
+        ProviderConfig(
+            name="judge",
+            bin="judge",
+            model="judge",
+            max_concurrency=1,
+            exhausted_patterns=(),
+            capabilities=ProviderCapabilities(),
+        )
+    )
+    role = TesterRole(provider)
+
+    with pytest.raises(TesterRoleError, match="diff failed"):
+        await role.run(
+            TesterRoleRequest(
+                spec_path=spec_path,
+                workdir=repo,
+                branch="feat/bl-test",
+                baseline_ref=baseline,
+                artifacts_dir=tmp_path / "artifacts",
+            )
+        )
 
 
 @pytest.mark.asyncio

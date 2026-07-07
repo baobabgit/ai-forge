@@ -144,6 +144,8 @@ def _gate_result_from_runner(command: str, result: RunnerResult) -> GateExecutio
 def _gate_status(result: RunnerResult) -> GateStatus:
     if result.status is RunnerStatus.TIMEOUT:
         return GateStatus.TIMEOUT
+    if result.status is RunnerStatus.POLICY_VIOLATION:
+        return GateStatus.ERROR
     if result.status is RunnerStatus.ERROR:
         return GateStatus.ERROR
     if result.code == 0:
