@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.5.0
+
+### Added
+
+- Rôle ARCHITECT et boucle de contre-relecture architecture (`BL-forge-028`).
+- Génération des documents d'architecture et jalons (`BL-forge-029`).
+- Rôle SPEC : génération des UC (`BL-forge-030`).
+- Dérivation automatique des FEAT et BL (`BL-forge-031`).
+- Contre-relecture des spécifications générées (`BL-forge-032`).
+- Constructeur de DAG de planning avec diagnostic de cycles (`BL-forge-033`).
+- Ordonnancement par vagues et chemin critique pondéré (`BL-forge-034`).
+- Publication `planning.md` / `planning.json` et commande `forge plan` (`BL-forge-035`).
+
+### Quality
+
+- Couverture de tests `src/` ≥ 95 % au tag de version.
+
 ## v0.4.0
 
 ### Added
