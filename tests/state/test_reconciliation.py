@@ -592,18 +592,20 @@ async def test_repair_forge_state_maps_reconciliation_error(tmp_path: Path) -> N
     _write_cdc(cdc)
     await init_forge(cdc, forge_dir=forge_dir, run_id="default")
 
-    with patch(
-        "src.cli.repair_state",
-        new_callable=AsyncMock,
-        side_effect=ReconciliationError("boom"),
+    with (
+        patch(
+            "src.cli.repair_state",
+            new_callable=AsyncMock,
+            side_effect=ReconciliationError("boom"),
+        ),
+        pytest.raises(ForgeCliError, match="boom"),
     ):
-        with pytest.raises(ForgeCliError, match="boom"):
-            await repair_forge_state(
-                forge_dir=forge_dir,
-                repo_root=tmp_path,
-                specs_root=specs_root,
-                strategy=RepairStrategy.TRUST_REMOTE,
-            )
+        await repair_forge_state(
+            forge_dir=forge_dir,
+            repo_root=tmp_path,
+            specs_root=specs_root,
+            strategy=RepairStrategy.TRUST_REMOTE,
+        )
 
 
 async def _observe_branch_only(bl_id: str, status: Status) -> ObservedReality:
