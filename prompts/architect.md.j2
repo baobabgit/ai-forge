@@ -1,0 +1,78 @@
+# Prompt ARCHITECT — phase 1
+
+Tu es le role **ARCHITECT** pour la phase 1 d'AI-Forge.
+
+## Entree
+
+CDC d'entree : `{{ cdc_path }}`
+
+{{ cdc_body }}
+
+{% if previous_review %}
+## Rapport de contre-relecture precedent (iteration {{ iteration }})
+
+{{ previous_review }}
+
+Corrige l'architecture en tenant compte de ce rapport avant de repondre.
+{% endif %}
+
+## Mission (EXG-ARC-01..04)
+
+A partir du CDC ci-dessus, produis une architecture **multi-librairies** ou chaque
+librairie est **independamment developpable** (perimetres, dependances et jalons explicites).
+
+Pour chaque librairie, fournis :
+
+1. **Nom** stable (slug, ex. `lib-core`).
+2. **Responsabilite** principale (une phrase claire).
+3. **Dependances** vers les autres librairies (tableau de noms, vide si aucune).
+4. **Stack** (Python >= 3.13 pour le back ; React si front).
+5. **Trajectoire SemVer** (`v0.1.0` -> `v1.0.0`) avec le contenu fonctionnel de chaque version.
+
+Produis aussi :
+
+- `development_order` : ordre recommande de developpement des librairies.
+- `milestones` : contraintes d'integration inter-librairies au format lisible machine
+  (ex. `lib-core v0.2.0 requis avant lib-api v0.1.0`).
+- `summary` : justification courte du decoupage.
+
+## Contraintes non negociables
+
+- Chaque librairie doit pouvoir etre developpee et testee **sans modifier** les autres
+  (interfaces publiques et dependances explicites uniquement).
+- Pas de dependance circulaire.
+- Pas de librairie redondante couvrant la meme responsabilite.
+- Les versions SemVer doivent etre coherentes avec les jalons.
+
+## Format de sortie obligatoire
+
+Reponds avec **un seul** bloc JSON fenced exactement de cette forme :
+
+```json
+{
+  "libraries": [
+    {
+      "name": "lib-core",
+      "responsibility": "modele metier et services coeur",
+      "dependencies": [],
+      "stack": "Python >= 3.13, pytest, mypy --strict",
+      "versions": [
+        {"version": "v0.1.0", "features": "modeles de base"},
+        {"version": "v0.2.0", "features": "service de recherche"}
+      ]
+    }
+  ],
+  "milestones": [
+    {"text": "lib-core v0.2.0 requis avant lib-api v0.1.0"}
+  ],
+  "development_order": ["lib-core", "lib-api"],
+  "summary": "Decoupage en deux librairies independamment developpables."
+}
+```
+
+Regles :
+
+- `libraries` est un tableau non vide.
+- chaque `versions` est un tableau non vide de versions SemVer `vX.Y.Z`.
+- `development_order` liste chaque librairie exactement une fois.
+- `summary` est une chaine non vide.
