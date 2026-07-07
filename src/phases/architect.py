@@ -548,7 +548,9 @@ def _interfaces_from_features(features: str) -> tuple[str, ...]:
     cleaned = _PUBLIC_API_PREFIX.sub("", features.strip())
     tokens = _INTERFACE_TOKEN_PATTERN.findall(cleaned)
     if tokens:
-        return tuple(_unique_preserve_order(tuple(token.strip() for token in tokens if token.strip())))
+        return tuple(
+            _unique_preserve_order(tuple(token.strip() for token in tokens if token.strip()))
+        )
     parts = [part.strip() for part in re.split(r"[,;]\s*", cleaned) if part.strip()]
     if parts:
         return tuple(parts)
