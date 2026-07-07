@@ -157,6 +157,95 @@ async def test_execute_rollback_reopens_target_and_dependents(tmp_path: Path) ->
 
 
 @pytest.mark.asyncio
+async def test_execute_rollback_rejects_invalid_target_status(tmp_path: Path) -> None:
+    """Post-revert status must be TODO or BLOCKED."""
+    specs = tmp_path / "specs"
+    _write_specs(specs)
+    index = build_index(specs)
+    db = await StateDatabase.open(tmp_path / "state.db")
+    machine = BlStateMachine(db)
+    await db.create_run("run-057")
+    await db.register_bl("BL-alpha-001", "run-057", status=Status.DONE)
+    try:
+        with pytest.raises(RollbackError, match="target_status must be TODO or BLOCKED"):
+            await execute_rollback(
+                db,
+                machine,
+                RollbackRequest(
+                    bl_id="BL-alpha-001",
+                    run_id="run-057",
+                    repo_root=tmp_path,
+                    adr_dir=tmp_path / "docs" / "adr",
+                    index=index,
+                    merge_commit="abc123",
+                    target_status=Status.IN_PROGRESS,
+                ),
+            )
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_execute_rollback_can_skip_dependent_invalidation(tmp_path: Path) -> None:
+    """Dependent invalidation is optional when explicitly disabled."""
+    specs = tmp_path / "specs"
+    _write_specs(specs)
+    index = build_index(specs)
+    db = await StateDatabase.open(tmp_path / "state.db")
+    machine = BlStateMachine(db)
+    await db.create_run("run-057")
+    for bl_id in ("BL-alpha-001", "BL-beta-001"):
+        await db.register_bl(bl_id, "run-057", status=Status.TODO)
+    try:
+        for bl_id in ("BL-alpha-001", "BL-beta-001"):
+            await _done_chain(db, machine, bl_id)
+        result = await execute_rollback(
+            db,
+            machine,
+            RollbackRequest(
+                bl_id="BL-alpha-001",
+                run_id="run-057",
+                repo_root=tmp_path,
+                adr_dir=tmp_path / "docs" / "adr",
+                index=index,
+                merge_commit="abc123",
+                invalidate_dependents=False,
+            ),
+        )
+        assert result.invalidated_dependents == ()
+        assert await machine.get_status("BL-beta-001") is Status.DONE
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_execute_rollback_rejects_unknown_backlog_item(tmp_path: Path) -> None:
+    """Unknown backlog identifiers cannot be reverted."""
+    specs = tmp_path / "specs"
+    _write_specs(specs)
+    index = build_index(specs)
+    db = await StateDatabase.open(tmp_path / "state.db")
+    machine = BlStateMachine(db)
+    await db.create_run("run-057")
+    try:
+        with pytest.raises(RollbackError, match="unknown backlog item"):
+            await execute_rollback(
+                db,
+                machine,
+                RollbackRequest(
+                    bl_id="BL-missing",
+                    run_id="run-057",
+                    repo_root=tmp_path,
+                    adr_dir=tmp_path / "docs" / "adr",
+                    index=index,
+                    merge_commit="abc123",
+                ),
+            )
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
 async def test_execute_rollback_rejects_non_done_backlog_item(tmp_path: Path) -> None:
     """Only merged backlog items can be reverted."""
     specs = tmp_path / "specs"
@@ -218,6 +307,12 @@ async def test_invalidate_done_dependents_skips_non_done_items(tmp_path: Path) -
         await db.close()
 
 
+def test_resolve_merge_commit_raises_without_events() -> None:
+    """Require an explicit merge commit when the journal lacks MERGED events."""
+    with pytest.raises(RollbackError, match="merge commit"):
+        resolve_merge_commit((), "BL-alpha-001")
+
+
 def test_resolve_merge_commit_uses_event_details() -> None:
     """Merge commit resolution prefers explicit fallback then MERGED events."""
     from datetime import UTC, datetime
@@ -237,3 +332,23 @@ def test_resolve_merge_commit_uses_event_details() -> None:
     )
     assert resolve_merge_commit(events, "BL-alpha-001") == "deadbeef"
     assert resolve_merge_commit(events, "BL-alpha-001", fallback="override") == "override"
+
+
+def test_resolve_merge_commit_reads_commit_alias() -> None:
+    """Merge commit resolution accepts the ``commit`` detail alias."""
+    from datetime import UTC, datetime
+
+    from src.state.db import EventRecord
+
+    events = (
+        EventRecord(
+            id=2,
+            run_id="run-057",
+            event_type="MERGED",
+            bl_id="BL-alpha-001",
+            actor="integrator",
+            details={"commit": "cafe0001"},
+            recorded_at=datetime.now(tz=UTC),
+        ),
+    )
+    assert resolve_merge_commit(events, "BL-alpha-001") == "cafe0001"
