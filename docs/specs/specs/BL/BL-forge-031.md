@@ -27,10 +27,20 @@ gates:
 Étendre le rôle SPEC : dérivation des FEAT depuis chaque UC (identifiant, UC parent, description, comportement Given/When/Then, interfaces, gates) conforme EXG-SPE-03, puis des BL depuis chaque FEAT (description technique, fichiers/modules impactés, definition of done, depends_on y compris inter-librairies, taille S/M/L, version cible, gates auto + ai_judged) conforme EXG-SPE-04. Instruction de granularité EXG-SPE-06 : un BL = une session d'agent (ordre demi-journée humaine), avec consigne de découpage par module pour limiter les conflits Git (parade §6).
 
 ## Fichiers / modules impactés
-- `src/roles/spec.py`
+- `src/roles/spec.py` (méthodes `derive_features` / `derive_backlog`)
+- `src/roles/feature_spec.py` (`FeatureSpec`, parsing et rendu)
+- `src/roles/feature_derivation_result.py` (`FeatureDerivationResult`)
+- `src/roles/backlog_spec.py` (`BacklogSpec`, parsing, rendu, validations croisées)
+- `src/roles/backlog_derivation_result.py` (`BacklogDerivationResult`)
+- `src/roles/spec_derivation_request.py` (`SpecDerivationRequest`)
+- `src/roles/spec_derivation_error.py` (`SpecDerivationError`)
+- `src/roles/spec_field_parsing.py` (helpers de parsing partagés)
 - `prompts/spec_feat.md.j2`
 - `prompts/spec_bl.md.j2`
 - `tests/phases/test_spec_featbl.py`
+
+> Périmètre révisé (décision humaine) : découpage strict « une classe par
+> fichier » (convention actée sur BL-forge-030).
 
 ## Dépendances
 - BL-forge-030 — Rôle SPEC : génération des UC
