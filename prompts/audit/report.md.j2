@@ -1,0 +1,63 @@
+# Audit report — {{ library }}
+
+**Repository:** {{ repo_root }}
+**Debt score:** {{ debt_score }}/100 — {{ debt_summary }}
+
+## Specification tree
+
+{% if specs_present -%}
+Specs present: **yes** (validation {{ "OK" if specs_ok else "FAIL" }})
+{% for finding in spec_findings -%}
+- [{{ finding.status }}] {{ finding.name }}: {{ finding.detail }}
+{% endfor -%}
+{% else -%}
+Specs present: **no**
+{% endif %}
+
+## Template match
+
+- Closest template: **{{ template_match.template_id }}** (score {{ "%.0f"|format(template_match.score * 100) }} %)
+{% if template_match.missing_paths -%}
+- Missing scaffold paths:
+{% for path in template_match.missing_paths -%}
+  - {{ path }}
+{% endfor -%}
+{% endif %}
+
+## Continuous integration
+
+- Workflows present: **{{ "yes" if ci_finding.present else "no" }}**
+{% if ci_finding.workflow_paths -%}
+{% for path in ci_finding.workflow_paths -%}
+- {{ path }}
+{% endfor -%}
+{% endif -%}
+{% if ci_finding.missing_checks -%}
+- Missing checks: {{ ci_finding.missing_checks | join(", ") }}
+{% endif %}
+
+## Security risks
+
+{% if security_risks -%}
+{% for risk in security_risks -%}
+- [{{ risk.severity }}] {{ risk.detail }}
+{% endfor -%}
+{% else -%}
+No apparent risks detected.
+{% endif %}
+
+## Suggested recovery planning
+
+{% for wave in suggested_waves -%}
+- Wave {{ loop.index }}: {{ wave | join(", ") }}
+{% endfor %}
+
+## Proposed upgrade backlog items
+
+{% for item in upgrade_bls -%}
+### {{ item.bl_id }} — {{ item.title }} (wave {{ item.wave }})
+
+{{ item.markdown }}
+
+---
+{% endfor %}

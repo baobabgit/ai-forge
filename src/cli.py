@@ -19,6 +19,7 @@ from src.obs.report import build_run_report, commit_report
 from src.obs.stats import write_stats_json
 from src.obs.status import render_dashboard, watch_status
 from src.obs.status_view import StatusView, build_status_view
+from src.phases.audit import ProjectAuditor
 from src.phases.doctor import DoctorReport, run_doctor
 from src.phases.execute import (
     ExecutionError,
@@ -1961,6 +1962,42 @@ def plan_command(
     console.print(report.render())
     if not report.ok:
         raise typer.Exit(int(ExitCode.USER_ERROR))
+
+
+@app.command("audit")
+def audit_command(
+    repo: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo",
+        help="Repository to analyse (read-only).",
+    ),
+    specs_root: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--specs-root",
+        help="Optional UC/FEAT/BL tree override.",
+    ),
+    output: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--output",
+        "-o",
+        help="Optional path for the Markdown report (outside --repo recommended).",
+    ),
+) -> None:
+    """Audit an existing project without writing to it (forge audit)."""
+    resolved = repo.resolve()
+    specs = specs_root.resolve() if specs_root else None
+    try:
+        auditor = ProjectAuditor(resolved, specs_root=specs)
+        report = auditor.audit()
+        rendered = auditor.render_markdown(report)
+    except Exception as error:
+        _handle_cli_error(ForgeCliError(ExitCode.USER_ERROR, str(error)))
+    console.print(rendered)
+    if output is not None:
+        destination = output.resolve()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(rendered, encoding="utf-8", newline="\n")
+        console.print(f"[green]audit report written to {destination}[/green]")
 
 
 @app.command("validate-specs")
