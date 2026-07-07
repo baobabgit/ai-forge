@@ -7,7 +7,7 @@ target_version: 0.3.0
 depends_on: [BL-forge-009, BL-forge-027, BL-forge-036]
 size: L
 critical: true
-status: TODO
+status: DONE
 gates:
   auto:
     - "pytest -x --cov=src --cov-fail-under=95"
