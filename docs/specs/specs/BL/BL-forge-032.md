@@ -27,9 +27,18 @@ gates:
 Implémenter EXG-SPE-08 : chaque lot de specs (UC, puis FEAT/BL d'une librairie) est contre-relu par un provider différent de celui qui l'a produit, selon trois axes explicites : complétude, testabilité des critères GO/NO-GO, cohérence des dépendances ; rapport structuré ; boucle de correction avec le SPEC ; commit uniquement après validation.
 
 ## Fichiers / modules impactés
-- `src/phases/specify.py`
+- `src/phases/specify.py` (boucle produire/contre-relire/committer, archivage)
+- `src/phases/spec_review_loop_result.py` (`SpecReviewLoopResult`)
+- `src/roles/spec_review.py` (`SpecReviewRole`, parsing, `assign_review_provider`)
+- `src/roles/spec_review_report.py` (`SpecReviewReport`)
+- `src/roles/spec_review_request.py` (`SpecReviewRequest`)
+- `src/roles/spec_review_result.py` (`SpecReviewResult`)
+- `src/roles/spec_review_parse_error.py` (`SpecReviewParseError`)
 - `prompts/spec_review.md.j2`
 - `tests/phases/test_spec_review.py`
+
+> Périmètre révisé (décision humaine) : découpage strict « une classe par
+> fichier » (convention actée sur BL-forge-030).
 
 ## Dépendances
 - BL-forge-031 — Dérivation des FEAT et des BL
