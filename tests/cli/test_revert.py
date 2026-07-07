@@ -586,7 +586,6 @@ def test_cleanup_orphans_rejects_invalid_specs(tmp_path: Path) -> None:
     assert result.exit_code == ExitCode.USER_ERROR
 
 
-
 def test_default_prepare_revert_pr_fails_when_git_revert_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -604,9 +603,7 @@ def test_default_prepare_revert_pr_fails_when_git_revert_fails(
         default_prepare_revert_pr(tmp_path, "deadbeef", "BL-forge-057")
 
 
-def test_revert_prints_revert_pull_request(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_revert_prints_revert_pull_request(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Print revert pull request metadata when PR creation succeeds."""
     cdc = tmp_path / "cdc.md"
     forge_dir = tmp_path / ".forge"
@@ -639,5 +636,3 @@ def test_revert_prints_revert_pull_request(
     )
     assert result.exit_code == ExitCode.OK
     assert "revert PR #77" in result.stdout
-
-

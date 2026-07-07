@@ -210,5 +210,3 @@ async def test_orphan_cleaner_recovers_expired_locks(tmp_path: Path) -> None:
         )
 
     assert report.recovered_locks == 1
-
-
