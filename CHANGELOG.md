@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.4.0
+
+### Added
+
+- Bootstrap multi-repo et création des dépôts cibles (`BL-forge-040`).
+- Jalons d'intégration inter-librairies (`BL-forge-041`).
+- Gate de version, tags SemVer et releases GitHub (`BL-forge-042`).
+- Tableau de bord `forge status` temps réel (`BL-forge-043`).
+- Commande `forge report` et rapports d'acceptation (`BL-forge-044`).
+- Épinglage des dépendances inter-librairies (`BL-forge-045`).
+- Projet cible d'exemple et test d'acceptation bout en bout (`BL-forge-049`).
+- `forge rollback-version` et `forge repair-state` (`BL-forge-058`).
+- Système de templates-plugins (`BL-forge-063`).
+- Gates documentaires de version (`BL-forge-064`).
+
+### Quality
+
+- Niveau de confiance L2 par défaut (EXG-TRU-02).
+- Couverture de tests `src/` ≥ 95 % au tag de version.
+
 ## v0.3.0
 
 ### Added
