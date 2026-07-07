@@ -12,7 +12,7 @@ from rich.console import Console
 
 from src.adr.adr_writer import AdrRecord, record_adr
 from src.core.models.status import Status
-from src.core.specparser import SpecParseError, read_spec
+from src.core.specparser import SpecIndexError, SpecParseError, build_index, read_spec
 from src.obs.report import build_run_report, commit_report
 from src.obs.stats import write_stats_json
 from src.obs.status import render_dashboard, watch_status
@@ -26,7 +26,8 @@ from src.phases.execute import (
 )
 from src.phases.validate_specs import ValidationReport, validate_specs
 from src.policy.approval_queue import ApprovalQueue, ApprovalQueueError
-from src.policy.pending_action import PendingAction
+from src.policy.pending_action import PendingAction, PendingActionStatus
+from src.policy.trust_level import ActionKind
 from src.providers.bootstrap import create_provider, default_providers_path, load_registry
 from src.providers.registry import ProviderRegistryError
 from src.scheduler.shutdown import (
@@ -48,7 +49,17 @@ from src.state.recovery import (
     default_worktree_reset,
     recover_run,
 )
+from src.state.rollback import (
+    RollbackError,
+    RollbackRequest,
+    RollbackResult,
+    default_prepare_revert_pr,
+    execute_rollback,
+    resolve_merge_commit,
+)
+from src.state.run_manifest import default_run_manifest_path, load_run_manifest
 from src.workspace import gitio
+from src.workspace.orphan_cleaner import OrphanCleaner, OrphanCleanupReport, OrphanCleanupRequest
 
 app = typer.Typer(name="forge", no_args_is_help=True, add_completion=False)
 adr_app = typer.Typer(name="adr", no_args_is_help=True, add_completion=False)
@@ -63,6 +74,7 @@ BL_SPEC_DIR = Path("docs") / "specs" / "specs" / "BL"
 DEFAULT_ADR_DIR = Path("docs") / "adr"
 DEFAULT_REPORT_FILE = Path("forge-report.md")
 RUNNABLE_STATUSES = frozenset({Status.TODO, Status.READY})
+DEFAULT_SPECS_ROOT = Path("docs") / "specs" / "specs"
 DEFAULT_PROVIDER = "mock"
 
 
@@ -688,6 +700,155 @@ def adr_new_command(
     console.print(f"[green]recorded {record.adr_id} at {record.path}[/green]")
 
 
+async def revert_bl(
+    bl_id: str,
+    *,
+    forge_dir: Path,
+    repo_root: Path,
+    specs_root: Path,
+    merge_commit: str | None = None,
+    blocked: bool = False,
+    skip_pr: bool = False,
+) -> RollbackResult:
+    """Revert a merged backlog item and invalidate dependent DONE items.
+
+    :param bl_id: Backlog item identifier to revert.
+    :param forge_dir: Directory holding forge state.
+    :param repo_root: Repository root receiving the revert pull request.
+    :param specs_root: Specification tree root used for dependency graph updates.
+    :param merge_commit: Optional explicit merge commit hash.
+    :param blocked: Reopen the backlog item as ``BLOCKED`` instead of ``TODO``.
+    :param skip_pr: Skip revert pull request creation (state/ADR only).
+    :returns: Rollback summary.
+    :raises ForgeCliError: If forge is not initialized or rollback is blocked.
+    """
+    state_path = forge_dir / STATE_FILENAME
+    if not state_path.is_file():
+        raise ForgeCliError(
+            ExitCode.STATE_ERROR,
+            f"forge is not initialized; run 'forge init' first (expected {state_path})",
+        )
+    try:
+        index = build_index(specs_root)
+    except (SpecParseError, SpecIndexError) as error:
+        raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+    try:
+        database = await StateDatabase.open(state_path)
+    except StateDatabaseError as error:
+        raise ForgeCliError(ExitCode.STATE_ERROR, str(error)) from error
+
+    try:
+        run_id = (forge_dir / RUN_ID_FILENAME).read_text(encoding="utf-8").strip()
+        events = await database.list_events(run_id)
+        try:
+            resolved_commit = resolve_merge_commit(events, bl_id, fallback=merge_commit)
+        except RollbackError as error:
+            raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+        manifest_path = default_run_manifest_path(repo_root)
+        if manifest_path.is_file():
+            manifest = load_run_manifest(manifest_path)
+            async with ApprovalQueue(state_path) as queue:
+                existing = await queue.latest_action(run_id, bl_id, ActionKind.ROLLBACK)
+                if existing is not None and existing.status is not PendingActionStatus.APPROVED:
+                    raise ForgeCliError(
+                        ExitCode.USER_ERROR,
+                        f"rollback for {bl_id!r} awaits approval ({existing.action_id})",
+                    )
+                if existing is None:
+                    decision = await queue.gate(
+                        run_id=run_id,
+                        kind=ActionKind.ROLLBACK,
+                        summary=f"rollback merged backlog item {bl_id}",
+                        target=resolved_commit,
+                        requested_by="cli",
+                        trust_level=manifest.trust_level,
+                        safe_mode=manifest.safe_mode,
+                        bl_id=bl_id,
+                    )
+                    if not decision.released:
+                        pending_id = (
+                            decision.pending.action_id
+                            if decision.pending is not None
+                            else "pending"
+                        )
+                        raise ForgeCliError(
+                            ExitCode.USER_ERROR,
+                            f"rollback for {bl_id!r} requires approval ({pending_id})",
+                        )
+
+        machine = BlStateMachine(database)
+        try:
+            return await execute_rollback(
+                database,
+                machine,
+                RollbackRequest(
+                    bl_id=bl_id,
+                    run_id=run_id,
+                    repo_root=repo_root,
+                    adr_dir=repo_root / DEFAULT_ADR_DIR,
+                    index=index,
+                    merge_commit=resolved_commit,
+                    target_status=Status.BLOCKED if blocked else Status.TODO,
+                    reason="forge revert",
+                ),
+                prepare_revert_pr=None if skip_pr else default_prepare_revert_pr,
+            )
+        except (RollbackError, IllegalTransitionError) as error:
+            raise ForgeCliError(ExitCode.EXECUTION_ERROR, str(error)) from error
+    finally:
+        await database.close()
+
+
+async def cleanup_orphans(
+    *,
+    forge_dir: Path,
+    repo_root: Path,
+    specs_root: Path,
+) -> OrphanCleanupReport:
+    """Remove orphaned worktrees, branches, locks and abandoned pull requests.
+
+    :param forge_dir: Directory holding forge state.
+    :param repo_root: Repository root inspected for branches and worktrees.
+    :param specs_root: Specification tree root used to resolve active backlog items.
+    :returns: Cleanup summary.
+    :raises ForgeCliError: If forge is not initialized.
+    """
+    state_path = forge_dir / STATE_FILENAME
+    if not state_path.is_file():
+        raise ForgeCliError(
+            ExitCode.STATE_ERROR,
+            f"forge is not initialized; run 'forge init' first (expected {state_path})",
+        )
+    try:
+        index = build_index(specs_root)
+    except (SpecParseError, SpecIndexError) as error:
+        raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+    try:
+        database = await StateDatabase.open(state_path)
+    except StateDatabaseError as error:
+        raise ForgeCliError(ExitCode.STATE_ERROR, str(error)) from error
+
+    try:
+        run_id = (forge_dir / RUN_ID_FILENAME).read_text(encoding="utf-8").strip()
+        statuses: dict[str, Status | None] = {}
+        for bl in index.backlog_items:
+            record = await database.get_bl_status(bl.id)
+            statuses[bl.id] = record.status if record is not None else None
+        return await OrphanCleaner().cleanup(
+            OrphanCleanupRequest(
+                run_id=run_id,
+                repo_root=repo_root,
+                state_db=state_path,
+                statuses=statuses,
+            )
+        )
+    finally:
+        await database.close()
+
+
 async def status_forge(
     *,
     forge_dir: Path,
@@ -958,6 +1119,101 @@ def doctor_command(
     console.print(report.render())
     if not report.ok:
         raise typer.Exit(int(ExitCode.STATE_ERROR))
+
+
+@app.command("revert")
+def revert_command(
+    bl_id: str = typer.Argument(..., help="Merged backlog item identifier to revert."),
+    merge_commit: str | None = typer.Option(
+        None,
+        "--merge-commit",
+        help="Explicit merge commit hash when the journal lacks one.",
+    ),
+    blocked: bool = typer.Option(
+        False,
+        "--blocked",
+        help="Reopen the backlog item as BLOCKED instead of TODO.",
+    ),
+    skip_pr: bool = typer.Option(
+        False,
+        "--skip-pr",
+        help="Apply state invalidation without opening a revert pull request.",
+    ),
+    forge_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_FORGE_DIR,
+        "--forge-dir",
+        help="Forge state directory.",
+    ),
+    repo_root: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo-root",
+        help="Repository root.",
+    ),
+    specs_root: Path = typer.Option(  # noqa: B008
+        DEFAULT_SPECS_ROOT,
+        "--specs-root",
+        help="Specification tree root.",
+    ),
+) -> None:
+    """Revert a merged backlog item (forge revert)."""
+    try:
+        result = asyncio.run(
+            revert_bl(
+                bl_id,
+                forge_dir=forge_dir.resolve(),
+                repo_root=repo_root.resolve(),
+                specs_root=specs_root.resolve(),
+                merge_commit=merge_commit,
+                blocked=blocked,
+                skip_pr=skip_pr,
+            )
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    dependents = ", ".join(result.invalidated_dependents) or "none"
+    console.print(f"[green]reverted {result.bl_id}; dependents={dependents}[/green]")
+    if result.revert_pr is not None:
+        console.print(f"[green]revert PR #{result.revert_pr.pull_request}[/green]")
+    console.print(f"[green]ADR {result.adr_record.adr_id} at {result.adr_record.path}[/green]")
+
+
+@app.command("cleanup-orphans")
+def cleanup_orphans_command(
+    forge_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_FORGE_DIR,
+        "--forge-dir",
+        help="Forge state directory.",
+    ),
+    repo_root: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo-root",
+        help="Repository root.",
+    ),
+    specs_root: Path = typer.Option(  # noqa: B008
+        DEFAULT_SPECS_ROOT,
+        "--specs-root",
+        help="Specification tree root.",
+    ),
+) -> None:
+    """Remove orphaned worktrees, branches, locks and abandoned PRs."""
+    try:
+        report = asyncio.run(
+            cleanup_orphans(
+                forge_dir=forge_dir.resolve(),
+                repo_root=repo_root.resolve(),
+                specs_root=specs_root.resolve(),
+            )
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    console.print(
+        "[green]"
+        f"worktrees={len(report.removed_worktrees)} "
+        f"branches={len(report.removed_branches)} "
+        f"locks={report.recovered_locks} "
+        f"prs={len(report.closed_pull_requests)}"
+        "[/green]"
+    )
 
 
 @app.command("validate-specs")

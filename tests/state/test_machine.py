@@ -250,6 +250,36 @@ async def test_privileged_reopen_from_done(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_privileged_reopen_from_done_to_blocked(tmp_path: Path) -> None:
+    """Rollback may reopen a merged backlog item as BLOCKED."""
+    db, machine = await _bootstrapped_machine(tmp_path)
+    try:
+        for target in (
+            Status.IN_PROGRESS,
+            Status.IN_TEST,
+            Status.IN_REVIEW,
+            Status.DONE,
+        ):
+            await machine.transition(
+                "BL-forge-009",
+                TransitionRequest(target=target, actor="INTEGRATOR", reason="advance"),
+            )
+
+        blocked = await machine.transition(
+            "BL-forge-009",
+            TransitionRequest(
+                target=Status.BLOCKED,
+                actor="rollback",
+                reason="forge revert blocked",
+                privileged_reopen=True,
+            ),
+        )
+        assert blocked.status is Status.BLOCKED
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
 async def test_privileged_reopen_without_flag_is_rejected(tmp_path: Path) -> None:
     """DONE remains terminal unless privileged_reopen is set."""
     db, machine = await _bootstrapped_machine(tmp_path)

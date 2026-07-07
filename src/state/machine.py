@@ -94,7 +94,11 @@ class BlStateMachine:
         :returns: ``True`` when the transition is permitted.
         """
         if privileged_reopen:
-            return current is Status.DONE and target in {Status.IN_PROGRESS, Status.TODO}
+            return current is Status.DONE and target in {
+                Status.IN_PROGRESS,
+                Status.TODO,
+                Status.BLOCKED,
+            }
         if target not in LEGAL_TRANSITIONS[current]:
             return False
         if no_go:
