@@ -39,6 +39,13 @@ from src.scheduler.loop import (
     SchedulerReport,
     initial_statuses,
 )
+from src.scheduler.pause_controller import (
+    PAUSED_EVENT,
+    RESUMED_EVENT,
+    PauseController,
+    PauseTarget,
+    PauseTransition,
+)
 from src.scheduler.shutdown import (
     INTERRUPTED_STATUSES,
     ResumeReport,
@@ -49,7 +56,7 @@ from src.scheduler.shutdown import (
     resume_run,
     stop_run_for_exhaustion,
 )
-from src.state.db import StateDatabase, StateDatabaseError
+from src.state.db import EventRecord, StateDatabase, StateDatabaseError
 from src.state.machine import BlStateMachine, IllegalTransitionError, TransitionRequest
 from src.state.recovery import (
     RecoveryError,
@@ -742,8 +749,14 @@ def resume_command(
         "--providers-config",
         help="Override path to providers.toml.",
     ),
+    repo: str | None = typer.Option(None, "--repo", help="Resume a paused repository."),
+    provider: str | None = typer.Option(None, "--provider", help="Resume a paused provider."),
+    bl: str | None = typer.Option(None, "--bl", help="Resume a paused backlog item."),
 ) -> None:
-    """Resume a run: reconcile crashed state, then lift any exhaustion stop."""
+    """Resume a run, or a paused repo/provider/backlog item (EXG-SCH-04)."""
+    if repo is not None or provider is not None or bl is not None:
+        _apply_targeted_pause(repo, provider, bl, forge_dir=forge_dir.resolve(), resume=True)
+        return
     try:
         recovery = asyncio.run(
             recover_forge(
@@ -1292,6 +1305,134 @@ def doctor_forge(
         config_dir=config_path.parent,
         provider_bins=provider_bins,
     )
+
+
+def _resolve_pause_target(
+    repo: str | None, provider: str | None, bl: str | None
+) -> tuple[PauseTarget, str]:
+    """Return the single ``(target, id)`` designated by the mutually-exclusive flags.
+
+    :param repo: ``--repo`` value, if any.
+    :param provider: ``--provider`` value, if any.
+    :param bl: ``--bl`` value, if any.
+    :returns: The resolved pause target and its identifier.
+    :raises ForgeCliError: If not exactly one of the three flags is provided.
+    """
+    selected = [
+        (PauseTarget.REPO, repo),
+        (PauseTarget.PROVIDER, provider),
+        (PauseTarget.BL, bl),
+    ]
+    chosen = [(target, value) for target, value in selected if value is not None]
+    if len(chosen) != 1:
+        raise ForgeCliError(
+            ExitCode.USER_ERROR,
+            "exactly one of --repo, --provider or --bl must be provided",
+        )
+    return chosen[0]
+
+
+def _replay_pause_state(events: Sequence[EventRecord], controller: PauseController) -> None:
+    for event in events:
+        if event.event_type not in {PAUSED_EVENT, RESUMED_EVENT}:
+            continue
+        target_raw = str(event.details.get("target", ""))
+        target_id = str(event.details.get("target_id", ""))
+        if target_raw not in {member.value for member in PauseTarget} or not target_id:
+            continue
+        target = PauseTarget(target_raw)
+        if event.event_type == PAUSED_EVENT:
+            controller.pause(target, target_id)
+        else:
+            controller.resume(target, target_id)
+
+
+async def set_pause_state(
+    target: PauseTarget,
+    target_id: str,
+    *,
+    forge_dir: Path,
+    resume: bool,
+) -> PauseTransition | None:
+    """Pause or resume an entity, journaling the transition (EXG-SCH-04).
+
+    The current pause state is rebuilt from the journal so the operation is
+    idempotent: re-pausing an already-paused entity is a no-op that emits no
+    event.
+
+    :param target: Kind of entity to pause or resume.
+    :param target_id: Identifier of the entity.
+    :param forge_dir: Directory holding forge state.
+    :param resume: When true resume, otherwise pause.
+    :returns: The applied transition, or ``None`` when the state was unchanged.
+    :raises ForgeCliError: If forge is not initialized.
+    """
+    state_path = forge_dir / STATE_FILENAME
+    if not state_path.is_file():
+        raise ForgeCliError(
+            ExitCode.STATE_ERROR,
+            f"forge is not initialized; run 'forge init' first (expected {state_path})",
+        )
+    try:
+        database = await StateDatabase.open(state_path)
+    except StateDatabaseError as error:
+        raise ForgeCliError(ExitCode.STATE_ERROR, str(error)) from error
+    try:
+        run_id = (forge_dir / RUN_ID_FILENAME).read_text(encoding="utf-8").strip()
+        controller = PauseController()
+        _replay_pause_state(await database.list_events(run_id), controller)
+        transition = (
+            controller.resume(target, target_id) if resume else controller.pause(target, target_id)
+        )
+        if transition is not None:
+            await database.append_event(
+                run_id=run_id,
+                event_type=transition.event_type,
+                actor="operator",
+                details=transition.details,
+            )
+        return transition
+    finally:
+        await database.close()
+
+
+def _apply_targeted_pause(
+    repo: str | None,
+    provider: str | None,
+    bl: str | None,
+    *,
+    forge_dir: Path,
+    resume: bool,
+) -> None:
+    """Resolve the target, apply the pause/resume and print the outcome."""
+    try:
+        target, target_id = _resolve_pause_target(repo, provider, bl)
+        transition = asyncio.run(
+            set_pause_state(target, target_id, forge_dir=forge_dir, resume=resume)
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    if transition is not None:
+        verb = "resumed" if resume else "paused"
+        console.print(f"[green]{verb} {target.value} {target_id}[/green]")
+        return
+    idle = "was not paused" if resume else "already paused"
+    console.print(f"[yellow]{target.value} {target_id} {idle}[/yellow]")
+
+
+@app.command("pause")
+def pause_command(
+    repo: str | None = typer.Option(None, "--repo", help="Repository to pause."),
+    provider: str | None = typer.Option(None, "--provider", help="Provider to pause."),
+    bl: str | None = typer.Option(None, "--bl", help="Backlog item to pause."),
+    forge_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_FORGE_DIR,
+        "--forge-dir",
+        help="Forge state directory.",
+    ),
+) -> None:
+    """Pause scheduling for a repo, provider or backlog item (forge pause)."""
+    _apply_targeted_pause(repo, provider, bl, forge_dir=forge_dir.resolve(), resume=False)
 
 
 @app.command("doctor")
