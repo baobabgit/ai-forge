@@ -1,0 +1,60 @@
+# Cahier des charges — {{ library.name }}
+
+Librairie du projet **{{ project }}** (EXG-ARC-02).
+
+## Objet
+
+{{ library.objective }}
+
+## Responsabilités
+
+{{ library.responsibility }}
+
+Principales responsabilités :
+
+{% for item in library.responsibility_bullets %}
+- {{ item }}
+{% endfor %}
+
+## Interfaces publiques attendues
+
+{% for interface in library.public_interfaces %}
+- `{{ interface }}`
+{% endfor %}
+
+Ces interfaces suffisent à spécifier les UC de la librairie sans revenir au CDC
+programme global.
+
+## Dépendances
+
+{% if library.dependencies %}
+Dépendances vers les autres librairies du programme :
+
+{% for dependency in library.dependencies %}
+- `{{ dependency }}` (version cible alignée sur les jalons `milestones.md`)
+{% endfor %}
+{% else %}
+Aucune dépendance inter-librairie.
+{% endif %}
+
+## Stack
+
+{{ library.stack }}
+
+## Template de socle
+
+- **Slug :** `{{ library.template_slug }}`
+- **Usage :** consommé par la phase 0B (bootstrap des dépôts librairies).
+
+## Profil qualité
+
+{{ library.quality_profile }}
+
+## Trajectoire SemVer
+
+{% for version in library.versions %}
+### {{ version.version }}
+
+{{ version.features }}
+
+{% endfor %}

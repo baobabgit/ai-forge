@@ -1,0 +1,12 @@
+# Jalons d'intégration — {{ project }}
+
+# Contraintes explicites inter-librairies (EXG-ARC-04).
+# Format machine : `<lib> vX.Y.Z requis avant <lib> vX.Y.Z`
+
+{% if milestone_lines %}
+{% for line in milestone_lines %}
+{{ line }}
+{% endfor %}
+{% else %}
+# Aucun jalon inter-librairie requis pour ce projet.
+{% endif %}

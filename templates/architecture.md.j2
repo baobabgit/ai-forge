@@ -1,0 +1,44 @@
+# Architecture — {{ project }}
+
+Document produit par la phase 1 ARCHITECT (EXG-ARC-01).
+
+## Synthèse
+
+{{ proposal.summary }}
+
+**CDC d'entrée :** `{{ cdc_path }}`
+
+## Découpage en librairies
+
+{% for library in library_summaries %}
+### {{ library.name }}
+
+- **Responsabilité :** {{ library.responsibility }}
+- **Stack :** {{ library.stack }}
+- **Dépendances :** {% if library.dependencies %}{{ library.dependencies | join(', ') }}{% else %}aucune{% endif %}
+- **Template de socle :** `{{ library.template_slug }}`
+{% endfor %}
+
+## Ordre de développement recommandé
+
+{% for name in proposal.development_order %}
+{{ loop.index }}. `{{ name }}`
+{% endfor %}
+
+## Jalons d'intégration
+
+Voir `milestones.md` pour les contraintes explicites inter-librairies (EXG-ARC-04).
+
+{% if proposal.milestones %}
+{% for milestone in proposal.milestones %}
+- {{ milestone.text }}
+{% endfor %}
+{% else %}
+Aucun jalon inter-librairie déclaré.
+{% endif %}
+
+## Justification du découpage
+
+Chaque librairie listée ci-dessus est **indépendamment développable** : périmètre,
+dépendances et interfaces publiques sont explicites dans son CDC dédié
+(`docs/cdc/<librairie>.md`).
