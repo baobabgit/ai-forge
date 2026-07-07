@@ -322,4 +322,3 @@ def test_detect_secrets_cli_scan_error(tmp_path: Path) -> None:
 
     report = scan_diff_for_secrets(repo, runner=runner)  # type: ignore[arg-type]
     assert not report.ok
-

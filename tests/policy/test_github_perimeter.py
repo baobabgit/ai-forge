@@ -174,4 +174,3 @@ def test_slug_from_remote_url_empty() -> None:
     from src.policy.github_perimeter import _slug_from_remote_url
 
     assert _slug_from_remote_url("") is None
-
