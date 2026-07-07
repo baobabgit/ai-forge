@@ -84,10 +84,28 @@ def test_event_record_validation_rejects_invalid_fields(tmp_path: Path) -> None:
         JsonlRunLogger(tmp_path, "../run")
 
 
+def test_event_record_masks_secret_values_in_extra() -> None:
+    """Mask secret-like substrings before persisting JSONL rows."""
+    record = build_event_record(
+        "RUN_STARTED",
+        run_id="run-001",
+        extra={"note": "token=abc123-secret"},
+    )
+    assert "[REDACTED]" in record["note"]
+
+
 def test_extra_fields_must_be_json_serializable() -> None:
     """Reject extension data that cannot be serialized as JSON."""
     with pytest.raises(TypeError):
         build_event_record("RUN_STARTED", run_id="run-001", extra={"bad": object()})
+
+
+def test_validate_required_fields_rejects_incomplete_records() -> None:
+    """Reject event records that omit mandatory keys."""
+    from src.obs.logging import _validate_required_fields
+
+    with pytest.raises(ValueError, match="missing required event fields"):
+        _validate_required_fields({"event": "RUN_STARTED"})
 
 
 def test_path_helpers_are_deterministic_and_safe(tmp_path: Path) -> None:

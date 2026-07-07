@@ -8,7 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from src.contracts.escalation_report import BlockTrigger, ErrorClass
+from src.contracts.escalation_report import (
+    BlockTrigger,
+    ErrorClass,
+    EscalationReport,
+    SpecContext,
+    UnblockOption,
+)
 from src.core.models import BL, FEAT, UC, Gate, Size
 from src.core.models.status import Status
 from src.core.specparser import SpecDocument, write_spec
@@ -87,6 +93,29 @@ def test_classify_error_by_trigger() -> None:
     assert classify_error(BlockTrigger.DOR_INSOLUBLE) is ErrorClass.FORGE_ERROR
     assert classify_error(BlockTrigger.STOP_LOSS) is ErrorClass.AI_ERROR
     assert classify_error(BlockTrigger.ITERATION_CAP, role="TESTER") is ErrorClass.PROJECT_ERROR
+    assert classify_error(BlockTrigger.ITERATION_CAP, role="REVIEWER") is ErrorClass.PROJECT_ERROR
+    assert classify_error(BlockTrigger.ITERATION_CAP) is ErrorClass.AI_ERROR
+
+
+def test_unblock_option_rejects_blank_fields() -> None:
+    with pytest.raises(ValueError, match="must be non-empty"):
+        UnblockOption(title=" ", description="x", planning_impact="y")
+
+
+def test_escalation_report_rejects_blank_reason(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="reason must be non-empty"):
+        EscalationReport(
+            bl_id="BL-lib-001",
+            trigger=BlockTrigger.STOP_LOSS,
+            error_class=ErrorClass.AI_ERROR,
+            reason="   ",
+            context=SpecContext(
+                bl_id="BL-lib-001",
+                bl_spec_path="specs/BL.md",
+                bl_body_excerpt="body",
+            ),
+            unblock_options=default_unblock_options("BL-lib-001"),
+        )
 
 
 def test_collect_spec_context_includes_parents(tmp_path: Path) -> None:
@@ -96,6 +125,26 @@ def test_collect_spec_context_includes_parents(tmp_path: Path) -> None:
     assert context.feat_id == "FEAT-lib-001"
     assert context.uc_id == "UC-lib-001"
     assert "Scope demo" in context.bl_body_excerpt
+
+
+def test_collect_spec_context_resolves_parents_without_index(tmp_path: Path) -> None:
+    specs_root = tmp_path / "specs"
+    bl_path = _write_specs(specs_root)
+    context = collect_spec_context("BL-lib-001", bl_path, specs_root=None)
+    assert context.feat_id == "FEAT-lib-001"
+    assert context.uc_id == "UC-lib-001"
+
+
+def test_collect_spec_context_truncates_long_bodies(tmp_path: Path) -> None:
+    specs_root = tmp_path / "specs"
+    bl_path = _write_specs(specs_root)
+    bl_path.write_text(
+        bl_path.read_text(encoding="utf-8") + ("\n" + ("x" * 3000)),
+        encoding="utf-8",
+    )
+    context = collect_spec_context("BL-lib-001", bl_path, specs_root=specs_root)
+    assert context.bl_body_excerpt.endswith("...")
+    assert len(context.bl_body_excerpt) <= 2000
 
 
 def test_build_escalation_report_has_three_unblock_options(tmp_path: Path) -> None:
@@ -227,6 +276,59 @@ async def test_publish_escalation_journals_escalated(tmp_path: Path, monkeypatch
         status = await database.get_bl_status("BL-lib-001")
         assert status is not None
         assert status.status is Status.BLOCKED
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_publish_escalation_dry_run_uses_fallback_issue_number(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    specs_root = tmp_path / "specs"
+    bl_path = _write_specs(specs_root)
+    forge_dir = tmp_path / ".forge"
+    forge_dir.mkdir()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_id = "run-escalation-dry"
+
+    def _fake_issue(*args, **kwargs):  # type: ignore[no-untyped-def]
+        _ = args, kwargs
+        import subprocess
+
+        return subprocess.CompletedProcess([], 0, "dry-run issue", "")
+
+    monkeypatch.setattr("src.phases.escalation.issue_create", _fake_issue)
+
+    database = await StateDatabase.open(forge_dir / "state.db")
+    try:
+        await database.create_run(run_id)
+        await database.register_bl("BL-lib-001", run_id, status=Status.IN_PROGRESS)
+        machine = BlStateMachine(database)
+        report = build_escalation_report(
+            bl_id="BL-lib-001",
+            spec_path=bl_path,
+            specs_root=specs_root,
+            trigger=BlockTrigger.STOP_LOSS,
+            reason="Stop-loss atteint.",
+            role="DEV",
+            motifs=("quota",),
+            preuves=("journal",),
+        )
+        result = await publish_escalation(
+            database,
+            machine,
+            run_id=run_id,
+            bl_id="BL-lib-001",
+            repo=repo,
+            forge_dir=forge_dir,
+            report=report,
+            specs_root=specs_root,
+            transition_reason="stop loss reached",
+            dry_run=True,
+            fallback_issue_number=99,
+        )
+        assert result.issue_number == 99
     finally:
         await database.close()
 

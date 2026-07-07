@@ -8,6 +8,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from src.policy.secret_masker import mask_mapping_strings, mask_text
+
 SAFE_SEGMENT_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
 REQUIRED_FIELDS = (
     "event",
@@ -118,8 +120,15 @@ def build_event_record(
     }
     if extra:
         _validate_json_serializable(extra)
-        record.update(extra)
+        record.update(mask_mapping_strings(extra))
     _validate_required_fields(record)
+    for key in ("bl_id", "provider", "role", "verdict", "event", "run_id"):
+        value = record.get(key)
+        if isinstance(value, str):
+            record[key] = mask_text(value)
+    transcript = record.get("transcript_path")
+    if isinstance(transcript, str):
+        record["transcript_path"] = mask_text(transcript)
     return record
 
 

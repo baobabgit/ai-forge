@@ -179,3 +179,38 @@ async def test_run_auto_gates_marks_spawn_errors(
 
     assert report.gates[0].status is GateStatus.ERROR
     assert report.verdict is Verdict.NO_GO
+
+
+@pytest.mark.asyncio
+async def test_run_auto_gates_marks_policy_violation_as_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Surface policy violations as gate errors."""
+    workdir = tmp_path / "worktree"
+    workdir.mkdir()
+    artifacts = tmp_path / "artifacts"
+
+    async def _fake_run_cli(command, **kwargs):  # type: ignore[no-untyped-def]
+        _ = command, kwargs
+        return RunnerResult(
+            status=RunnerStatus.POLICY_VIOLATION,
+            code=None,
+            stdout="",
+            stderr="GATE: forbidden command fragment: git push",
+            duration_seconds=0.0,
+            transcript_path=artifacts / "gate-policy.txt",
+        )
+
+    monkeypatch.setattr("src.gates.auto.run_cli", _fake_run_cli)
+
+    report = await run_auto_gates(
+        AutoGatesRequest(
+            bl_id="BL-forge-062",
+            workdir=workdir,
+            commands=("git push origin main",),
+            artifacts_dir=artifacts,
+        )
+    )
+
+    assert report.gates[0].status is GateStatus.ERROR
+    assert report.verdict is Verdict.NO_GO

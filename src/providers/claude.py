@@ -186,6 +186,8 @@ def classify_runner_result(
     combined = f"{result.stdout}\n{result.stderr}"
     if result.status is RunnerStatus.TIMEOUT:
         return ProviderStatus.TIMEOUT
+    if result.status is RunnerStatus.POLICY_VIOLATION:
+        return ProviderStatus.POLICY_VIOLATION
     if _matches_exhaustion(combined, exhausted_patterns):
         return ProviderStatus.EXHAUSTED
     if result.status is RunnerStatus.ERROR:

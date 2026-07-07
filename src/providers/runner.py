@@ -12,11 +12,15 @@ from pathlib import Path
 from time import perf_counter
 from typing import BinaryIO, TextIO, cast
 
-SAFE_SEGMENT_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
+from src.policy.role_policy import PolicyViolationError, RolePolicyEngine
+from src.policy.secret_masker import mask_text
+
 SECRET_KEY_PATTERN = re.compile(r"(SECRET|TOKEN|PASSWORD|CREDENTIAL|API[_-]?KEY)", re.IGNORECASE)
+SAFE_SEGMENT_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
 CHUNK_SIZE = 64 * 1024
 TERMINATION_GRACE_SECONDS = 2.0
 CREATE_NEW_PROCESS_GROUP = 0x00000200
+POLICY_ENFORCED_ROLES = frozenset({"GATE"})
 
 
 class RunnerStatus(StrEnum):
@@ -25,6 +29,7 @@ class RunnerStatus(StrEnum):
     OK = "OK"
     ERROR = "ERROR"
     TIMEOUT = "TIMEOUT"
+    POLICY_VIOLATION = "POLICY_VIOLATION"
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +88,7 @@ async def run_cli(
     sequence: int = 1,
     artifacts_root: Path | None = None,
     env: Mapping[str, str] | None = None,
+    policy: RolePolicyEngine | None = None,
 ) -> RunnerResult:
     """Run a provider CLI with streaming capture and transcript archival.
 
@@ -95,6 +101,7 @@ async def run_cli(
     :param sequence: Invocation sequence number.
     :param artifacts_root: Optional artifact root, defaults to ``cwd / "artifacts"``.
     :param env: Optional non-secret environment overrides.
+    :param policy: Optional role policy engine; defaults to ``policies.toml``.
     :returns: Normalized runner result.
     :raises ValueError: If the command, timeout, path segments, or environment are invalid.
     """
@@ -106,6 +113,33 @@ async def run_cli(
     resolved_cwd = cwd.resolve(strict=True)
     if not resolved_cwd.is_dir():
         raise ValueError("cwd must be a directory")
+
+    engine = policy if policy is not None else RolePolicyEngine.default()
+    if role.upper() in POLICY_ENFORCED_ROLES:
+        try:
+            engine.validate_command(role, command)
+        except PolicyViolationError as error:
+            transcript = transcript_path(
+                artifacts_root or resolved_cwd / "artifacts",
+                bl_id,
+                sequence,
+                role,
+                provider,
+            )
+            transcript.parent.mkdir(parents=True, exist_ok=True)
+            message = str(error)
+            transcript.write_text(
+                f"[{_timestamp()}] runner: policy violation: {message}\n",
+                encoding="utf-8",
+            )
+            return RunnerResult(
+                status=RunnerStatus.POLICY_VIOLATION,
+                code=None,
+                stdout="",
+                stderr=message,
+                duration_seconds=0.0,
+                transcript_path=transcript,
+            )
 
     transcript = transcript_path(
         artifacts_root or resolved_cwd / "artifacts",
@@ -163,8 +197,8 @@ async def run_cli(
     return RunnerResult(
         status=status,
         code=code,
-        stdout=stdout_bytes.decode("utf-8", errors="replace"),
-        stderr=stderr_bytes.decode("utf-8", errors="replace"),
+        stdout=mask_text(stdout_bytes.decode("utf-8", errors="replace")),
+        stderr=mask_text(stderr_bytes.decode("utf-8", errors="replace")),
         duration_seconds=duration,
         transcript_path=transcript,
     )
@@ -250,7 +284,8 @@ async def _write_stream_chunk(
     chunk: bytes,
 ) -> None:
     async with lock:
-        _write_chunk(transcript_file.buffer, label.encode("utf-8"), chunk)
+        masked = mask_text(chunk.decode("utf-8", errors="replace")).encode("utf-8")
+        _write_chunk(transcript_file.buffer, label.encode("utf-8"), masked)
         transcript_file.flush()
 
 

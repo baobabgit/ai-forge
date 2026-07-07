@@ -86,6 +86,28 @@ async def test_execute_classifies_exhausted_error_and_timeout(tmp_path: Path) ->
 
 
 @pytest.mark.asyncio
+async def test_execute_classifies_policy_violation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Map runner policy violations to provider status."""
+    provider = _provider()
+
+    async def _policy_violation(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+        return RunnerResult(
+            status=RunnerStatus.POLICY_VIOLATION,
+            code=None,
+            stdout="",
+            stderr="GATE: forbidden command fragment: git push",
+            duration_seconds=0.0,
+            transcript_path=tmp_path / "policy.txt",
+        )
+
+    monkeypatch.setattr("src.providers.claude.run_cli", _policy_violation)
+    result = await provider.execute(_task("ok"), tmp_path)
+    assert result.status is ProviderStatus.POLICY_VIOLATION
+
+
+@pytest.mark.asyncio
 async def test_health_check_passes_and_fails(tmp_path: Path) -> None:
     """Detect missing authentication during health-check."""
     provider = ClaudeProvider(
@@ -150,6 +172,24 @@ def test_classify_runner_result_uses_default_exhaustion_hints() -> None:
         transcript_path=Path("artifacts/transcript.txt"),
     )
     assert classify_runner_result(result, ()) is ProviderStatus.EXHAUSTED
+
+
+def test_classify_runner_result_maps_policy_violation() -> None:
+    """Map runner policy violations to provider status."""
+    result = RunnerResult(
+        status=RunnerStatus.POLICY_VIOLATION,
+        code=None,
+        stdout="",
+        stderr="GATE: forbidden command fragment: git push",
+        duration_seconds=0.0,
+        transcript_path=Path("artifacts/transcript.txt"),
+    )
+    assert classify_runner_result(result, ()) is ProviderStatus.POLICY_VIOLATION
+
+
+def test_parse_claude_output_serializes_structured_dict_without_text_key() -> None:
+    """Serialize JSON objects that do not expose a known text field."""
+    assert parse_claude_output('{"count": 2, "ok": true}') == '{"count": 2, "ok": true}'
 
 
 def test_parse_claude_output_handles_empty_and_json_variants() -> None:
