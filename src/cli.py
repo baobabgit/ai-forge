@@ -58,6 +58,12 @@ from src.scheduler.shutdown import (
 )
 from src.state.db import EventRecord, StateDatabase, StateDatabaseError
 from src.state.machine import BlStateMachine, IllegalTransitionError, TransitionRequest
+from src.state.reconciliation import (
+    ReconciliationError,
+    ReconciliationReport,
+    RepairStrategy,
+    repair_state,
+)
 from src.state.recovery import (
     RecoveryError,
     RecoveryReport,
@@ -74,6 +80,12 @@ from src.state.rollback import (
     resolve_merge_commit,
 )
 from src.state.run_manifest import default_run_manifest_path, load_run_manifest
+from src.state.version_rollback import (
+    VersionRollbackError,
+    VersionRollbackRequest,
+    VersionRollbackResult,
+    execute_version_rollback,
+)
 from src.workspace import gitio
 from src.workspace.orphan_cleaner import OrphanCleaner, OrphanCleanupReport, OrphanCleanupRequest
 from src.workspace.worktrees import WorktreeManager
@@ -92,6 +104,7 @@ DEFAULT_ADR_DIR = Path("docs") / "adr"
 DEFAULT_REPORT_FILE = Path("forge-report.md")
 RUNNABLE_STATUSES = frozenset({Status.TODO, Status.READY})
 DEFAULT_SPECS_ROOT = Path("docs") / "specs" / "specs"
+DEFAULT_MILESTONES_PATH = Path("docs") / "specs" / "milestones.md"
 DEFAULT_PROVIDER = "mock"
 
 
@@ -1016,6 +1029,171 @@ async def revert_bl(
         await database.close()
 
 
+async def rollback_library_version(
+    library: str,
+    version: str,
+    *,
+    forge_dir: Path,
+    repo_root: Path,
+    specs_root: Path,
+    milestones_path: Path | None = None,
+    reason: str = "forge rollback-version",
+    skip_release: bool = False,
+) -> VersionRollbackResult:
+    """Roll back one tagged library version (EXG-RBK-02).
+
+    :param library: Library name whose version is rolled back.
+    :param version: Target SemVer, with or without a leading ``v``.
+    :param forge_dir: Directory holding forge state.
+    :param repo_root: Repository root receiving release deprecation.
+    :param specs_root: Specification tree root.
+    :param milestones_path: Optional milestones file for dependent freezes.
+    :param reason: Human-readable rollback reason.
+    :param skip_release: Skip GitHub release deprecation/yank (state/ADR only).
+    :returns: Version rollback summary.
+    :raises ForgeCliError: If forge is not initialized or rollback is blocked.
+    """
+    state_path = forge_dir / STATE_FILENAME
+    if not state_path.is_file():
+        raise ForgeCliError(
+            ExitCode.STATE_ERROR,
+            f"forge is not initialized; run 'forge init' first (expected {state_path})",
+        )
+    try:
+        index = build_index(specs_root)
+    except (SpecParseError, SpecIndexError) as error:
+        raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+    try:
+        database = await StateDatabase.open(state_path)
+    except StateDatabaseError as error:
+        raise ForgeCliError(ExitCode.STATE_ERROR, str(error)) from error
+
+    try:
+        run_id = (forge_dir / RUN_ID_FILENAME).read_text(encoding="utf-8").strip()
+        manifest_path = default_run_manifest_path(repo_root)
+        if manifest_path.is_file():
+            manifest = load_run_manifest(manifest_path)
+            async with ApprovalQueue(state_path) as queue:
+                for kind in (
+                    ActionKind.ROLLBACK,
+                    ActionKind.RELEASE_DEPRECATE,
+                    ActionKind.RELEASE_YANK,
+                ):
+                    existing = await queue.latest_action(run_id, library, kind)
+                    if existing is not None and existing.status is not PendingActionStatus.APPROVED:
+                        raise ForgeCliError(
+                            ExitCode.USER_ERROR,
+                            (
+                                f"rollback-version for {library!r} awaits approval "
+                                f"({existing.action_id})"
+                            ),
+                        )
+                    if existing is None:
+                        decision = await queue.gate(
+                            run_id=run_id,
+                            kind=kind,
+                            summary=f"rollback library version {library} {version}",
+                            target=version,
+                            requested_by="cli",
+                            trust_level=manifest.trust_level,
+                            safe_mode=manifest.safe_mode,
+                            bl_id=library,
+                        )
+                        if not decision.released:
+                            pending_id = (
+                                decision.pending.action_id
+                                if decision.pending is not None
+                                else "pending"
+                            )
+                            raise ForgeCliError(
+                                ExitCode.USER_ERROR,
+                                (
+                                    f"rollback-version for {library!r} requires approval "
+                                    f"({pending_id})"
+                                ),
+                            )
+
+        resolved_milestones = milestones_path
+        if resolved_milestones is None and DEFAULT_MILESTONES_PATH.is_file():
+            resolved_milestones = DEFAULT_MILESTONES_PATH
+
+        machine = BlStateMachine(database)
+        try:
+            return await execute_version_rollback(
+                database,
+                machine,
+                VersionRollbackRequest(
+                    library=library,
+                    version=version,
+                    run_id=run_id,
+                    repo_root=repo_root,
+                    adr_dir=repo_root / DEFAULT_ADR_DIR,
+                    index=index,
+                    milestones_path=resolved_milestones,
+                    reason=reason,
+                    yank_published=not skip_release,
+                ),
+            )
+        except VersionRollbackError as error:
+            raise ForgeCliError(ExitCode.EXECUTION_ERROR, str(error)) from error
+    finally:
+        await database.close()
+
+
+async def repair_forge_state(
+    *,
+    forge_dir: Path,
+    repo_root: Path,
+    specs_root: Path,
+    strategy: RepairStrategy | None = None,
+    confirmed: bool = False,
+) -> ReconciliationReport:
+    """List or repair divergences between SQLite state and GitHub (EXG-RBK-03).
+
+    :param forge_dir: Directory holding forge state.
+    :param repo_root: Repository root inspected through git/gh probes.
+    :param specs_root: Specification tree root.
+    :param strategy: Optional ``trust-remote`` or ``trust-local`` strategy.
+    :param confirmed: Whether interactive confirmation was received.
+    :returns: Reconciliation report.
+    :raises ForgeCliError: If forge is not initialized or repair fails.
+    """
+    state_path = forge_dir / STATE_FILENAME
+    if not state_path.is_file():
+        raise ForgeCliError(
+            ExitCode.STATE_ERROR,
+            f"forge is not initialized; run 'forge init' first (expected {state_path})",
+        )
+    try:
+        index = build_index(specs_root)
+    except (SpecParseError, SpecIndexError) as error:
+        raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+    try:
+        database = await StateDatabase.open(state_path)
+    except StateDatabaseError as error:
+        raise ForgeCliError(ExitCode.STATE_ERROR, str(error)) from error
+
+    try:
+        run_id = (forge_dir / RUN_ID_FILENAME).read_text(encoding="utf-8").strip()
+        machine = BlStateMachine(database)
+        try:
+            return await repair_state(
+                database,
+                machine,
+                index,
+                run_id=run_id,
+                repo_root=repo_root,
+                strategy=strategy,
+                confirmed=confirmed,
+            )
+        except ReconciliationError as error:
+            raise ForgeCliError(ExitCode.EXECUTION_ERROR, str(error)) from error
+    finally:
+        await database.close()
+
+
 async def cleanup_orphans(
     *,
     forge_dir: Path,
@@ -1557,6 +1735,123 @@ def cleanup_orphans_command(
         f"prs={len(report.closed_pull_requests)}"
         "[/green]"
     )
+
+
+@app.command("rollback-version")
+def rollback_version_command(
+    library: str = typer.Argument(..., help="Library name to roll back."),
+    version: str = typer.Argument(..., help="SemVer to roll back (vX.Y.Z or X.Y.Z)."),
+    reason: str = typer.Option(
+        "forge rollback-version",
+        "--reason",
+        help="Human-readable rollback reason recorded in the ADR and issue.",
+    ),
+    skip_release: bool = typer.Option(
+        False,
+        "--skip-release",
+        help="Apply state/ADR side effects without deprecating or yanking the release.",
+    ),
+    forge_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_FORGE_DIR,
+        "--forge-dir",
+        help="Forge state directory.",
+    ),
+    repo_root: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo-root",
+        help="Repository root.",
+    ),
+    specs_root: Path = typer.Option(  # noqa: B008
+        DEFAULT_SPECS_ROOT,
+        "--specs-root",
+        help="Specification tree root.",
+    ),
+    milestones_path: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--milestones",
+        help="Optional milestones.md path for dependent milestone freezes.",
+    ),
+) -> None:
+    """Roll back a tagged library version (forge rollback-version)."""
+    try:
+        result = asyncio.run(
+            rollback_library_version(
+                library,
+                version,
+                forge_dir=forge_dir.resolve(),
+                repo_root=repo_root.resolve(),
+                specs_root=specs_root.resolve(),
+                milestones_path=milestones_path.resolve() if milestones_path else None,
+                reason=reason,
+                skip_release=skip_release,
+            )
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    reopened = ", ".join(result.reopened_bl_ids) or "none"
+    frozen = ", ".join(result.frozen_milestones) or "none"
+    console.print(
+        "[green]"
+        f"rolled back {result.library} {result.tag}; "
+        f"reopened={reopened}; frozen_milestones={frozen}"
+        "[/green]"
+    )
+    console.print(f"[green]ADR {result.adr_record.adr_id} at {result.adr_record.path}[/green]")
+
+
+@app.command("repair-state")
+def repair_state_command(
+    strategy: str | None = typer.Option(
+        None,
+        "--strategy",
+        help="Repair strategy: trust-remote or trust-local.",
+    ),
+    confirm: bool = typer.Option(
+        False,
+        "--confirm",
+        help="Confirm repair when no --strategy is provided.",
+    ),
+    forge_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_FORGE_DIR,
+        "--forge-dir",
+        help="Forge state directory.",
+    ),
+    repo_root: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo-root",
+        help="Repository root.",
+    ),
+    specs_root: Path = typer.Option(  # noqa: B008
+        DEFAULT_SPECS_ROOT,
+        "--specs-root",
+        help="Specification tree root.",
+    ),
+) -> None:
+    """Reconcile persisted state with GitHub reality (forge repair-state)."""
+    parsed_strategy: RepairStrategy | None = None
+    if strategy is not None:
+        try:
+            parsed_strategy = RepairStrategy(strategy)
+        except ValueError:
+            _handle_cli_error(
+                ForgeCliError(
+                    ExitCode.USER_ERROR,
+                    f"unknown strategy {strategy!r}; expected trust-remote or trust-local",
+                )
+            )
+    try:
+        report = asyncio.run(
+            repair_forge_state(
+                forge_dir=forge_dir.resolve(),
+                repo_root=repo_root.resolve(),
+                specs_root=specs_root.resolve(),
+                strategy=parsed_strategy,
+                confirmed=confirm,
+            )
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    console.print(report.render())
 
 
 @app.command("validate-specs")
