@@ -124,6 +124,15 @@ def test_parse_review_missing_json_rejected() -> None:
         parse_spec_review("no json here")
 
 
+def test_parse_review_malformed_axis_rejected() -> None:
+    from src.roles.spec_review_parse_error import SpecReviewParseError
+
+    # A non-list axis makes _string_list raise; it must surface as a review parse error.
+    raw = '```json\n{"verdict": "GO", "completeness": "not-a-list"}\n```'
+    with pytest.raises(SpecReviewParseError):
+        parse_spec_review(raw)
+
+
 def test_report_findings_flatten_order() -> None:
     report = SpecReviewReport(
         verdict=Verdict.NO_GO,

@@ -99,13 +99,12 @@ def parse_spec_review(raw: str) -> SpecReviewReport:
     try:
         payload = extract_verdict_payload(raw)
         verdict = _parse_verdict_value(payload.get("verdict"))
+        completeness = tuple(_string_list(payload.get("completeness")))
+        testability = tuple(_string_list(payload.get("testability")))
+        dependency_coherence = tuple(_string_list(payload.get("dependency_coherence")))
+        motifs = tuple(_string_list(payload.get("motifs")))
     except VerdictParseError as error:
         raise SpecReviewParseError(str(error), raw=raw) from error
-
-    completeness = tuple(_string_list(payload.get("completeness")))
-    testability = tuple(_string_list(payload.get("testability")))
-    dependency_coherence = tuple(_string_list(payload.get("dependency_coherence")))
-    motifs = tuple(_string_list(payload.get("motifs")))
 
     if verdict is Verdict.NO_GO and not (
         completeness or testability or dependency_coherence or motifs
@@ -139,7 +138,8 @@ def assign_review_provider(producer: str, provider_names: Sequence[str]) -> str:
             ordered.append(normalized)
     if not ordered:
         raise ValueError("no provider configured for spec review")
+    producer_name = producer.strip()
     for name in ordered:
-        if name != producer:
+        if name != producer_name:
             return name
-    return producer
+    return ordered[0]
