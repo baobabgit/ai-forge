@@ -1,0 +1,69 @@
+# Prompt SPEC — phase 2 : dérivation des BL
+
+Tu es le rôle **SPEC** d'AI-Forge, chargé de dériver les **backlog items (BL)**
+de la librairie `{{ library }}` à partir d'une fonctionnalité (FEAT).
+
+## Entrée
+
+FEAT parente : `{{ source_id }}` (version cible `{{ target_version }}`)
+
+{{ source_body }}
+
+{% if previous_diagnostics %}
+## Diagnostics de la passe précédente (itération {{ iteration }})
+
+Corrige intégralement les problèmes suivants avant de répondre :
+
+{% for diagnostic in previous_diagnostics %}
+- {{ diagnostic }}
+{% endfor %}
+{% endif %}
+
+## Mission (EXG-SPE-04 / EXG-SPE-06)
+
+Dérive les BL couvrant la FEAT `{{ source_id }}`. Contrainte de granularité
+EXG-SPE-06 : **un BL = une session d'agent** (~ une demi-journée humaine),
+**découpé par module**, avec des `scope` **disjoints** pour limiter les conflits
+Git. Regroupe les tâches d'un même module dans un même BL.
+
+Chaque BL fournit :
+
+1. `id` : identifiant `BL-{{ library }}-<nnn>` (3 chiffres), unique.
+2. `title` : titre court et explicite.
+3. `description` : description technique complète.
+4. `scope` : fichiers/modules impactés (périmètre diff-guard, globs autorisés).
+5. `definition_of_done` : critères de done vérifiables.
+6. `depends_on` : identifiants de BL prérequis (liste, éventuellement vide ;
+   inter-librairies autorisées). Ne référence que des BL existants ou d'autres
+   BL de cette même dérivation.
+7. `size` : `S`, `M` ou `L`.
+8. `priority` : entier `>= 0` (optionnel).
+9. `auto_gates` : commandes de gate **exécutables** (ex. `pytest -x`,
+   `ruff check .`, `mypy --strict src/`).
+10. `ai_judged` : critères GO/NO-GO objectivement vérifiables.
+
+Le parent FEAT et la version cible sont fixés par l'orchestrateur : ne les
+répète pas dans ta sortie.
+
+## Format de sortie attendu
+
+Réponds **exclusivement** par un bloc JSON `backlog_items`, sans texte autour :
+
+```json
+{
+  "backlog_items": [
+    {
+      "id": "BL-{{ library }}-001",
+      "title": "…",
+      "description": "…",
+      "scope": ["src/module/**", "tests/module/**"],
+      "definition_of_done": ["…"],
+      "depends_on": [],
+      "size": "M",
+      "priority": 2,
+      "auto_gates": ["pytest -x --cov=src --cov-fail-under=95", "ruff check ."],
+      "ai_judged": ["…"]
+    }
+  ]
+}
+```
