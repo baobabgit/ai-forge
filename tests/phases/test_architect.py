@@ -11,7 +11,12 @@ import pytest
 from src.core.models.role import Role
 from src.core.models.status import Status
 from src.core.models.verdict import Verdict
-from src.phases.architect import ArchitectPhase, ArchitectPhaseRequest
+from src.phases.architect import (
+    ArchitectPhase,
+    ArchitectPhaseRequest,
+    _excerpt,
+    _review_hypotheses,
+)
 from src.providers.base import ProviderHealth, ProviderResult, ProviderStatus, RoleTask
 from src.providers.registry import ProviderCapabilities, ProviderConfig
 from src.roles.architect import (
@@ -22,13 +27,12 @@ from src.roles.architect import (
     ArchitectRoleError,
     ArchitectureParseError,
     ArchitectureReview,
-    assign_architect_providers,
     archive_architecture_proposal,
     archive_architecture_review,
+    assign_architect_providers,
     parse_architecture_proposal,
     parse_architecture_review,
 )
-from src.phases.architect import _excerpt, _review_hypotheses
 from src.roles.rendering import PromptRenderer
 from src.state.db import StateDatabase
 from src.state.machine import BlStateMachine
