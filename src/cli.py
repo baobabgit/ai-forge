@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import signal
 from collections.abc import Sequence
 from enum import IntEnum
 from pathlib import Path
@@ -30,6 +32,13 @@ from src.policy.pending_action import PendingAction, PendingActionStatus
 from src.policy.trust_level import ActionKind
 from src.providers.bootstrap import create_provider, default_providers_path, load_registry
 from src.providers.registry import ProviderRegistryError
+from src.scheduler.loop import (
+    BlOutcome,
+    SchedulerConfig,
+    SchedulerLoop,
+    SchedulerReport,
+    initial_statuses,
+)
 from src.scheduler.shutdown import (
     INTERRUPTED_STATUSES,
     ResumeReport,
@@ -60,6 +69,7 @@ from src.state.rollback import (
 from src.state.run_manifest import default_run_manifest_path, load_run_manifest
 from src.workspace import gitio
 from src.workspace.orphan_cleaner import OrphanCleaner, OrphanCleanupReport, OrphanCleanupRequest
+from src.workspace.worktrees import WorktreeManager
 
 app = typer.Typer(name="forge", no_args_is_help=True, add_completion=False)
 adr_app = typer.Typer(name="adr", no_args_is_help=True, add_completion=False)
@@ -468,9 +478,185 @@ def init_command(
     console.print(f"[green]forge initialized at {forge_dir.resolve()}[/green]")
 
 
+class _SchedulerBlRunner:
+    """Adapt the single-BL cycle to the scheduler's :class:`BlRunner` seam."""
+
+    def __init__(
+        self,
+        *,
+        forge_dir: Path,
+        providers_config: Path | None,
+        provider_name: str,
+        dry_run: bool,
+    ) -> None:
+        """Capture the invocation parameters shared by every worker."""
+        self._forge_dir = forge_dir
+        self._providers_config = providers_config
+        self._provider_name = provider_name
+        self._dry_run = dry_run
+
+    async def run(self, bl_id: str, worktree: Path) -> BlOutcome:
+        """Run ``bl_id``'s full cycle inside ``worktree`` and map the outcome.
+
+        :param bl_id: Backlog item identifier.
+        :param worktree: Dedicated worktree the cycle runs in.
+        :returns: ``DONE`` when merged/completed, ``BLOCKED`` otherwise.
+        """
+        try:
+            result = await run_bl(
+                bl_id,
+                forge_dir=self._forge_dir,
+                repo_root=worktree,
+                provider_name=self._provider_name,
+                providers_config=self._providers_config,
+                dry_run=self._dry_run,
+            )
+        except ForgeCliError:
+            return BlOutcome.BLOCKED
+        return BlOutcome.BLOCKED if result.blocked else BlOutcome.DONE
+
+
+class _SchedulerWorktreeProvisioner:
+    """Adapt :class:`WorktreeManager` to the scheduler's provisioner seam."""
+
+    def __init__(self, manager: WorktreeManager, run_id: str) -> None:
+        """Bind the provisioner to a worktree manager and run."""
+        self._manager = manager
+        self._run_id = run_id
+
+    async def provision(self, bl_id: str) -> Path:
+        """Return the worktree of ``bl_id``, creating it if absent."""
+        existing = await self._manager.get(bl_id, self._run_id)
+        if existing is not None:
+            return existing.path
+        record = await self._manager.create(bl_id, self._run_id)
+        return record.path
+
+    async def release(self, bl_id: str) -> None:
+        """No-op: worktrees are kept for resume and cleaned by cleanup-orphans."""
+        _ = bl_id
+
+
+def _install_sigint_handler(stop_event: asyncio.Event) -> None:
+    # Best-effort: signal handlers are not available on every platform/loop.
+    with contextlib.suppress(NotImplementedError, RuntimeError):
+        asyncio.get_running_loop().add_signal_handler(signal.SIGINT, stop_event.set)
+
+
+async def run_scheduler(
+    *,
+    forge_dir: Path,
+    repo_root: Path,
+    workers: int,
+    specs_root: Path,
+    provider_name: str = DEFAULT_PROVIDER,
+    providers_config: Path | None = None,
+    dry_run: bool = False,
+) -> SchedulerReport:
+    """Run the multi-worker scheduler over the runnable backlog (EXG-PAR-01).
+
+    :param forge_dir: Directory holding forge state.
+    :param repo_root: Repository root hosting the worktrees.
+    :param workers: Number of concurrent workers.
+    :param specs_root: Specification tree root for the dependency graph.
+    :param provider_name: Provider identifier for the workers.
+    :param providers_config: Optional providers configuration override.
+    :param dry_run: When true, git/gh operations are logged, not executed.
+    :returns: The scheduler report.
+    :raises ForgeCliError: If forge is not initialized or the specs are invalid.
+    """
+    state_path = forge_dir / STATE_FILENAME
+    if not state_path.is_file():
+        raise ForgeCliError(
+            ExitCode.STATE_ERROR,
+            f"forge is not initialized; run 'forge init' first (expected {state_path})",
+        )
+    try:
+        index = build_index(specs_root)
+    except (SpecParseError, SpecIndexError) as error:
+        raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+    run_id = (forge_dir / RUN_ID_FILENAME).read_text(encoding="utf-8").strip()
+    try:
+        database = await StateDatabase.open(state_path)
+    except StateDatabaseError as error:
+        raise ForgeCliError(ExitCode.STATE_ERROR, str(error)) from error
+    try:
+        persisted: dict[str, Status | None] = {}
+        for bl in index.backlog_items:
+            record = await database.get_bl_status(bl.id)
+            if record is not None:
+                persisted[bl.id] = record.status
+    finally:
+        await database.close()
+
+    runner = _SchedulerBlRunner(
+        forge_dir=forge_dir,
+        providers_config=providers_config,
+        provider_name=provider_name,
+        dry_run=dry_run,
+    )
+    async with WorktreeManager(repo_root, state_path) as manager:
+        provisioner = _SchedulerWorktreeProvisioner(manager, run_id)
+        stop_event = asyncio.Event()
+        _install_sigint_handler(stop_event)
+        scheduler = SchedulerLoop(
+            index=index,
+            runner=runner,
+            provisioner=provisioner,
+            initial_statuses=initial_statuses(index, persisted),
+            config=SchedulerConfig(workers=workers),
+        )
+        return await scheduler.run(stop_event=stop_event)
+
+
+def _run_scheduler_command(
+    *,
+    forge_dir: Path,
+    repo_root: Path,
+    workers: int,
+    specs_root: Path,
+    provider: str,
+    providers_config: Path | None,
+    dry_run: bool,
+) -> None:
+    root = repo_root.resolve()
+    specs = specs_root if specs_root.is_absolute() else root / specs_root
+    try:
+        report = asyncio.run(
+            run_scheduler(
+                forge_dir=forge_dir.resolve(),
+                repo_root=root,
+                workers=workers,
+                specs_root=specs.resolve(),
+                provider_name=provider,
+                providers_config=providers_config.resolve() if providers_config else None,
+                dry_run=dry_run,
+            )
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    done = sum(1 for outcome in report.outcomes.values() if outcome is BlOutcome.DONE)
+    blocked = sum(1 for outcome in report.outcomes.values() if outcome is BlOutcome.BLOCKED)
+    console.print(
+        f"[green]scheduler run: {done} done, {blocked} blocked "
+        f"(peak {report.peak_concurrency} workers)[/green]"
+    )
+    if report.stopped:
+        console.print(
+            "[yellow]stopped on signal with ready work remaining; resume with 'forge run'[/yellow]"
+        )
+
+
 @app.command("run")
 def run_command(
-    bl_id: str = typer.Option(..., "--bl", help="Backlog item identifier to execute."),
+    bl_id: str | None = typer.Option(None, "--bl", help="Backlog item identifier to execute."),
+    workers: int = typer.Option(
+        1,
+        "--workers",
+        min=1,
+        help="Run the scheduler with N concurrent workers (omit --bl).",
+    ),
     forge_dir: Path = typer.Option(  # noqa: B008
         DEFAULT_FORGE_DIR,
         "--forge-dir",
@@ -491,13 +677,29 @@ def run_command(
         "--providers-config",
         help="Override path to providers.toml.",
     ),
+    specs_root: Path = typer.Option(  # noqa: B008
+        DEFAULT_SPECS_ROOT,
+        "--specs-root",
+        help="Specification tree root for scheduler selection.",
+    ),
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
         help="Log git/gh operations without executing them.",
     ),
 ) -> None:
-    """Run sequential execution for a backlog item."""
+    """Run one backlog item (--bl) or the multi-worker scheduler (--workers N)."""
+    if bl_id is None or workers > 1:
+        _run_scheduler_command(
+            forge_dir=forge_dir,
+            repo_root=repo_root,
+            workers=workers,
+            specs_root=specs_root,
+            provider=provider,
+            providers_config=providers_config,
+            dry_run=dry_run,
+        )
+        return
     try:
         result = asyncio.run(
             run_bl(

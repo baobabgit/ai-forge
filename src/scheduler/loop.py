@@ -1,0 +1,210 @@
+"""Asyncio multi-worker scheduler loop (EXG-PAR-01, FEAT-forge-021).
+
+The loop continuously selects runnable backlog items (via a
+:class:`~src.scheduler.ready_selector.ReadyBlSelector`) and assigns them to a
+bounded pool of ``N`` concurrent workers. Each worker runs a backlog item's full
+cycle inside its own dedicated Git worktree. The loop is **pure orchestration**:
+it contains no role or provider logic — running a backlog item is delegated to
+an injected :class:`BlRunner`, and worktree provisioning to a
+:class:`WorktreeProvisioner`. When an item finishes, its status feeds back into
+selection so newly-unblocked items are picked up without a restart. A stop
+signal drains the in-flight workers cleanly and leaves the persisted state ready
+for ``forge resume``.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass, field
+from enum import StrEnum
+from pathlib import Path
+from typing import Protocol
+
+from src.core.models.status import Status
+from src.core.specparser import SpecIndex
+from src.scheduler.ready_selector import DependencyReadyBlSelector, ReadyBlSelector
+
+EventSink = Callable[[str, dict[str, object]], Awaitable[None]]
+
+DEFAULT_WORKERS = 3
+
+
+class BlOutcome(StrEnum):
+    """Terminal outcome of running one backlog item through its cycle."""
+
+    DONE = "DONE"
+    BLOCKED = "BLOCKED"
+
+
+class BlRunner(Protocol):
+    """Run a backlog item's full cycle inside a provisioned worktree."""
+
+    async def run(self, bl_id: str, worktree: Path) -> BlOutcome:
+        """Execute ``bl_id`` in ``worktree`` and return its terminal outcome.
+
+        :param bl_id: Backlog item identifier.
+        :param worktree: Dedicated worktree path for the item.
+        :returns: The terminal outcome.
+        """
+        ...
+
+
+class WorktreeProvisioner(Protocol):
+    """Provision and release the dedicated worktree of a backlog item."""
+
+    async def provision(self, bl_id: str) -> Path:
+        """Create (or reuse) the worktree for ``bl_id`` and return its path."""
+        ...
+
+    async def release(self, bl_id: str) -> None:
+        """Release the worktree of ``bl_id`` after its cycle completes."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class SchedulerConfig:
+    """Concurrency configuration for the scheduler loop.
+
+    :ivar workers: Maximum number of concurrent workers (default 3).
+    """
+
+    workers: int = DEFAULT_WORKERS
+
+
+#: Shared default config (avoids a call in argument defaults).
+_DEFAULT_CONFIG = SchedulerConfig()
+
+
+@dataclass(frozen=True, slots=True)
+class SchedulerReport:
+    """Result of a scheduler run.
+
+    :ivar outcomes: Terminal outcome per backlog item that finished.
+    :ivar started_order: Backlog items in the order they were assigned.
+    :ivar peak_concurrency: Highest number of simultaneously running workers.
+    :ivar stopped: Whether the run ended on a stop signal with items still ready.
+    """
+
+    outcomes: dict[str, BlOutcome] = field(default_factory=dict)
+    started_order: tuple[str, ...] = ()
+    peak_concurrency: int = 0
+    stopped: bool = False
+
+
+async def _noop_event(event_type: str, details: dict[str, object]) -> None:
+    _ = event_type, details
+
+
+class SchedulerLoop:
+    """Bounded concurrent worker pool over the runnable backlog graph.
+
+    :ivar index: Resolved specification index driving selection.
+    """
+
+    def __init__(
+        self,
+        *,
+        index: SpecIndex,
+        runner: BlRunner,
+        provisioner: WorktreeProvisioner,
+        initial_statuses: Mapping[str, Status | None],
+        selector: ReadyBlSelector | None = None,
+        config: SchedulerConfig = _DEFAULT_CONFIG,
+        emit: EventSink = _noop_event,
+    ) -> None:
+        """Bind the loop to its selection graph and injected seams.
+
+        :param index: Resolved specification index.
+        :param runner: Executes a backlog item's cycle.
+        :param provisioner: Provisions and releases per-item worktrees.
+        :param initial_statuses: Current status per backlog id (from persisted state).
+        :param selector: Ready-item selector (defaults to dependency-based).
+        :param config: Concurrency configuration.
+        :param emit: Async event sink for scheduling events.
+        """
+        self._index = index
+        self._runner = runner
+        self._provisioner = provisioner
+        self._statuses: dict[str, Status | None] = dict(initial_statuses)
+        self._selector = selector or DependencyReadyBlSelector()
+        self._config = config
+        self._emit = emit
+
+    async def run(self, *, stop_event: asyncio.Event | None = None) -> SchedulerReport:
+        """Drive the worker pool until the runnable graph is exhausted.
+
+        :param stop_event: Optional event; once set, no new worker is launched
+            and the in-flight workers are drained before returning.
+        :returns: The scheduler report.
+        """
+        stop = stop_event or asyncio.Event()
+        in_flight: dict[asyncio.Task[BlOutcome], str] = {}
+        running: set[str] = set()
+        outcomes: dict[str, BlOutcome] = {}
+        started: list[str] = []
+        peak = 0
+        stopped_with_work = False
+
+        while True:
+            ready = [
+                bl_id
+                for bl_id in self._selector.select(self._index, self._statuses)
+                if bl_id not in running and bl_id not in outcomes
+            ]
+            if not stop.is_set():
+                while len(in_flight) < self._config.workers and ready:
+                    bl_id = ready.pop(0)
+                    running.add(bl_id)
+                    started.append(bl_id)
+                    await self._emit("BL_ASSIGNED", {"bl_id": bl_id})
+                    in_flight[asyncio.create_task(self._run_one(bl_id))] = bl_id
+                    peak = max(peak, len(in_flight))
+
+            if not in_flight:
+                stopped_with_work = stop.is_set() and bool(ready)
+                break
+
+            done, _ = await asyncio.wait(set(in_flight), return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                bl_id = in_flight.pop(task)
+                running.discard(bl_id)
+                outcome = task.result()
+                outcomes[bl_id] = outcome
+                self._statuses[bl_id] = Status.DONE if outcome is BlOutcome.DONE else Status.BLOCKED
+                await self._emit("WORKER_STOPPED", {"bl_id": bl_id, "outcome": outcome.value})
+
+        return SchedulerReport(
+            outcomes=outcomes,
+            started_order=tuple(started),
+            peak_concurrency=peak,
+            stopped=stopped_with_work,
+        )
+
+    async def _run_one(self, bl_id: str) -> BlOutcome:
+        await self._emit("WORKER_STARTED", {"bl_id": bl_id})
+        worktree = await self._provisioner.provision(bl_id)
+        try:
+            return await self._runner.run(bl_id, worktree)
+        finally:
+            await self._provisioner.release(bl_id)
+
+
+def initial_statuses(
+    index: SpecIndex,
+    persisted: Mapping[str, Status | None],
+) -> dict[str, Status | None]:
+    """Build the starting status map from persisted state and frontmatter.
+
+    Each backlog item takes its persisted status when known, otherwise its
+    specification frontmatter status — so a fresh run starts from the declared
+    statuses and a resumed run reflects real progress (restart-safe selection).
+
+    :param index: Resolved specification index.
+    :param persisted: Persisted status per backlog id (may be partial).
+    :returns: A status map covering every backlog item in the index.
+    """
+    statuses: dict[str, Status | None] = {}
+    for bl in index.backlog_items:
+        statuses[bl.id] = persisted.get(bl.id, bl.status)
+    return statuses
