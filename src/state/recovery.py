@@ -56,12 +56,18 @@ class ObservedReality:
     :ivar worktree_present: Whether a residual worktree is present.
     :ivar pr_open: Whether an open pull request exists.
     :ivar pr_number: Observed pull request number, if any.
+    :ivar pr_merged: Whether the pull request was already merged (a crash
+        between the merge and its ``MERGED`` journal event must not lead to a
+        second pull request or merge).
+    :ivar merged_pr_number: Observed merged pull request number, if any.
     """
 
     branch_exists: bool
     worktree_present: bool
     pr_open: bool
     pr_number: int | None = None
+    pr_merged: bool = False
+    merged_pr_number: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +193,7 @@ async def _recover_bl(
     journaled = await _reconcile_branch(
         db, run_id=run_id, bl_id=bl_id, journaled=journaled, reality=reality, notes=reconciliations
     )
+    journaled = _reconcile_merge(journaled, reality, reconciliations)
     journaled = await _reconcile_pr(
         db, run_id=run_id, bl_id=bl_id, journaled=journaled, reality=reality, notes=reconciliations
     )
@@ -196,7 +203,12 @@ async def _recover_bl(
         await reset_worktree(bl_id)
         reconciliations.append("worktree residuel reinitialise avant reprise")
 
-    resume_step = next((step for step in _STEP_ORDER if step not in journaled), None)
+    # A journaled (or adopted) merge is terminal: the cycle must not be replayed
+    # from an earlier hole, which would double GitHub side effects.
+    if "merge" in journaled:
+        resume_step = None
+    else:
+        resume_step = next((step for step in _STEP_ORDER if step not in journaled), None)
     ordered = tuple(step for step in _STEP_ORDER if step in journaled)
     return BlRecoveryPlan(
         bl_id=bl_id,
@@ -242,6 +254,27 @@ async def _reconcile_branch(
     return journaled
 
 
+def _reconcile_merge(
+    journaled: set[str],
+    reality: ObservedReality,
+    notes: list[str],
+) -> set[str]:
+    """Adopt an observed merge that crashed before its ``MERGED`` event.
+
+    Without this, a merged pull request looks like "no open PR" and the PR
+    reconciliation would back the resume point up to ``pr_open`` — reopening a
+    pull request for already-merged work (double GitHub effect). No event is
+    appended here: the ``MERGED`` journal entry is emitted exactly once by the
+    legal ``IN_REVIEW -> DONE`` state-machine transition when the resume
+    finalizes the item, keeping the machine the single journaling authority.
+    """
+    if not reality.pr_merged or "merge" in journaled:
+        return journaled
+    label = f"#{reality.merged_pr_number}" if reality.merged_pr_number is not None else "observee"
+    notes.append(f"PR {label} deja mergee adoptee (finalisation DONE a la reprise)")
+    return journaled | {"merge", "pr_open"}
+
+
 async def _reconcile_pr(
     db: StateDatabase,
     *,
@@ -261,7 +294,7 @@ async def _reconcile_pr(
         )
         notes.append(f"PR #{reality.pr_number} ouverte adoptee (evenement PR_OPENED rejoue)")
         return journaled | {"pr_open"}
-    if "pr_open" in journaled and not reality.pr_open:
+    if "pr_open" in journaled and not reality.pr_open and "merge" not in journaled:
         notes.append("evenement PR sans PR reelle : reprise a l'etape pr_open")
         return journaled - {"pr_open", "reviewer"}
     return journaled
@@ -283,12 +316,14 @@ def default_reality_probe(repo_root: Path) -> ObserveReality:
         _ = status
         branch = _branch_name(bl_id)
         worktree = _find_residual_worktree(repo_root, branch)
-        pr_number = _open_pr_number(repo_root, branch)
+        open_number, merged_number = _observe_pr(repo_root, branch)
         return ObservedReality(
             branch_exists=_git_branch_exists(repo_root, branch) or worktree is not None,
             worktree_present=worktree is not None,
-            pr_open=pr_number is not None,
-            pr_number=pr_number,
+            pr_open=open_number is not None,
+            pr_number=open_number,
+            pr_merged=merged_number is not None,
+            merged_pr_number=merged_number,
         )
 
     return _probe
@@ -321,19 +356,34 @@ def _branch_name(bl_id: str) -> str:
     return f"feat/{slug}"
 
 
-def _open_pr_number(repo_root: Path, branch: str) -> int | None:
+def _observe_pr(repo_root: Path, branch: str) -> tuple[int | None, int | None]:
+    """Return the ``(open, merged)`` pull-request numbers observed for ``branch``.
+
+    Failures are treated as "no pull request" so recovery stays conservative.
+
+    :param repo_root: Repository root used for the ``gh`` call.
+    :param branch: Feature branch name.
+    :returns: The open PR number and the merged PR number (each ``None`` if absent).
+    """
     try:
         result = gh_cli.pr_view(repo_root, branch, json_fields=("number", "state"))
     except (OSError, ValueError, gh_cli.GhError):
-        return None
+        return None, None
     try:
         payload = json.loads(result.stdout or "{}")
     except json.JSONDecodeError:
-        return None
-    if not isinstance(payload, dict) or payload.get("state") != "OPEN":
-        return None
+        return None, None
+    if not isinstance(payload, dict):
+        return None, None
     number = payload.get("number")
-    return number if isinstance(number, int) else None
+    if not isinstance(number, int):
+        return None, None
+    state = payload.get("state")
+    if state == "OPEN":
+        return number, None
+    if state == "MERGED":
+        return None, number
+    return None, None
 
 
 def _git_branch_exists(repo_root: Path, branch: str) -> bool:
@@ -363,12 +413,50 @@ def _git_ref_exists(repo_root: Path, *, git_bin: str, ref: str) -> bool:
 def _find_residual_worktree(repo_root: Path, branch: str) -> _GitWorktree | None:
     root = repo_root.resolve()
     for worktree in _git_worktrees(root):
-        if worktree.branch != branch:
+        # A crash mid-rebase leaves the worktree on a detached HEAD: the branch
+        # is then only recorded in the rebase state (head-name), not in the
+        # worktree listing. Without this lookup the residual worktree would
+        # never be found, hence never reset before resuming.
+        owned = worktree.branch == branch or (
+            worktree.branch is None and _rebase_head_branch(worktree.path) == branch
+        )
+        if not owned:
             continue
         if worktree.path.resolve() == root:
             continue
         if worktree.path.is_dir():
             return worktree
+    return None
+
+
+def _rebase_head_branch(worktree: Path) -> str | None:
+    """Return the branch a detached, mid-rebase worktree was rebasing.
+
+    :param worktree: Linked worktree path (its ``.git`` file points to the
+        private gitdir holding the ``rebase-merge``/``rebase-apply`` state).
+    :returns: The branch name from ``head-name``, or ``None`` when the worktree
+        is not mid-rebase or unreadable.
+    """
+    git_pointer = worktree / ".git"
+    try:
+        if git_pointer.is_file():
+            content = git_pointer.read_text(encoding="utf-8").strip()
+            if not content.startswith("gitdir: "):
+                return None
+            gitdir = Path(content.removeprefix("gitdir: "))
+            if not gitdir.is_absolute():
+                gitdir = (worktree / gitdir).resolve()
+        elif git_pointer.is_dir():
+            gitdir = git_pointer
+        else:
+            return None
+        for state_dir in ("rebase-merge", "rebase-apply"):
+            head_name = gitdir / state_dir / "head-name"
+            if head_name.is_file():
+                ref = head_name.read_text(encoding="utf-8").strip()
+                return ref.removeprefix("refs/heads/") or None
+    except OSError:
+        return None
     return None
 
 
@@ -417,6 +505,17 @@ def _reset_git_worktree(worktree: Path) -> None:
     resolved = worktree.resolve(strict=False)
     if not resolved.is_dir():
         raise RecoveryError(f"residual worktree not found: {resolved}")
+    # A crash mid-rebase (or mid-merge) leaves the worktree in an in-progress
+    # sequencer state that reset/clean do not clear; abort it first, best effort
+    # (both commands fail harmlessly when nothing is in progress).
+    for abort_args in (("rebase", "--abort"), ("merge", "--abort")):
+        subprocess.run(  # nosec B603 - fixed git argv, no shell.
+            [git_bin, *abort_args],
+            cwd=resolved,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
     for args in (("reset", "--hard", "HEAD"), ("clean", "-fd")):
         result = subprocess.run(  # nosec B603 - fixed git argv, no shell.
             [git_bin, *args],

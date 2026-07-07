@@ -395,7 +395,12 @@ def load_planning_metadata(path: Path) -> dict[str, Any]:
     """
     if not path.is_file():
         return {}
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        # A crash mid-write leaves a torn artifact; planning is a projection of
+        # the specs (EXG-ETA-02), so recovery regenerates it from scratch.
+        return {}
     if not isinstance(payload, dict):
         return {}
     return cast(dict[str, Any], payload)
