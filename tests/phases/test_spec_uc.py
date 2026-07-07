@@ -9,24 +9,15 @@ from pathlib import Path
 import pytest
 
 from src.core.specparser import read_spec
-from src.phases.specify import (
-    SpecifyPhase,
-    SpecifyPhaseRequest,
-    validate_use_case_files,
-    write_use_cases,
-)
+from src.phases.specify import SpecifyPhase, validate_use_case_files, write_use_cases
+from src.phases.specify_request import SpecifyPhaseRequest
 from src.providers.base import ProviderHealth, ProviderResult, ProviderStatus, RoleTask
 from src.providers.registry import ProviderCapabilities, ProviderConfig
-from src.roles.spec import (
-    SPEC_PHASE_ID,
-    SpecRole,
-    SpecRoleError,
-    SpecUcProduceRequest,
-    UseCaseParseError,
-    UseCaseSpec,
-    parse_use_cases,
-    render_use_case_markdown,
-)
+from src.roles.spec import SPEC_PHASE_ID, SpecRole
+from src.roles.spec_produce_request import SpecUcProduceRequest
+from src.roles.spec_role_error import SpecRoleError
+from src.roles.use_case_parse_error import UseCaseParseError
+from src.roles.use_case_spec import UseCaseSpec, parse_use_cases, render_use_case_markdown
 
 _LIBRARY = "lib-demo"
 

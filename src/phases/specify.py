@@ -10,64 +10,20 @@ loop converges as soon as every generated file parses, or stops after
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
 from src.core.models.uc import UC
 from src.core.specparser import SpecParseError, read_spec
-from src.roles.spec import (
-    SpecRole,
-    SpecRoleError,
-    SpecUcProduceRequest,
-    UseCaseSpec,
-    render_use_case_markdown,
-)
+from src.phases.specify_request import SpecifyPhaseRequest
+from src.phases.specify_result import SpecifyPhaseResult
+from src.roles.spec_produce_request import SpecUcProduceRequest
+from src.roles.spec_role_error import SpecRoleError
+from src.roles.use_case_spec import UseCaseSpec, render_use_case_markdown
+
+UC_SUBDIR = "UC"
 
 #: SPEC role error code raised when provider output fails to parse (correctable).
 _CORRECTABLE_CODE = "INVALID_USE_CASES"
-
-MAX_SPEC_ITERATIONS = 3
-UC_SUBDIR = "UC"
-
-
-@dataclass(frozen=True, slots=True)
-class SpecifyPhaseRequest:
-    """Input bundle for the SPEC use-case generation phase.
-
-    :ivar cdc_path: Path to the library CDC used as context.
-    :ivar library: Library slug the use cases belong to.
-    :ivar specs_root: Specifications root under which ``UC/`` files are written.
-    :ivar workdir: Provider working directory.
-    :ivar spec_role: SPEC role bound to a provider.
-    :ivar max_iterations: Maximum parser -> SPEC correction passes.
-    :ivar timeout_seconds: Provider wall-clock budget per pass.
-    """
-
-    cdc_path: Path
-    library: str
-    specs_root: Path
-    workdir: Path
-    spec_role: SpecRole
-    max_iterations: int = MAX_SPEC_ITERATIONS
-    timeout_seconds: float = 600.0
-
-
-@dataclass(frozen=True, slots=True)
-class SpecifyPhaseResult:
-    """Outcome of the SPEC use-case generation phase.
-
-    :ivar converged: Whether every generated file parsed within the budget.
-    :ivar iterations: Number of SPEC passes performed.
-    :ivar use_cases: The use cases from the last pass.
-    :ivar written_paths: Paths of the generated UC files, in id order.
-    :ivar diagnostics: Outstanding validation diagnostics (empty on success).
-    """
-
-    converged: bool
-    iterations: int
-    use_cases: tuple[UseCaseSpec, ...]
-    written_paths: tuple[Path, ...]
-    diagnostics: tuple[str, ...]
 
 
 class SpecifyPhase:
