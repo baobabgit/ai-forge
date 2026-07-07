@@ -26,10 +26,20 @@ gates:
 Implémenter src/roles/spec.py (partie UC) et src/phases/specify.py : pour chaque librairie, génération des fichiers specs/UC/UC-<lib>-<nnn>.md conformes EXG-SPE-02 (identifiant, acteurs, préconditions, scénario nominal, alternatifs et erreurs, postconditions, exigences non fonctionnelles, critères GO/NO-GO) avec frontmatter EXG-SPE-05 ; chaque fichier généré est immédiatement validé par le specparser, toute erreur étant renvoyée au SPEC avec le diagnostic exact.
 
 ## Fichiers / modules impactés
-- `src/roles/spec.py`
-- `src/phases/specify.py`
+- `src/roles/spec.py` (classe `SpecRole`)
+- `src/roles/use_case_spec.py` (modèle `UseCaseSpec`, parsing et rendu Markdown)
+- `src/roles/spec_produce_request.py` (`SpecUcProduceRequest`)
+- `src/roles/spec_role_result.py` (`SpecRoleResult`)
+- `src/roles/spec_role_error.py` (`SpecRoleError`)
+- `src/roles/use_case_parse_error.py` (`UseCaseParseError`)
+- `src/phases/specify.py` (classe `SpecifyPhase`)
+- `src/phases/specify_request.py` (`SpecifyPhaseRequest`)
+- `src/phases/specify_result.py` (`SpecifyPhaseResult`)
 - `prompts/spec_uc.md.j2`
 - `tests/phases/test_spec_uc.py`
+
+> Périmètre révisé (décision humaine) : découpage strict « une classe par
+> fichier » des modules `spec.py`/`specify.py` initialement mono-fichiers.
 
 ## Dépendances
 - BL-forge-011 — Moteur de prompts jinja2 et template DEV
