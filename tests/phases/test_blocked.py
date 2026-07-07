@@ -246,8 +246,8 @@ async def test_iteration_cap_blocks_after_fifth_no_go(
             changed_files=(),
         )
 
-    def _issue_create(_repo, *, title, body, dry_run=False, dry_run_log=None):  # type: ignore[no-untyped-def]
-        _ = _repo, dry_run, dry_run_log
+    def _issue_create(_repo, *, title, body, dry_run=False, dry_run_log=None, labels=None):  # type: ignore[no-untyped-def]
+        _ = _repo, dry_run, dry_run_log, labels
         issues.append(body)
         return subprocess.CompletedProcess(
             [], 0, f"https://github.com/o/r/issues/{len(issues)}", ""
@@ -258,6 +258,7 @@ async def test_iteration_cap_blocks_after_fifth_no_go(
     monkeypatch.setattr("src.phases.execute.gitio.push", lambda *args, **kwargs: None)
     monkeypatch.setattr("src.phases.execute.pr_create", lambda *args, **kwargs: None)
     monkeypatch.setattr("src.phases.execute.issue_create", _issue_create)
+    monkeypatch.setattr("src.phases.escalation.issue_create", _issue_create)
 
     database = await StateDatabase.open(forge_dir / "state.db")
     try:
@@ -286,6 +287,7 @@ async def test_iteration_cap_blocks_after_fifth_no_go(
     assert len(issues) == 5
     assert "plafond de **4**" in issues[-1]
     assert "Hypotheses de blocage" in issues[-1]
+    assert "Options de deblocage" in issues[-1]
 
     database = await StateDatabase.open(forge_dir / "state.db")
     try:
@@ -295,6 +297,7 @@ async def test_iteration_cap_blocks_after_fifth_no_go(
         events = await database.list_events(run_id)
         bl_events = [event for event in events if event.bl_id == "BL-demo-001"]
         assert any(event.event_type == "BL_BLOCKED" for event in bl_events)
+        assert any(event.event_type == "ESCALATED" for event in bl_events)
         synthesis = [
             event
             for event in bl_events
@@ -327,7 +330,7 @@ def test_render_blocked_summary_body_is_self_contained() -> None:
     )
     assert "BL-demo-001" in body
     assert "missing tests" in body
-    assert "Options de reprise" in body
+    assert "Options de deblocage" in body
     assert "#7" in body
 
 
@@ -452,6 +455,7 @@ async def test_iteration_cap_applies_graph_updates_when_specs_root_set(
         return subprocess.CompletedProcess([], 0, "https://github.com/o/r/issues/1", "")
 
     monkeypatch.setattr("src.phases.execute.issue_create", _fake_issue)
+    monkeypatch.setattr("src.phases.escalation.issue_create", _fake_issue)
 
     database = await StateDatabase.open(forge_dir / "state.db")
     try:

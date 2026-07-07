@@ -544,6 +544,7 @@ async def test_scenario_iteration_cap_blocked(
         return subprocess.CompletedProcess([], 0, "https://github.com/o/r/issues/1", "")
 
     monkeypatch.setattr("src.phases.execute.issue_create", _fake_issue)
+    monkeypatch.setattr("src.phases.escalation.issue_create", _fake_issue)
 
     database = await StateDatabase.open(bench_forge / "state.db")
     try:

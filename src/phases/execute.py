@@ -7,19 +7,33 @@ import subprocess  # nosec B404 - read-only rev-parse for baseline capture.
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from typing import cast
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 
+from src.contracts.escalation_report import (
+    BlockTrigger,
+    EscalationReport,
+    IterationAttempt,
+    SpecContext,
+)
 from src.core.models.bl import BL
 from src.core.models.go_no_go import GoNoGo
 from src.core.models.status import Status
 from src.core.models.verdict import Verdict
-from src.core.specparser import build_index, read_spec
+from src.core.specparser import read_spec
 from src.gates.auto import AutoGatesRequest, run_auto_gates
 from src.ghub.cli import issue_create, pr_create
 from src.obs.invocation_journal import InvocationJournal
 from src.obs.logging import JsonlRunLogger
-from src.planner.graph_updates import apply_blocked_side_effects
+from src.phases.escalation import (
+    build_escalation_report,
+    classify_error,
+    default_unblock_options,
+    iteration_history,
+    publish_escalation,
+    render_escalation_issue_body,
+)
 from src.policy.approval_queue import ApprovalQueue
 from src.policy.pending_action import PendingActionStatus
 from src.policy.trust_level import ActionKind
@@ -704,63 +718,46 @@ class SequentialExecutor:
         pr_number: int | None,
         dry_run_log: gitio.CommandLog | None,
     ) -> None:
-        """Transition to BLOCKED, open a synthesis issue, and demote dependents."""
+        """Transition to BLOCKED, publish an escalation dossier and demote dependents."""
         events = await self._database.list_events(request.run_id)
-        history = _iteration_history(events, request.bl_id)
-        issue_body = render_blocked_summary_body(
+        history = iteration_history(events, request.bl_id)
+        current_diff = ""
+        try:
+            baseline = await self._read_baseline_ref(request.run_id, request.bl_id)
+            current_diff = _git_diff(repo, baseline)
+        except ExecutionError:
+            current_diff = ""
+        report = build_escalation_report(
             bl_id=request.bl_id,
-            max_iterations=request.max_iterations,
-            history=history,
+            spec_path=request.spec_path,
+            specs_root=request.specs_root,
+            trigger=BlockTrigger.ITERATION_CAP,
+            reason=(
+                f"Le plafond de **{request.max_iterations}** allers-retours est atteint "
+                "(EXG-EXE-03). Reprise humaine requise."
+            ),
+            attempts=history,
+            current_diff=current_diff,
+            pr_number=pr_number,
             role=role,
             motifs=tuple(verdict.motifs),
             preuves=tuple(verdict.preuves),
-            pr_number=pr_number,
         )
-        title = f"blocked({request.bl_id}): synthese plafond iterations"
-        issue_result = issue_create(
-            repo,
-            title=title,
-            body=issue_body,
+        result = await publish_escalation(
+            self._database,
+            self._machine,
+            run_id=request.run_id,
+            bl_id=request.bl_id,
+            repo=repo,
+            forge_dir=request.forge_dir,
+            report=report,
+            specs_root=request.specs_root,
             dry_run=request.dry_run,
             dry_run_log=dry_run_log,
+            transition_reason="iteration cap reached",
+            fallback_issue_number=request.max_iterations + 1,
         )
-        issue_number = _parse_issue_number(issue_result.stdout)
-        if issue_number is None and request.dry_run:
-            issue_number = request.max_iterations + 1
-
-        await self._machine.transition(
-            request.bl_id,
-            TransitionRequest(
-                target=Status.BLOCKED,
-                actor="executor",
-                reason="iteration cap reached",
-            ),
-        )
-        await self._database.append_event(
-            run_id=request.run_id,
-            event_type="ISSUE_OPENED",
-            actor="executor",
-            bl_id=request.bl_id,
-            details={
-                "number": issue_number,
-                "synthesis": True,
-                "kind": "blocked",
-                "max_iterations": request.max_iterations,
-                "body": issue_body,
-                "history": history,
-                "pr_number": pr_number,
-            },
-        )
-        if request.specs_root is not None:
-            index = build_index(request.specs_root)
-            await apply_blocked_side_effects(
-                self._database,
-                self._machine,
-                run_id=request.run_id,
-                index=index,
-                blocked_bl_id=request.bl_id,
-            )
-        raise _IterationCapExceeded(issue_number)
+        raise _IterationCapExceeded(result.issue_number)
 
     async def _find_open_pr_number(self, run_id: str, bl_id: str) -> int | None:
         events = await self._database.list_events(run_id)
@@ -896,79 +893,76 @@ def render_blocked_summary_body(
     motifs: tuple[str, ...],
     preuves: tuple[str, ...],
     pr_number: int | None,
+    spec_path: Path | None = None,
+    specs_root: Path | None = None,
+    current_diff: str = "",
 ) -> str:
     """Render the synthesis issue body when the iteration cap is reached."""
-    lines = [
-        f"# BL bloque — {bl_id}",
-        "",
-        f"Le plafond de **{max_iterations}** allers-retours est atteint (EXG-EXE-03).",
-        "Reprise humaine requise : relire cette synthese plutot que l'historique complet.",
-        "",
-        "## Dernier NO-GO",
-        "",
-        f"- **Role :** {role}",
-    ]
-    if pr_number is not None:
-        lines.append(f"- **PR liee :** #{pr_number}")
-    lines.extend(["", "### Motifs", ""])
-    if motifs:
-        lines.extend(f"- {motif}" for motif in motifs)
-    else:
-        lines.append("- (aucun)")
-    lines.extend(["", "### Preuves", ""])
-    if preuves:
-        lines.extend(f"- {preuve}" for preuve in preuves)
-    else:
-        lines.append("- (aucune)")
-    lines.extend(["", "## Historique des iterations", ""])
-    if history:
-        for entry in history:
-            lines.append(
-                f"- Iteration {entry['iteration']}: {entry['event_type']} "
-                f"({entry['role']}) — {entry['motifs']}"
-            )
-    else:
-        lines.append("- Aucun evenement NO-GO journalise avant le blocage.")
-    lines.extend(
-        [
-            "",
-            "## Hypotheses de blocage",
-            "",
-            "- Les corrections automatiques n'ont pas leve les criteres en echec.",
-            "- Le perimetre ou les gates du BL peuvent etre insuffisants ou ambigus.",
-            "- Une decision humaine sur la spec ou le scope peut etre necessaire.",
-            "",
-            "## Options de reprise",
-            "",
-            "1. Ajuster la spec ou le scope, puis `forge resume`.",
-            "2. Prendre le BL manuellement et fermer l'Issue de synthese.",
-            "3. Abandonner le BL et debloquer les dependants apres arbitrage.",
-        ]
+    attempts = tuple(
+        IterationAttempt(
+            iteration=int(cast(int, entry["iteration"])),
+            event_type=str(entry["event_type"]),
+            role=str(entry["role"]),
+            motifs=tuple(str(item) for item in cast(tuple[object, ...], entry.get("motifs", ()))),
+            preuves=tuple(str(item) for item in cast(tuple[object, ...], entry.get("preuves", ()))),
+        )
+        for entry in history
     )
-    return "\n".join(lines) + "\n"
+    reason = (
+        f"Le plafond de **{max_iterations}** allers-retours est atteint (EXG-EXE-03). "
+        "Reprise humaine requise : relire cette synthese plutot que l'historique complet."
+    )
+    if spec_path is not None:
+        report = build_escalation_report(
+            bl_id=bl_id,
+            spec_path=spec_path,
+            specs_root=specs_root,
+            trigger=BlockTrigger.ITERATION_CAP,
+            reason=reason,
+            attempts=attempts,
+            current_diff=current_diff,
+            pr_number=pr_number,
+            role=role,
+            motifs=motifs,
+            preuves=preuves,
+        )
+    else:
+        report = EscalationReport(
+            bl_id=bl_id,
+            trigger=BlockTrigger.ITERATION_CAP,
+            error_class=classify_error(BlockTrigger.ITERATION_CAP, role=role),
+            reason=reason,
+            context=SpecContext(
+                bl_id=bl_id,
+                bl_spec_path="(inconnu)",
+                bl_body_excerpt="(non disponible)",
+            ),
+            attempts=attempts,
+            current_diff=current_diff,
+            pr_number=pr_number,
+            last_role=role,
+            last_motifs=motifs,
+            last_preuves=preuves,
+            unblock_options=default_unblock_options(bl_id),
+        )
+    return render_escalation_issue_body(report)
 
 
 def _iteration_history(
     events: tuple[EventRecord, ...],
     bl_id: str,
 ) -> tuple[dict[str, object], ...]:
-    """Extract prior NO-GO journal entries for synthesis."""
-    history: list[dict[str, object]] = []
-    iteration = 1
-    for event in events:
-        if event.bl_id != bl_id or event.event_type not in NO_GO_EVENT_TYPES:
-            continue
-        history.append(
-            {
-                "iteration": iteration,
-                "event_type": event.event_type,
-                "role": event.details.get("role", event.actor),
-                "motifs": event.details.get("motifs", []),
-                "preuves": event.details.get("preuves", []),
-            }
-        )
-        iteration += 1
-    return tuple(history)
+    """Extract prior NO-GO journal entries for synthesis (legacy helper)."""
+    return tuple(
+        {
+            "iteration": attempt.iteration,
+            "event_type": attempt.event_type,
+            "role": attempt.role,
+            "motifs": list(attempt.motifs),
+            "preuves": list(attempt.preuves),
+        }
+        for attempt in iteration_history(events, bl_id)
+    )
 
 
 def _git_diff(repo: Path, baseline_ref: str) -> str:

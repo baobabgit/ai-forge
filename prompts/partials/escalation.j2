@@ -1,0 +1,101 @@
+# BL bloque — {{ report.bl_id }}
+
+{{ report.reason }}
+
+- **Declencheur :** {{ trigger_label }}
+- **Classe d'erreur (EXG-ERR-01) :** `{{ report.error_class }}`
+{% if report.pr_number is not none -%}
+- **PR liee :** #{{ report.pr_number }}
+{% endif %}
+
+## Contexte specification
+
+- **BL :** `{{ report.context.bl_id }}` (`{{ report.context.bl_spec_path }}`)
+{% if report.context.feat_id is not none -%}
+- **FEAT parente :** `{{ report.context.feat_id }}` (`{{ report.context.feat_spec_path }}`)
+{% endif %}
+{% if report.context.uc_id is not none -%}
+- **UC parente :** `{{ report.context.uc_id }}` (`{{ report.context.uc_spec_path }}`)
+{% endif %}
+
+### Extrait BL
+
+{{ report.context.bl_body_excerpt }}
+
+{% if report.context.feat_body_excerpt is not none %}
+
+### Extrait FEAT
+
+{{ report.context.feat_body_excerpt }}
+{% endif %}
+{% if report.context.uc_body_excerpt is not none %}
+
+### Extrait UC
+
+{{ report.context.uc_body_excerpt }}
+{% endif %}
+
+## Dernier NO-GO
+
+{% if report.last_role is not none -%}
+- **Role :** {{ report.last_role }}
+{% endif %}
+
+### Motifs
+
+{% if report.last_motifs -%}
+{% for motif in report.last_motifs -%}
+- {{ motif }}
+{% endfor %}
+{% else -%}
+- (aucun)
+{% endif %}
+
+### Preuves
+
+{% if report.last_preuves -%}
+{% for preuve in report.last_preuves -%}
+- {{ preuve }}
+{% endfor %}
+{% else -%}
+- (aucune)
+{% endif %}
+
+## Historique des iterations
+
+{% if report.attempts -%}
+{% for attempt in report.attempts -%}
+- Iteration {{ attempt.iteration }}: {{ attempt.event_type }} ({{ attempt.role }}) — {{ attempt.motifs }}
+{% endfor %}
+{% else -%}
+- Aucun evenement NO-GO journalise avant le blocage.
+{% endif %}
+
+## Hypotheses de blocage
+
+{% for hypothesis in report.hypotheses -%}
+- {{ hypothesis }}
+{% endfor %}
+
+## Diff courant
+
+{% if report.current_diff -%}
+```diff
+{{ report.current_diff }}
+```
+{% else -%}
+- (aucun diff disponible)
+{% endif %}
+
+## Options de deblocage (EXG-ESC-02)
+
+{% for option in report.unblock_options -%}
+{{ loop.index }}. **{{ option.title }}** — {{ option.description }}
+   - Impact planning : {{ option.planning_impact }}
+{% endfor %}
+
+## Chemins de reprise
+
+1. Editer la spec puis `forge resume` apres arbitrage.
+2. Abandonner le BL et fermer l'Issue de synthese.
+3. Prendre le BL manuellement hors cycle AI-Forge.
