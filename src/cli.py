@@ -27,6 +27,8 @@ from src.phases.execute import (
     SequentialExecutor,
 )
 from src.phases.validate_specs import ValidationReport, validate_specs
+from src.planner.dag import CycleDetectedError
+from src.planner.publish import PlanReport, plan_forge
 from src.policy.approval_queue import ApprovalQueue, ApprovalQueueError
 from src.policy.pending_action import PendingAction, PendingActionStatus
 from src.policy.trust_level import ActionKind
@@ -105,6 +107,7 @@ DEFAULT_REPORT_FILE = Path("forge-report.md")
 RUNNABLE_STATUSES = frozenset({Status.TODO, Status.READY})
 DEFAULT_SPECS_ROOT = Path("docs") / "specs" / "specs"
 DEFAULT_MILESTONES_PATH = Path("docs") / "specs" / "milestones.md"
+DEFAULT_PLANNING_DIR = Path("docs") / "specs"
 DEFAULT_PROVIDER = "mock"
 
 
@@ -1852,6 +1855,112 @@ def repair_state_command(
     except ForgeCliError as error:
         _handle_cli_error(error)
     console.print(report.render())
+
+
+async def plan_forge_cli(
+    *,
+    specs_root: Path,
+    output_dir: Path,
+    repo_root: Path,
+    milestones_path: Path | None = None,
+    forge_dir: Path | None = None,
+    simulate: bool = False,
+    library: str | None = None,
+) -> PlanReport:
+    """Build and publish planning artifacts (EXG-PLA-04/05, EXG-RDY-02).
+
+    :param specs_root: UC/FEAT/BL specification tree root.
+    :param output_dir: Directory receiving ``planning.json`` and ``planning.md``.
+    :param repo_root: Repository root used for default paths.
+    :param milestones_path: Optional milestones markdown path.
+    :param forge_dir: Optional forge state directory for live statuses.
+    :param simulate: When true, skip writing files.
+    :param library: Optional library filter for validation messaging.
+    :returns: Planning report.
+    :raises ForgeCliError: On spec, cycle or validation failures.
+    """
+    try:
+        return await plan_forge(
+            specs_root=specs_root,
+            output_dir=output_dir,
+            repo_root=repo_root,
+            milestones_path=milestones_path,
+            forge_dir=forge_dir,
+            simulate=simulate,
+            library=library,
+        )
+    except CycleDetectedError as error:
+        raise ForgeCliError(
+            ExitCode.USER_ERROR,
+            error.diagnostic.render_for_spec(),
+        ) from error
+    except (SpecParseError, SpecIndexError) as error:
+        raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+
+@app.command("plan")
+def plan_command(
+    simulate: bool = typer.Option(
+        False,
+        "--simulate",
+        help="Compute planning without writing planning.md/json.",
+    ),
+    specs_root: Path = typer.Option(  # noqa: B008
+        DEFAULT_SPECS_ROOT,
+        "--specs-root",
+        help="Specification tree root.",
+    ),
+    output_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_PLANNING_DIR,
+        "--output-dir",
+        help="Directory receiving planning.md and planning.json.",
+    ),
+    repo_root: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo-root",
+        help="Repository root path.",
+    ),
+    milestones_path: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--milestones",
+        help="Optional milestones.md path.",
+    ),
+    forge_dir: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--forge-dir",
+        help="Forge state directory for live BL statuses.",
+    ),
+    library: str | None = typer.Option(
+        None,
+        "--lib",
+        help="Restrict validation messaging to one library.",
+    ),
+) -> None:
+    """Build the planning DAG and publish planning.md/json (forge plan)."""
+    root = repo_root.resolve()
+    specs = specs_root if specs_root.is_absolute() else root / specs_root
+    destination = output_dir if output_dir.is_absolute() else root / output_dir
+    milestones = milestones_path.resolve() if milestones_path else None
+    if milestones is None and DEFAULT_MILESTONES_PATH.is_file():
+        milestones = (root / DEFAULT_MILESTONES_PATH).resolve()
+    resolved_forge = forge_dir.resolve() if forge_dir else None
+    try:
+        report = asyncio.run(
+            plan_forge_cli(
+                specs_root=specs.resolve(),
+                output_dir=destination.resolve(),
+                repo_root=root,
+                milestones_path=milestones,
+                forge_dir=resolved_forge,
+                simulate=simulate,
+                library=library,
+            )
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    console.print(report.render())
+    if not report.ok:
+        raise typer.Exit(int(ExitCode.USER_ERROR))
 
 
 @app.command("validate-specs")
