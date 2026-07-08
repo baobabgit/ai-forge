@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import signal
 from collections.abc import Sequence
 from enum import IntEnum
@@ -19,6 +20,7 @@ from src.obs.report import build_run_report, commit_report
 from src.obs.stats import write_stats_json
 from src.obs.status import render_dashboard, watch_status
 from src.obs.status_view import StatusView, build_status_view
+from src.phases.architect import ArchitectPhase, ArchitectPhaseRequest, ArchitectPhaseResult
 from src.phases.audit import ProjectAuditor
 from src.phases.close_spec import CloseSpecError, CloseSpecEvaluator
 from src.phases.doctor import DoctorReport, run_doctor
@@ -35,7 +37,9 @@ from src.policy.approval_queue import ApprovalQueue, ApprovalQueueError
 from src.policy.pending_action import PendingAction, PendingActionStatus
 from src.policy.trust_level import ActionKind
 from src.providers.bootstrap import create_provider, default_providers_path, load_registry
-from src.providers.registry import ProviderRegistryError
+from src.providers.mock import ScriptableMockProvider
+from src.providers.registry import ProviderRegistry, ProviderRegistryError
+from src.roles.architect import ArchitectRole, ArchitectRoleError, assign_architect_providers
 from src.scheduler.loop import (
     BlOutcome,
     SchedulerConfig,
@@ -1859,6 +1863,184 @@ def repair_state_command(
     console.print(report.render())
 
 
+def _dry_run_architect_proposal_output() -> str:
+    payload: dict[str, object] = {
+        "libraries": [
+            {
+                "name": "lib-core",
+                "responsibility": "Modele metier partage.",
+                "dependencies": [],
+                "stack": "Python >= 3.13",
+                "versions": [
+                    {"version": "v0.1.0", "features": "modeles"},
+                    {"version": "v0.2.0", "features": "recherche"},
+                ],
+            },
+            {
+                "name": "lib-api",
+                "responsibility": "Façade HTTP.",
+                "dependencies": ["lib-core"],
+                "stack": "Python >= 3.13, FastAPI",
+                "versions": [{"version": "v0.1.0", "features": "route search"}],
+            },
+        ],
+        "milestones": [{"text": "lib-core v0.2.0 requis avant lib-api v0.1.0"}],
+        "development_order": ["lib-core", "lib-api"],
+        "summary": "Deux librairies independamment developpables.",
+    }
+    return "```json\n" + json.dumps(payload, indent=2) + "\n```"
+
+
+def _dry_run_architect_review_output() -> str:
+    payload: dict[str, object] = {
+        "verdict": "GO",
+        "circular_dependencies": [],
+        "redundant_libraries": [],
+        "version_inconsistencies": [],
+        "invariant_violations": [],
+        "motifs": ["architecture coherente"],
+        "preuves": ["dependances acycliques"],
+    }
+    return "```json\n" + json.dumps(payload, indent=2) + "\n```"
+
+
+def render_architect_phase_report(result: ArchitectPhaseResult) -> str:
+    """Render ``result`` as a human-readable architecture phase summary."""
+    lines = [
+        "# Architecture phase report",
+        "",
+        f"- Converged: {result.converged}",
+        f"- Iterations: {result.iterations}",
+        "",
+        "## Peer reviews",
+        "",
+    ]
+    for index, review in enumerate(result.reviews, start=1):
+        lines.append(f"### Iteration {index} — {review.verdict.value}")
+        for motif in review.motifs:
+            lines.append(f"- **Motif**: {motif}")
+        for preuve in review.preuves:
+            lines.append(f"- **Preuve**: {preuve}")
+        lines.append("")
+    if result.deliverable_paths is not None:
+        lines.extend(
+            [
+                "## Deliverables",
+                "",
+                f"- architecture: {result.deliverable_paths.architecture_path}",
+                f"- milestones: {result.deliverable_paths.milestones_path}",
+            ]
+        )
+        for library_name, path in sorted(result.deliverable_paths.library_cdc_paths.items()):
+            lines.append(f"- cdc/{library_name}: {path}")
+        lines.append("")
+    if result.escalation is not None:
+        lines.extend(
+            [
+                "## Escalation",
+                "",
+                f"- report: {result.escalation.report_path}",
+                "",
+            ]
+        )
+    return "\n".join(lines)
+
+
+def _build_architect_roles(
+    registry: ProviderRegistry,
+    *,
+    dry_run: bool,
+    provider_name: str,
+) -> tuple[ArchitectRole, ArchitectRole]:
+    if dry_run:
+        mock_name = provider_name if provider_name in registry.names else "mock"
+        mock_config = registry.config(mock_name)
+        proposal = _dry_run_architect_proposal_output()
+        review = _dry_run_architect_review_output()
+        architect_provider = ScriptableMockProvider(
+            mock_config,
+            judging_outputs=(proposal,),
+        )
+        review_provider = ScriptableMockProvider(
+            mock_config,
+            judging_outputs=(review,),
+        )
+        return ArchitectRole(architect_provider), ArchitectRole(review_provider)
+
+    architect_name, review_name = assign_architect_providers(registry.names)
+    selected = provider_name if provider_name in registry.names else architect_name
+    review_selected = review_name if review_name in registry.names else selected
+    return (
+        ArchitectRole(create_provider(registry, selected)),
+        ArchitectRole(create_provider(registry, review_selected)),
+    )
+
+
+async def architect_forge_cli(
+    *,
+    cdc_path: Path,
+    output_dir: Path,
+    project: str,
+    forge_dir: Path,
+    repo_root: Path,
+    provider_name: str,
+    providers_config: Path | None,
+    dry_run: bool,
+) -> ArchitectPhaseResult:
+    """Run phase 1 architecture via the CLI (EXG-ARC-05).
+
+    :param cdc_path: Entry CDC markdown path.
+    :param output_dir: Directory receiving architecture deliverables.
+    :param project: Target project slug used in templates.
+    :param forge_dir: Forge state directory for archived artefacts.
+    :param repo_root: Repository root for provider config and optional commits.
+    :param provider_name: Provider identifier from ``providers.toml``.
+    :param providers_config: Optional override for ``providers.toml``.
+    :param dry_run: When true, use deterministic mock providers and skip git writes.
+    :returns: Phase outcome including peer reviews and deliverables.
+    :raises ForgeCliError: On validation, provider or phase failures.
+    """
+    resolved_cdc = cdc_path.resolve()
+    if not resolved_cdc.is_file():
+        raise ForgeCliError(ExitCode.USER_ERROR, f"CDC file not found: {resolved_cdc}")
+
+    config_path = providers_config or default_providers_path(repo_root)
+    try:
+        registry = load_registry(config_path)
+    except ProviderRegistryError as error:
+        raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (forge_dir / ARTIFACTS_DIRNAME).mkdir(parents=True, exist_ok=True)
+
+    architect_role, review_role = _build_architect_roles(
+        registry,
+        dry_run=dry_run,
+        provider_name=provider_name,
+    )
+    phase = ArchitectPhase()
+    try:
+        return await phase.run(
+            ArchitectPhaseRequest(
+                cdc_path=resolved_cdc,
+                forge_dir=forge_dir.resolve(),
+                workdir=output_dir.resolve(),
+                run_id="architect-cli",
+                project=project,
+                architect_role=architect_role,
+                review_role=review_role,
+                program_root=output_dir.resolve(),
+                repo_root=repo_root.resolve() if not dry_run else None,
+                commit_deliverables=not dry_run,
+                dry_run=dry_run,
+                dry_run_commit=dry_run,
+            ),
+        )
+    except ArchitectRoleError as error:
+        raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+
 async def plan_forge_cli(
     *,
     specs_root: Path,
@@ -1962,6 +2144,73 @@ def plan_command(
         _handle_cli_error(error)
     console.print(report.render())
     if not report.ok:
+        raise typer.Exit(int(ExitCode.USER_ERROR))
+
+
+@app.command("architect")
+def architect_command(
+    cdc: Path = typer.Option(  # noqa: B008
+        ...,
+        "--cdc",
+        help="Path to the entry CDC markdown file.",
+    ),
+    output_dir: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--output-dir",
+        help="Directory receiving architecture.md, milestones.md and library CDC files.",
+    ),
+    library: str | None = typer.Option(
+        None,
+        "--library",
+        help="Target project slug used in rendered templates.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Use deterministic mock providers and skip git commits.",
+    ),
+    forge_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_FORGE_DIR,
+        "--forge-dir",
+        help="Forge state directory for archived architecture artefacts.",
+    ),
+    repo_root: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo-root",
+        help="Repository root for providers.toml and optional git commits.",
+    ),
+    provider: str = typer.Option(
+        DEFAULT_PROVIDER,
+        "--provider",
+        help="Provider identifier from config/providers.toml.",
+    ),
+    providers_config: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--providers-config",
+        help="Override path to providers.toml.",
+    ),
+) -> None:
+    """Run phase 1 architecture from a CDC (forge architect)."""
+    resolved_cdc = cdc.resolve()
+    project = library or resolved_cdc.stem
+    try:
+        result = asyncio.run(
+            architect_forge_cli(
+                cdc_path=resolved_cdc,
+                output_dir=output_dir.resolve(),
+                project=project,
+                forge_dir=forge_dir.resolve(),
+                repo_root=repo_root.resolve(),
+                provider_name=provider,
+                providers_config=providers_config.resolve() if providers_config else None,
+                dry_run=dry_run,
+            )
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    rendered = render_architect_phase_report(result)
+    console.print(rendered)
+    if not result.converged:
         raise typer.Exit(int(ExitCode.USER_ERROR))
 
 
