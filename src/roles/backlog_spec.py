@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 
 import frontmatter
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from src.core.models.base import StrictDomainModel
 from src.core.models.identifiers import BLId, FEATId
@@ -53,7 +53,7 @@ class BacklogSpec(StrictDomainModel):
     description: str
     scope: tuple[str, ...]
     definition_of_done: tuple[str, ...]
-    depends_on: tuple[str, ...] = ()
+    depends_on: tuple[BLId, ...] = ()
     size: Size
     priority: int | None = None
     auto_gates: tuple[str, ...]
@@ -126,9 +126,7 @@ def _parse_backlog_item(
             definition_of_done=clean_string_tuple(
                 entry.get("definition_of_done"), field="definition_of_done"
             ),
-            depends_on=clean_string_tuple(
-                entry.get("depends_on", ()), field="depends_on", allow_empty=True
-            ),
+            depends_on=_parse_depends_on(entry.get("depends_on", ()), raw=raw),
             size=_parse_size(entry.get("size"), raw=raw),
             priority=_parse_priority(entry.get("priority"), raw=raw),
             auto_gates=clean_string_tuple(entry.get("auto_gates"), field="auto_gates"),
@@ -155,6 +153,22 @@ def _parse_priority(value: object, *, raw: str) -> int | None:
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
         raise SpecDerivationError("priority must be an integer >= 0 when set", raw=raw)
     return value
+
+
+def _parse_depends_on(value: object, *, raw: str) -> tuple[BLId, ...]:
+    """Parse and validate backlog dependency identifiers."""
+    dependency_ids = clean_string_tuple(value, field="depends_on", allow_empty=True)
+    adapter = TypeAdapter(BLId)
+    validated: list[BLId] = []
+    for dependency_id in dependency_ids:
+        try:
+            validated.append(adapter.validate_python(dependency_id))
+        except ValidationError as error:
+            raise SpecDerivationError(
+                f"invalid depends_on BL id {dependency_id!r}: {error.errors()[0]['msg']}",
+                raw=raw,
+            ) from error
+    return tuple(validated)
 
 
 def render_backlog_markdown(item: BacklogSpec) -> str:
@@ -208,7 +222,7 @@ def _bullet_section(title: str, items: tuple[str, ...]) -> str:
 
 def validate_backlog_dependencies(
     items: tuple[BacklogSpec, ...],
-    known_bl_ids: frozenset[str],
+    known_bl_ids: frozenset[BLId | str],
 ) -> tuple[str, ...]:
     """Return diagnostics for ``depends_on`` that reference unknown backlog items.
 
