@@ -20,6 +20,7 @@ from src.obs.stats import write_stats_json
 from src.obs.status import render_dashboard, watch_status
 from src.obs.status_view import StatusView, build_status_view
 from src.phases.audit import ProjectAuditor
+from src.phases.close_spec import CloseSpecError, CloseSpecEvaluator
 from src.phases.doctor import DoctorReport, run_doctor
 from src.phases.execute import (
     ExecutionError,
@@ -1998,6 +1999,71 @@ def audit_command(
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(rendered, encoding="utf-8", newline="\n")
         console.print(f"[green]audit report written to {destination}[/green]")
+
+
+@app.command("close-spec")
+def close_spec_command(
+    feat: str | None = typer.Option(
+        None,
+        "--feat",
+        help="Feature identifier to evaluate for closure (EXG-SPE-07).",
+    ),
+    uc: str | None = typer.Option(
+        None,
+        "--uc",
+        help="Use-case identifier to evaluate for closure (EXG-SPE-07).",
+    ),
+    apply: bool = typer.Option(
+        False,
+        "--apply",
+        help="Write status: DONE when closure preconditions pass.",
+    ),
+    specs_root: Path = typer.Option(  # noqa: B008
+        Path("docs") / "specs" / "specs",
+        "--specs-root",
+        help="Root directory of the UC/FEAT/BL specification tree.",
+    ),
+    repo: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo",
+        help="Repository root used to run gates.auto commands.",
+    ),
+    output: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--output",
+        "-o",
+        help="Optional path for the Markdown closure report.",
+    ),
+) -> None:
+    """Close a FEAT or UC after verifying hierarchical gates (forge close-spec)."""
+    if feat is not None and uc is not None:
+        _handle_cli_error(ForgeCliError(ExitCode.USER_ERROR, "specify only one of --feat or --uc"))
+    if feat is None and uc is None:
+        _handle_cli_error(ForgeCliError(ExitCode.USER_ERROR, "one of --feat or --uc is required"))
+    try:
+        evaluator = CloseSpecEvaluator(specs_root.resolve(), repo_root=repo.resolve())
+        if feat is not None:
+            report = evaluator.close_feat(feat, apply=apply)
+        elif uc is not None:
+            report = evaluator.close_uc(uc, apply=apply)
+        else:
+            _handle_cli_error(
+                ForgeCliError(ExitCode.USER_ERROR, "one of --feat or --uc is required")
+            )
+            return
+        rendered = evaluator.render_markdown(report)
+    except CloseSpecError as error:
+        _handle_cli_error(ForgeCliError(ExitCode.USER_ERROR, str(error)))
+    except (SpecParseError, SpecIndexError) as error:
+        _handle_cli_error(ForgeCliError(ExitCode.USER_ERROR, str(error)))
+    console.print(rendered)
+    if output is not None:
+        destination = output.resolve()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(rendered, encoding="utf-8", newline="\n")
+        console.print(f"[green]close-spec report written to {destination}[/green]")
+    if not report.ok:
+        raise typer.Exit(int(ExitCode.USER_ERROR))
 
 
 @app.command("validate-specs")
