@@ -100,8 +100,26 @@
     {
       "exigence": "Mode audit, scoring providers, sécurité étendue (v1.0.0)",
       "target_version": "1.0.0",
-      "status": "specified",
+      "status": "done",
       "bls": ["BL-forge-065", "BL-forge-066", "BL-forge-067"]
+    },
+    {
+      "exigence": "Clôture EXG-SPE-07, flux CLI complet, runtime scheduler (v1.1.0)",
+      "target_version": "1.1.0",
+      "status": "specified",
+      "bls": [
+        "BL-forge-071",
+        "BL-forge-072",
+        "BL-forge-073",
+        "BL-forge-074",
+        "BL-forge-075",
+        "BL-forge-076",
+        "BL-forge-077",
+        "BL-forge-078",
+        "BL-forge-079",
+        "BL-forge-080",
+        "BL-forge-081"
+      ]
     }
   ],
   "versions": [
@@ -237,6 +255,22 @@
       "critical_path": ["BL-forge-046"],
       "critical_path_weight": 5,
       "milestone": "Durcissement final : crash-safety éprouvée et documentation d'exploitation complète."
+    },
+    {
+      "version": "1.1.0",
+      "default_trust_level": "L2",
+      "workers_default": 3,
+      "waves": [
+        ["BL-forge-071"],
+        ["BL-forge-072", "BL-forge-073"],
+        ["BL-forge-074", "BL-forge-075", "BL-forge-081"],
+        ["BL-forge-076"],
+        ["BL-forge-077", "BL-forge-078"],
+        ["BL-forge-079", "BL-forge-080"]
+      ],
+      "critical_path": ["BL-forge-071", "BL-forge-074", "BL-forge-077"],
+      "critical_path_weight": 6,
+      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé."
     }
   ],
   "critical_bls": [
