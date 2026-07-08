@@ -2013,6 +2013,11 @@ def close_spec_command(
         "--uc",
         help="Use-case identifier to evaluate for closure (EXG-SPE-07).",
     ),
+    all_feats: bool = typer.Option(
+        False,
+        "--all-feats",
+        help="Evaluate or close every FEAT under --specs-root.",
+    ),
     apply: bool = typer.Option(
         False,
         "--apply",
@@ -2034,24 +2039,50 @@ def close_spec_command(
         "-o",
         help="Optional path for the Markdown closure report.",
     ),
+    journal: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--journal",
+        help="Optional JSONL journal path (batch FEAT mode, mainly with --apply).",
+    ),
 ) -> None:
     """Close a FEAT or UC after verifying hierarchical gates (forge close-spec)."""
-    if feat is not None and uc is not None:
-        _handle_cli_error(ForgeCliError(ExitCode.USER_ERROR, "specify only one of --feat or --uc"))
-    if feat is None and uc is None:
-        _handle_cli_error(ForgeCliError(ExitCode.USER_ERROR, "one of --feat or --uc is required"))
+    targets = sum(value is not None for value in (feat, uc)) + (1 if all_feats else 0)
+    if targets == 0:
+        _handle_cli_error(
+            ForgeCliError(
+                ExitCode.USER_ERROR,
+                "one of --feat, --uc or --all-feats is required",
+            )
+        )
+    if targets > 1:
+        _handle_cli_error(
+            ForgeCliError(
+                ExitCode.USER_ERROR,
+                "specify only one of --feat, --uc or --all-feats",
+            )
+        )
     try:
         evaluator = CloseSpecEvaluator(specs_root.resolve(), repo_root=repo.resolve())
-        if feat is not None:
+        if all_feats:
+            batch = evaluator.close_all_feats(apply=apply, journal_path=journal)
+            rendered = evaluator.render_batch_markdown(batch)
+            ok = len(batch.refused) == 0
+        elif feat is not None:
             report = evaluator.close_feat(feat, apply=apply)
+            rendered = evaluator.render_markdown(report)
+            ok = report.ok
         elif uc is not None:
             report = evaluator.close_uc(uc, apply=apply)
+            rendered = evaluator.render_markdown(report)
+            ok = report.ok
         else:
             _handle_cli_error(
-                ForgeCliError(ExitCode.USER_ERROR, "one of --feat or --uc is required")
+                ForgeCliError(
+                    ExitCode.USER_ERROR,
+                    "one of --feat, --uc or --all-feats is required",
+                )
             )
             return
-        rendered = evaluator.render_markdown(report)
     except CloseSpecError as error:
         _handle_cli_error(ForgeCliError(ExitCode.USER_ERROR, str(error)))
     except (SpecParseError, SpecIndexError) as error:
@@ -2062,7 +2093,7 @@ def close_spec_command(
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(rendered, encoding="utf-8", newline="\n")
         console.print(f"[green]close-spec report written to {destination}[/green]")
-    if not report.ok:
+    if not ok:
         raise typer.Exit(int(ExitCode.USER_ERROR))
 
 
