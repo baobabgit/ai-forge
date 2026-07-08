@@ -47,7 +47,7 @@ uv run forge plan                          # ecrit planning.json + planning.md
 
 `forge plan` construit le DAG des dépendances (cycles = diagnostic bloquant),
 calcule vagues et chemin critique et publie `planning.json`/`planning.md`
-(`--output-dir`, défaut racine du dépôt ; `--milestones` pour les jalons
+(`--output-dir`, défaut `docs/specs/` ; `--milestones` pour les jalons
 inter-librairies).
 
 ## 4. Exécution
