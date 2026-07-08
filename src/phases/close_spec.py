@@ -62,26 +62,28 @@ class CloseSpecReport:
 
 @dataclass(frozen=True, slots=True)
 class CloseSpecBatchReport:
-    """Outcome of evaluating or closing every FEAT in the specification tree.
+    """Outcome of evaluating or closing many UC/FEAT documents.
 
-    :ivar reports: Per-FEAT closure reports in sorted identifier order.
+    :ivar reports: Per-spec closure reports in sorted identifier order.
+    :ivar batch_kind: ``FEAT`` or ``UC`` label for consolidated rendering.
     """
 
     reports: tuple[CloseSpecReport, ...]
+    batch_kind: str = "FEAT"
 
     @property
     def ok_count(self) -> int:
-        """Return how many FEAT reports satisfied closure preconditions."""
+        """Return how many reports satisfied closure preconditions."""
         return sum(1 for report in self.reports if report.ok)
 
     @property
     def applied_count(self) -> int:
-        """Return how many FEAT frontmatter updates were written."""
+        """Return how many frontmatter updates were written."""
         return sum(1 for report in self.reports if report.applied)
 
     @property
     def refused(self) -> tuple[CloseSpecReport, ...]:
-        """Return FEAT reports that failed closure preconditions."""
+        """Return reports that failed closure preconditions."""
         return tuple(report for report in self.reports if not report.ok)
 
 
@@ -190,7 +192,31 @@ class CloseSpecEvaluator:
             reports.append(report)
             if journal_path is not None:
                 self._append_journal_entry(journal_path, report)
-        return CloseSpecBatchReport(reports=tuple(reports))
+        return CloseSpecBatchReport(reports=tuple(reports), batch_kind="FEAT")
+
+    def close_all_ucs(
+        self,
+        *,
+        apply: bool,
+        journal_path: Path | None = None,
+    ) -> CloseSpecBatchReport:
+        """Evaluate or close every UC document under ``specs_root``.
+
+        :param apply: When true, write ``status: DONE`` for each UC that passes.
+        :param journal_path: Optional JSONL file receiving one entry per UC.
+        :returns: Consolidated batch report in sorted UC identifier order.
+        """
+        if journal_path is not None and apply:
+            journal_path.parent.mkdir(parents=True, exist_ok=True)
+            journal_path.write_text("", encoding="utf-8")
+        reports: list[CloseSpecReport] = []
+        uc_ids = sorted(str(use_case.id) for use_case in self._index.use_cases)
+        for uc_id in uc_ids:
+            report = self.close_uc(uc_id, apply=apply)
+            reports.append(report)
+            if journal_path is not None:
+                self._append_journal_entry(journal_path, report)
+        return CloseSpecBatchReport(reports=tuple(reports), batch_kind="UC")
 
     def render_markdown(self, report: CloseSpecReport) -> str:
         """Render ``report`` as a human-readable Markdown summary."""
@@ -211,7 +237,7 @@ class CloseSpecEvaluator:
     def render_batch_markdown(self, batch: CloseSpecBatchReport) -> str:
         """Render ``batch`` as a consolidated Markdown summary."""
         lines = [
-            "# Close-spec batch report — FEAT",
+            f"# Close-spec batch report — {batch.batch_kind}",
             "",
             f"- Total: {len(batch.reports)}",
             f"- OK: {batch.ok_count}",

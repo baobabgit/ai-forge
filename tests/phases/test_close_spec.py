@@ -318,10 +318,10 @@ def test_close_uc_warns_when_no_child_feat(tmp_path: Path) -> None:
 
 
 def test_cli_close_spec_requires_target(tmp_path: Path) -> None:
-    """forge close-spec requires --feat, --uc or --all-feats."""
+    """forge close-spec requires --feat, --uc, --all-feats or --all-ucs."""
     result = runner.invoke(app, ["close-spec", "--specs-root", str(tmp_path)])
     assert result.exit_code == ExitCode.USER_ERROR
-    assert "one of --feat, --uc or --all-feats is required" in result.stdout
+    assert "one of --feat, --uc, --all-feats or --all-ucs is required" in result.stdout
 
 
 def test_cli_close_spec_rejects_multiple_targets(tmp_path: Path) -> None:
@@ -339,7 +339,7 @@ def test_cli_close_spec_rejects_multiple_targets(tmp_path: Path) -> None:
         ],
     )
     assert result.exit_code == ExitCode.USER_ERROR
-    assert "only one of --feat, --uc or --all-feats" in result.stdout
+    assert "only one of --feat, --uc, --all-feats or --all-ucs" in result.stdout
 
 
 def test_cli_close_spec_unknown_id(tmp_path: Path) -> None:
@@ -480,3 +480,104 @@ def test_cli_close_spec_all_feats_batch(tmp_path: Path) -> None:
     assert result.exit_code == ExitCode.USER_ERROR
     assert "Close-spec batch report" in result.stdout
     assert "FEAT-lib-002" in result.stdout
+
+
+def _write_multi_uc_tree(root: Path) -> None:
+    for folder in ("UC", "FEAT", "BL"):
+        (root / folder).mkdir(parents=True, exist_ok=True)
+    (root / "UC" / "UC-lib-001.md").write_text(_uc(), encoding="utf-8")
+    (root / "UC" / "UC-lib-002.md").write_text(
+        _uc().replace("UC-lib-001", "UC-lib-002"),
+        encoding="utf-8",
+    )
+    (root / "FEAT" / "FEAT-lib-001.md").write_text(_feat(), encoding="utf-8")
+    (root / "FEAT" / "FEAT-lib-002.md").write_text(
+        _feat(status="DONE")
+        .replace("FEAT-lib-001", "FEAT-lib-002")
+        .replace("UC-lib-001", "UC-lib-002"),
+        encoding="utf-8",
+    )
+    (root / "FEAT" / "FEAT-lib-003.md").write_text(
+        _feat(status="TODO")
+        .replace("FEAT-lib-001", "FEAT-lib-003")
+        .replace("UC-lib-001", "UC-lib-001"),
+        encoding="utf-8",
+    )
+    (root / "BL" / "BL-lib-001.md").write_text(_bl("BL-lib-001", status="DONE"), encoding="utf-8")
+
+
+def test_close_all_ucs_refuses_when_child_feat_not_done(tmp_path: Path) -> None:
+    """Batch UC mode refuses closure when a child FEAT is not DONE."""
+    _write_multi_uc_tree(tmp_path)
+    evaluator = CloseSpecEvaluator(tmp_path)
+    batch = evaluator.close_all_ucs(apply=False)
+    assert len(batch.reports) == 2
+    assert batch.batch_kind == "UC"
+    refused = batch.refused
+    assert len(refused) == 1
+    assert refused[0].spec_id == "UC-lib-001"
+    rendered = evaluator.render_batch_markdown(batch)
+    assert "Close-spec batch report — UC" in rendered
+    assert "FEAT-lib-003" in rendered
+
+
+def test_close_all_ucs_apply_closes_ready_uc(tmp_path: Path) -> None:
+    """Batch --apply closes UC when every child FEAT is DONE."""
+    _write_multi_uc_tree(tmp_path)
+    evaluator = CloseSpecEvaluator(tmp_path)
+    batch = evaluator.close_all_ucs(apply=True)
+    assert batch.applied_count == 1
+    document = read_spec(tmp_path / "UC" / "UC-lib-002.md")
+    assert document.model.status is Status.DONE
+
+
+def test_close_all_ucs_apply_writes_journal(tmp_path: Path) -> None:
+    """Batch UC --apply emits one JSONL entry per UC when a journal path is set."""
+    _write_multi_uc_tree(tmp_path)
+    journal = tmp_path / "close-spec-uc.jsonl"
+    evaluator = CloseSpecEvaluator(tmp_path)
+    batch = evaluator.close_all_ucs(apply=True, journal_path=journal)
+    assert batch.applied_count == 1
+    lines = journal.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 2
+    applied_entry = next(line for line in lines if '"UC-lib-002"' in line)
+    assert '"applied": true' in applied_entry
+
+
+def test_batch_ucs_historical_ready_when_feats_done() -> None:
+    """Historical UCs are closable when all child FEAT documents are DONE."""
+    specs_root = Path("docs/specs/specs")
+    evaluator = CloseSpecEvaluator(specs_root)
+    batch = evaluator.close_all_ucs(apply=False)
+
+    def _uc_number(spec_id: str) -> int | None:
+        prefix = "UC-forge-"
+        if not spec_id.startswith(prefix):
+            return None
+        try:
+            return int(spec_id.removeprefix(prefix))
+        except ValueError:
+            return None
+
+    assert len(batch.reports) >= 11
+    for report in batch.reports:
+        number = _uc_number(report.spec_id)
+        if number is None or number > 11:
+            continue
+        features = evaluator.index.features_of(report.spec_id)
+        if not features:
+            continue
+        if all(feat.status is Status.DONE for feat in features):
+            assert report.ok, report.spec_id
+
+
+def test_cli_close_spec_all_ucs_batch(tmp_path: Path) -> None:
+    """forge close-spec --all-ucs produces a consolidated UC report."""
+    _write_multi_uc_tree(tmp_path)
+    result = runner.invoke(
+        app,
+        ["close-spec", "--all-ucs", "--specs-root", str(tmp_path)],
+    )
+    assert result.exit_code == ExitCode.USER_ERROR
+    assert "Close-spec batch report — UC" in result.stdout
+    assert "UC-lib-001" in result.stdout

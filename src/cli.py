@@ -2018,6 +2018,11 @@ def close_spec_command(
         "--all-feats",
         help="Evaluate or close every FEAT under --specs-root.",
     ),
+    all_ucs: bool = typer.Option(
+        False,
+        "--all-ucs",
+        help="Evaluate or close every UC under --specs-root.",
+    ),
     apply: bool = typer.Option(
         False,
         "--apply",
@@ -2042,29 +2047,37 @@ def close_spec_command(
     journal: Path | None = typer.Option(  # noqa: B008
         None,
         "--journal",
-        help="Optional JSONL journal path (batch FEAT mode, mainly with --apply).",
+        help="Optional JSONL journal path (batch FEAT/UC mode, mainly with --apply).",
     ),
 ) -> None:
     """Close a FEAT or UC after verifying hierarchical gates (forge close-spec)."""
-    targets = sum(value is not None for value in (feat, uc)) + (1 if all_feats else 0)
+    targets = (
+        sum(value is not None for value in (feat, uc))
+        + (1 if all_feats else 0)
+        + (1 if all_ucs else 0)
+    )
     if targets == 0:
         _handle_cli_error(
             ForgeCliError(
                 ExitCode.USER_ERROR,
-                "one of --feat, --uc or --all-feats is required",
+                "one of --feat, --uc, --all-feats or --all-ucs is required",
             )
         )
     if targets > 1:
         _handle_cli_error(
             ForgeCliError(
                 ExitCode.USER_ERROR,
-                "specify only one of --feat, --uc or --all-feats",
+                "specify only one of --feat, --uc, --all-feats or --all-ucs",
             )
         )
     try:
         evaluator = CloseSpecEvaluator(specs_root.resolve(), repo_root=repo.resolve())
         if all_feats:
             batch = evaluator.close_all_feats(apply=apply, journal_path=journal)
+            rendered = evaluator.render_batch_markdown(batch)
+            ok = len(batch.refused) == 0
+        elif all_ucs:
+            batch = evaluator.close_all_ucs(apply=apply, journal_path=journal)
             rendered = evaluator.render_batch_markdown(batch)
             ok = len(batch.refused) == 0
         elif feat is not None:
@@ -2079,7 +2092,7 @@ def close_spec_command(
             _handle_cli_error(
                 ForgeCliError(
                     ExitCode.USER_ERROR,
-                    "one of --feat, --uc or --all-feats is required",
+                    "one of --feat, --uc, --all-feats or --all-ucs is required",
                 )
             )
             return
