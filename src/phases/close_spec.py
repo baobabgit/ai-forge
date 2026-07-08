@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shlex
 import subprocess  # nosec B404 - fixed argv gate runner.
@@ -57,6 +58,31 @@ class CloseSpecReport:
     ok: bool
     findings: tuple[CloseSpecFinding, ...]
     applied: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class CloseSpecBatchReport:
+    """Outcome of evaluating or closing every FEAT in the specification tree.
+
+    :ivar reports: Per-FEAT closure reports in sorted identifier order.
+    """
+
+    reports: tuple[CloseSpecReport, ...]
+
+    @property
+    def ok_count(self) -> int:
+        """Return how many FEAT reports satisfied closure preconditions."""
+        return sum(1 for report in self.reports if report.ok)
+
+    @property
+    def applied_count(self) -> int:
+        """Return how many FEAT frontmatter updates were written."""
+        return sum(1 for report in self.reports if report.applied)
+
+    @property
+    def refused(self) -> tuple[CloseSpecReport, ...]:
+        """Return FEAT reports that failed closure preconditions."""
+        return tuple(report for report in self.reports if not report.ok)
 
 
 class CloseSpecEvaluator:
@@ -142,6 +168,30 @@ class CloseSpecEvaluator:
             applied=applied,
         )
 
+    def close_all_feats(
+        self,
+        *,
+        apply: bool,
+        journal_path: Path | None = None,
+    ) -> CloseSpecBatchReport:
+        """Evaluate or close every FEAT document under ``specs_root``.
+
+        :param apply: When true, write ``status: DONE`` for each FEAT that passes.
+        :param journal_path: Optional JSONL file receiving one entry per FEAT.
+        :returns: Consolidated batch report in sorted FEAT identifier order.
+        """
+        if journal_path is not None and apply:
+            journal_path.parent.mkdir(parents=True, exist_ok=True)
+            journal_path.write_text("", encoding="utf-8")
+        reports: list[CloseSpecReport] = []
+        feat_ids = sorted(str(feat.id) for feat in self._index.features)
+        for feat_id in feat_ids:
+            report = self.close_feat(feat_id, apply=apply)
+            reports.append(report)
+            if journal_path is not None:
+                self._append_journal_entry(journal_path, report)
+        return CloseSpecBatchReport(reports=tuple(reports))
+
     def render_markdown(self, report: CloseSpecReport) -> str:
         """Render ``report`` as a human-readable Markdown summary."""
         lines = [
@@ -157,6 +207,59 @@ class CloseSpecEvaluator:
         for finding in report.findings:
             lines.append(f"- **{finding.severity.value}**: {finding.detail}")
         return "\n".join(lines) + "\n"
+
+    def render_batch_markdown(self, batch: CloseSpecBatchReport) -> str:
+        """Render ``batch`` as a consolidated Markdown summary."""
+        lines = [
+            "# Close-spec batch report — FEAT",
+            "",
+            f"- Total: {len(batch.reports)}",
+            f"- OK: {batch.ok_count}",
+            f"- Applied: {batch.applied_count}",
+            f"- Refused: {len(batch.refused)}",
+            "",
+            "## Results",
+            "",
+        ]
+        for report in batch.reports:
+            if report.applied:
+                status = "APPLIED"
+            elif report.ok:
+                status = "OK"
+            else:
+                status = "REFUSED"
+            lines.append(f"### {report.spec_id} — {status}")
+            for finding in report.findings:
+                if finding.severity is FindingSeverity.ERROR or not report.ok:
+                    lines.append(f"- **{finding.severity.value}**: {finding.detail}")
+            lines.append("")
+        if batch.refused:
+            lines.extend(["## Refused summary", ""])
+            for report in batch.refused:
+                reasons = [
+                    finding.detail
+                    for finding in report.findings
+                    if finding.severity is FindingSeverity.ERROR
+                ]
+                detail = "; ".join(reasons) if reasons else "closure preconditions not met"
+                lines.append(f"- **{report.spec_id}**: {detail}")
+            lines.append("")
+        return "\n".join(lines)
+
+    def _append_journal_entry(self, journal_path: Path, report: CloseSpecReport) -> None:
+        entry = {
+            "spec_id": report.spec_id,
+            "kind": report.spec_kind,
+            "ok": report.ok,
+            "applied": report.applied,
+            "refusal_reasons": [
+                finding.detail
+                for finding in report.findings
+                if finding.severity is FindingSeverity.ERROR
+            ],
+        }
+        with journal_path.open("a", encoding="utf-8", newline="\n") as handle:
+            handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
     def _require_document(self, spec_id: str, expected: type[FEAT] | type[UC]) -> SpecDocument:
         document = self._index.by_id.get(spec_id)

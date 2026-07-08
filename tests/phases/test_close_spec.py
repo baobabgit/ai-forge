@@ -318,14 +318,14 @@ def test_close_uc_warns_when_no_child_feat(tmp_path: Path) -> None:
 
 
 def test_cli_close_spec_requires_target(tmp_path: Path) -> None:
-    """forge close-spec requires --feat or --uc."""
+    """forge close-spec requires --feat, --uc or --all-feats."""
     result = runner.invoke(app, ["close-spec", "--specs-root", str(tmp_path)])
     assert result.exit_code == ExitCode.USER_ERROR
-    assert "one of --feat or --uc is required" in result.stdout
+    assert "one of --feat, --uc or --all-feats is required" in result.stdout
 
 
-def test_cli_close_spec_rejects_both_targets(tmp_path: Path) -> None:
-    """forge close-spec rejects specifying both --feat and --uc."""
+def test_cli_close_spec_rejects_multiple_targets(tmp_path: Path) -> None:
+    """forge close-spec rejects specifying more than one target mode."""
     result = runner.invoke(
         app,
         [
@@ -339,7 +339,7 @@ def test_cli_close_spec_rejects_both_targets(tmp_path: Path) -> None:
         ],
     )
     assert result.exit_code == ExitCode.USER_ERROR
-    assert "only one of --feat or --uc" in result.stdout
+    assert "only one of --feat, --uc or --all-feats" in result.stdout
 
 
 def test_cli_close_spec_unknown_id(tmp_path: Path) -> None:
@@ -401,3 +401,82 @@ def test_cli_close_spec_ok_on_ready_feat(tmp_path: Path) -> None:
     )
     assert result.exit_code == ExitCode.OK
     assert "Close-spec report" in result.stdout
+
+
+def _write_multi_feat_tree(root: Path) -> None:
+    for folder in ("UC", "FEAT", "BL"):
+        (root / folder).mkdir(parents=True, exist_ok=True)
+    (root / "UC" / "UC-lib-001.md").write_text(_uc(), encoding="utf-8")
+    (root / "FEAT" / "FEAT-lib-001.md").write_text(_feat(), encoding="utf-8")
+    (root / "FEAT" / "FEAT-lib-002.md").write_text(
+        _feat().replace("FEAT-lib-001", "FEAT-lib-002"),
+        encoding="utf-8",
+    )
+    (root / "BL" / "BL-lib-001.md").write_text(_bl("BL-lib-001", status="DONE"), encoding="utf-8")
+    (root / "BL" / "BL-lib-002.md").write_text(
+        _bl("BL-lib-002", status="TODO").replace("FEAT-lib-001", "FEAT-lib-002"),
+        encoding="utf-8",
+    )
+
+
+def test_close_all_feats_reports_refused_with_reasons(tmp_path: Path) -> None:
+    """Batch mode lists refused FEAT with explicit refusal reasons."""
+    _write_multi_feat_tree(tmp_path)
+    evaluator = CloseSpecEvaluator(tmp_path)
+    batch = evaluator.close_all_feats(apply=False)
+    assert len(batch.reports) == 2
+    refused = batch.refused
+    assert len(refused) == 1
+    assert refused[0].spec_id == "FEAT-lib-002"
+    rendered = evaluator.render_batch_markdown(batch)
+    assert "Refused summary" in rendered
+    assert "BL-lib-002" in rendered
+
+
+def test_close_all_feats_apply_writes_journal(tmp_path: Path) -> None:
+    """Batch --apply emits one JSONL entry per FEAT when a journal path is set."""
+    _write_multi_feat_tree(tmp_path)
+    journal = tmp_path / "close-spec.jsonl"
+    evaluator = CloseSpecEvaluator(tmp_path)
+    batch = evaluator.close_all_feats(apply=True, journal_path=journal)
+    assert batch.applied_count == 1
+    lines = journal.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 2
+    applied_entry = next(line for line in lines if '"FEAT-lib-001"' in line)
+    assert '"applied": true' in applied_entry
+
+
+def test_batch_closes_historical_feats_without_parse_errors() -> None:
+    """Batch FEAT mode parses the repository spec tree without errors."""
+    specs_root = Path("docs/specs/specs")
+    evaluator = CloseSpecEvaluator(specs_root)
+    batch = evaluator.close_all_feats(apply=False)
+
+    def _feat_number(spec_id: str) -> int | None:
+        prefix = "FEAT-forge-"
+        if not spec_id.startswith(prefix):
+            return None
+        try:
+            return int(spec_id.removeprefix(prefix))
+        except ValueError:
+            return None
+
+    assert len(batch.reports) >= 42
+    historical_ok = [
+        report
+        for report in batch.reports
+        if (number := _feat_number(report.spec_id)) is not None and number <= 42 and report.ok
+    ]
+    assert len(historical_ok) >= 42
+
+
+def test_cli_close_spec_all_feats_batch(tmp_path: Path) -> None:
+    """forge close-spec --all-feats produces a consolidated report."""
+    _write_multi_feat_tree(tmp_path)
+    result = runner.invoke(
+        app,
+        ["close-spec", "--all-feats", "--specs-root", str(tmp_path)],
+    )
+    assert result.exit_code == ExitCode.USER_ERROR
+    assert "Close-spec batch report" in result.stdout
+    assert "FEAT-lib-002" in result.stdout
