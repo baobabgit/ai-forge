@@ -7,7 +7,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
 from typer.testing import CliRunner
 
 from src.cli import ExitCode, app
@@ -187,7 +186,7 @@ def test_auto_gate_failure_blocks_closure(
     monkeypatch.setattr(
         subprocess,
         "run",
-        lambda *args, **kwargs: fake_result,  # noqa: ARG005
+        lambda *args, **kwargs: fake_result,
     )
     evaluator = CloseSpecEvaluator(tmp_path, repo_root=tmp_path)
     report = evaluator.close_feat("FEAT-lib-001", apply=False)
@@ -278,7 +277,7 @@ def test_auto_gate_success_allows_closure(
     monkeypatch.setattr(
         subprocess,
         "run",
-        lambda *args, **kwargs: fake_result,  # noqa: ARG005
+        lambda *args, **kwargs: fake_result,
     )
     evaluator = CloseSpecEvaluator(tmp_path, repo_root=tmp_path)
     report = evaluator.close_feat("FEAT-lib-001", apply=False)
