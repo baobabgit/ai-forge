@@ -7,6 +7,7 @@ import contextlib
 import json
 import signal
 from collections.abc import Sequence
+from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
 
@@ -30,6 +31,10 @@ from src.phases.execute import (
     SequentialExecutionResult,
     SequentialExecutor,
 )
+from src.phases.spec_review_loop_result import SpecReviewLoopResult
+from src.phases.specify import SpecifyPhase, run_spec_review_loop
+from src.phases.specify_request import SpecifyPhaseRequest
+from src.phases.specify_result import SpecifyPhaseResult
 from src.phases.validate_specs import ValidationReport, validate_specs
 from src.planner.dag import CycleDetectedError
 from src.planner.publish import PlanReport, plan_forge
@@ -40,6 +45,13 @@ from src.providers.bootstrap import create_provider, default_providers_path, loa
 from src.providers.mock import ScriptableMockProvider
 from src.providers.registry import ProviderRegistry, ProviderRegistryError
 from src.roles.architect import ArchitectRole, ArchitectRoleError, assign_architect_providers
+from src.roles.backlog_spec import BacklogSpec, render_backlog_markdown
+from src.roles.feature_spec import FeatureSpec, render_feature_markdown
+from src.roles.spec import SpecRole
+from src.roles.spec_derivation_request import SpecDerivationRequest
+from src.roles.spec_review import SpecReviewRole, assign_review_provider
+from src.roles.spec_role_error import SpecRoleError
+from src.roles.use_case_spec import UseCaseSpec
 from src.scheduler.loop import (
     BlOutcome,
     SchedulerConfig,
@@ -2212,6 +2224,439 @@ def architect_command(
     console.print(rendered)
     if not result.converged:
         raise typer.Exit(int(ExitCode.USER_ERROR))
+
+
+def _resolve_library_cdc(*, library: str, cdc: Path | None, repo_root: Path) -> Path:
+    """Resolve the library CDC path from an explicit option or the default layout."""
+    if cdc is not None:
+        resolved = cdc.resolve()
+        if not resolved.is_file():
+            raise ForgeCliError(ExitCode.USER_ERROR, f"CDC file not found: {resolved}")
+        return resolved
+    candidate = (repo_root / "docs" / "cdc" / f"{library}.md").resolve()
+    if not candidate.is_file():
+        raise ForgeCliError(
+            ExitCode.USER_ERROR,
+            f"CDC file not found: {candidate} (pass --cdc)",
+        )
+    return candidate
+
+
+def _dry_run_spec_uc_output(library: str) -> str:
+    uc_id = f"UC-{library}-001"
+    payload: dict[str, object] = {
+        "id": uc_id,
+        "title": "Cas nominal demo",
+        "target_version": "0.1.0",
+        "actors": ["Operateur"],
+        "preconditions": ["Le CDC est disponible"],
+        "nominal_scenario": ["Lancer forge spec", "Verifier les artefacts"],
+        "alternative_scenarios": [],
+        "error_scenarios": [],
+        "postconditions": ["Les specs sont generees"],
+        "non_functional": ["Execution deterministe en dry-run"],
+        "go_no_go": ["validate-specs retourne OK sur l arborescence generee"],
+    }
+    return "```json\n" + json.dumps({"use_cases": [payload]}, indent=2) + "\n```"
+
+
+def _dry_run_spec_feat_output(library: str, uc_id: str) -> str:
+    feat_id = f"FEAT-{library}-001"
+    payload: dict[str, object] = {
+        "id": feat_id,
+        "title": "Generer les specs demo",
+        "description": "Expose la generation UC/FEAT/BL pour la librairie demo.",
+        "given": ["Un CDC demo valide"],
+        "when": ["forge spec --library demo est execute"],
+        "then": ["L arborescence specs est produite"],
+        "interfaces": ["forge spec"],
+        "go_no_go": ["validate-specs retourne OK"],
+    }
+    return "```json\n" + json.dumps({"features": [payload]}, indent=2) + "\n```"
+
+
+def _dry_run_spec_bl_output(library: str, feat_id: str) -> str:
+    bl_id = f"BL-{library}-001"
+    payload: dict[str, object] = {
+        "id": bl_id,
+        "title": "Implementer le coeur demo",
+        "description": "Implemente le module coeur pour la librairie demo.",
+        "scope": ["src/demo/core.py", "tests/demo/test_core.py"],
+        "definition_of_done": ["Les tests unitaires passent"],
+        "depends_on": [],
+        "size": "M",
+        "priority": 1,
+        "auto_gates": ["pytest -x", "ruff check ."],
+        "ai_judged": ["Le module demo couvre le cas nominal"],
+    }
+    _ = feat_id
+    return "```json\n" + json.dumps({"backlog_items": [payload]}, indent=2) + "\n```"
+
+
+def _dry_run_spec_review_output() -> str:
+    payload: dict[str, object] = {
+        "verdict": "GO",
+        "completeness": [],
+        "testability": [],
+        "dependency_coherence": [],
+        "motifs": ["lot conforme"],
+    }
+    return "```json\n" + json.dumps(payload, indent=2) + "\n```"
+
+
+def _build_spec_roles(
+    registry: ProviderRegistry,
+    *,
+    dry_run: bool,
+    provider_name: str,
+    library: str,
+) -> tuple[SpecRole, SpecReviewRole]:
+    if dry_run:
+        mock_name = provider_name if provider_name in registry.names else "mock"
+        mock_config = registry.config(mock_name)
+        uc_id = f"UC-{library}-001"
+        feat_id = f"FEAT-{library}-001"
+        producer = ScriptableMockProvider(
+            mock_config,
+            judging_outputs=(
+                _dry_run_spec_uc_output(library),
+                _dry_run_spec_feat_output(library, uc_id),
+                _dry_run_spec_bl_output(library, feat_id),
+                _dry_run_spec_feat_output(library, uc_id),
+                _dry_run_spec_bl_output(library, feat_id),
+            ),
+        )
+        review_name = assign_review_provider(mock_name, registry.names)
+        review_provider = ScriptableMockProvider(
+            registry.config(review_name),
+            judging_outputs=(_dry_run_spec_review_output(), _dry_run_spec_review_output()),
+        )
+        return SpecRole(producer), SpecReviewRole(review_provider)
+
+    selected = provider_name if provider_name in registry.names else registry.names[0]
+    review_name = assign_review_provider(selected, registry.names)
+    return (
+        SpecRole(create_provider(registry, selected)),
+        SpecReviewRole(create_provider(registry, review_name)),
+    )
+
+
+async def _derive_library_specs(
+    spec_role: SpecRole,
+    *,
+    use_cases: tuple[UseCaseSpec, ...],
+    uc_paths: tuple[Path, ...],
+    library: str,
+    target_version: str,
+    workdir: Path,
+    findings: tuple[str, ...],
+    iteration: int,
+) -> tuple[tuple[FeatureSpec, ...], tuple[BacklogSpec, ...], str]:
+    """Derive FEAT/BL models and render the review batch content."""
+    features: list[FeatureSpec] = []
+    backlog_items: list[BacklogSpec] = []
+    bodies: list[str] = []
+    for use_case, path in zip(use_cases, uc_paths, strict=True):
+        source_body = path.read_text(encoding="utf-8")
+        feature_result = await spec_role.derive_features(
+            SpecDerivationRequest(
+                source_id=use_case.id,
+                source_body=source_body,
+                library=library,
+                target_version=target_version,
+                iteration=iteration,
+                previous_diagnostics=findings,
+            ),
+            workdir,
+        )
+        for feature in feature_result.features:
+            features.append(feature)
+            feature_markdown = render_feature_markdown(feature)
+            bodies.append(feature_markdown)
+            backlog_result = await spec_role.derive_backlog(
+                SpecDerivationRequest(
+                    source_id=feature.id,
+                    source_body=feature_markdown,
+                    library=library,
+                    target_version=target_version,
+                    iteration=iteration,
+                    previous_diagnostics=findings,
+                ),
+                workdir,
+            )
+            for item in backlog_result.backlog_items:
+                backlog_items.append(item)
+                bodies.append(render_backlog_markdown(item))
+    return tuple(features), tuple(backlog_items), "\n\n---\n\n".join(bodies)
+
+
+def _write_derived_specs(
+    features: tuple[FeatureSpec, ...],
+    backlog_items: tuple[BacklogSpec, ...],
+    specs_root: Path,
+) -> tuple[tuple[Path, ...], tuple[Path, ...]]:
+    """Persist derived FEAT and BL markdown files under ``specs_root``."""
+    feat_dir = specs_root / "FEAT"
+    bl_dir = specs_root / "BL"
+    feat_dir.mkdir(parents=True, exist_ok=True)
+    bl_dir.mkdir(parents=True, exist_ok=True)
+    feat_paths: list[Path] = []
+    for feature in features:
+        destination = feat_dir / f"{feature.id}.md"
+        destination.write_text(render_feature_markdown(feature), encoding="utf-8")
+        feat_paths.append(destination)
+    bl_paths: list[Path] = []
+    for item in backlog_items:
+        destination = bl_dir / f"{item.id}.md"
+        destination.write_text(render_backlog_markdown(item), encoding="utf-8")
+        bl_paths.append(destination)
+    return tuple(feat_paths), tuple(bl_paths)
+
+
+@dataclass(frozen=True, slots=True)
+class SpecForgeCliResult:
+    """Outcome of ``forge spec`` including validation."""
+
+    uc_result: SpecifyPhaseResult
+    review_result: SpecReviewLoopResult
+    validation: ValidationReport
+    feat_paths: tuple[Path, ...]
+    bl_paths: tuple[Path, ...]
+
+
+def render_spec_phase_report(result: SpecForgeCliResult) -> str:
+    """Render ``result`` as a human-readable SPEC phase summary."""
+    lines = [
+        "# SPEC phase report",
+        "",
+        f"- UC converged: {result.uc_result.converged}",
+        f"- UC iterations: {result.uc_result.iterations}",
+        f"- UC files: {len(result.uc_result.written_paths)}",
+        f"- Review approved: {result.review_result.approved}",
+        f"- Review iterations: {result.review_result.iterations}",
+        f"- FEAT files: {len(result.feat_paths)}",
+        f"- BL files: {len(result.bl_paths)}",
+        f"- validate-specs: {'OK' if result.validation.ok else 'FAIL'}",
+        "",
+    ]
+    if result.uc_result.written_paths:
+        lines.extend(["## Use cases", ""])
+        lines.extend(f"- {path}" for path in result.uc_result.written_paths)
+        lines.append("")
+    if result.review_result.report is not None:
+        lines.extend(
+            [
+                f"## Peer review — {result.review_result.report.verdict.value}",
+                "",
+            ]
+        )
+        for motif in result.review_result.report.motifs:
+            lines.append(f"- **Motif**: {motif}")
+        for finding in result.review_result.report.findings:
+            lines.append(f"- **Finding**: {finding}")
+        lines.append("")
+    if result.feat_paths:
+        lines.extend(["## Features", ""])
+        lines.extend(f"- {path}" for path in result.feat_paths)
+        lines.append("")
+    if result.bl_paths:
+        lines.extend(["## Backlog", ""])
+        lines.extend(f"- {path}" for path in result.bl_paths)
+        lines.append("")
+    if not result.validation.ok:
+        lines.extend(["## Validation findings", "", result.validation.render()])
+    return "\n".join(lines)
+
+
+async def spec_forge_cli(
+    *,
+    library: str,
+    cdc_path: Path | None,
+    specs_root: Path,
+    workdir: Path,
+    forge_dir: Path,
+    repo_root: Path,
+    provider_name: str,
+    providers_config: Path | None,
+    dry_run: bool,
+) -> SpecForgeCliResult:
+    """Run phase 2 specification via the CLI (EXG-SPE-02/08).
+
+    :param library: Target library slug.
+    :param cdc_path: Optional library CDC markdown path.
+    :param specs_root: Root receiving ``UC/``, ``FEAT/`` and ``BL/`` files.
+    :param workdir: Provider working directory.
+    :param forge_dir: Forge state directory for archived review reports.
+    :param repo_root: Repository root for provider config resolution.
+    :param provider_name: Provider identifier from ``providers.toml``.
+    :param providers_config: Optional override for ``providers.toml``.
+    :param dry_run: When true, use deterministic mock providers.
+    :returns: Phase outcome including validation report.
+    :raises ForgeCliError: On validation, provider or phase failures.
+    """
+    resolved_cdc = _resolve_library_cdc(library=library, cdc=cdc_path, repo_root=repo_root)
+    config_path = providers_config or default_providers_path(repo_root)
+    try:
+        registry = load_registry(config_path)
+    except ProviderRegistryError as error:
+        raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+    specs_root.mkdir(parents=True, exist_ok=True)
+    forge_dir.mkdir(parents=True, exist_ok=True)
+    (forge_dir / ARTIFACTS_DIRNAME).mkdir(parents=True, exist_ok=True)
+    workdir.mkdir(parents=True, exist_ok=True)
+
+    spec_role, review_role = _build_spec_roles(
+        registry,
+        dry_run=dry_run,
+        provider_name=provider_name,
+        library=library,
+    )
+    try:
+        uc_result = await SpecifyPhase().run(
+            SpecifyPhaseRequest(
+                cdc_path=resolved_cdc,
+                library=library,
+                specs_root=specs_root.resolve(),
+                workdir=workdir.resolve(),
+                spec_role=spec_role,
+            ),
+        )
+    except SpecRoleError as error:
+        raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+    if not uc_result.converged:
+        detail = "; ".join(uc_result.diagnostics) if uc_result.diagnostics else "UC loop failed"
+        raise ForgeCliError(ExitCode.USER_ERROR, detail)
+
+    target_version = "0.1.0"
+    for use_case in uc_result.use_cases:
+        if use_case.target_version:
+            target_version = use_case.target_version
+            break
+
+    pending_features: tuple[FeatureSpec, ...] = ()
+    pending_backlog: tuple[BacklogSpec, ...] = ()
+    feat_paths: tuple[Path, ...] = ()
+    bl_paths: tuple[Path, ...] = ()
+    iteration = 1
+
+    async def produce(findings: tuple[str, ...]) -> str:
+        nonlocal pending_features, pending_backlog, iteration
+        pending_features, pending_backlog, content = await _derive_library_specs(
+            spec_role,
+            use_cases=uc_result.use_cases,
+            uc_paths=uc_result.written_paths,
+            library=library,
+            target_version=target_version,
+            workdir=workdir.resolve(),
+            findings=findings,
+            iteration=iteration,
+        )
+        iteration += 1
+        return content
+
+    def commit(_content: str) -> None:
+        nonlocal feat_paths, bl_paths
+        feat_paths, bl_paths = _write_derived_specs(
+            pending_features,
+            pending_backlog,
+            specs_root.resolve(),
+        )
+
+    try:
+        review_result = await run_spec_review_loop(
+            produce=produce,
+            review_role=review_role,
+            workdir=workdir.resolve(),
+            forge_dir=forge_dir.resolve(),
+            batch_label=f"FEAT-BL:{library}",
+            commit=commit,
+        )
+    except SpecRoleError as error:
+        raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
+
+    if not review_result.approved:
+        motifs = review_result.report.motifs if review_result.report else ()
+        detail = "; ".join(motifs) if motifs else "spec review did not converge"
+        raise ForgeCliError(ExitCode.USER_ERROR, detail)
+
+    validation = validate_specs(specs_root.resolve(), library=library)
+    if not validation.ok:
+        raise ForgeCliError(ExitCode.USER_ERROR, validation.render())
+
+    return SpecForgeCliResult(
+        uc_result=uc_result,
+        review_result=review_result,
+        validation=validation,
+        feat_paths=feat_paths,
+        bl_paths=bl_paths,
+    )
+
+
+@app.command("spec")
+def spec_command(
+    library: str = typer.Option(
+        ...,
+        "--library",
+        help="Target library slug whose UC/FEAT/BL tree is generated.",
+    ),
+    cdc: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--cdc",
+        help="Optional library CDC path (defaults to docs/cdc/<library>.md).",
+    ),
+    specs_root: Path = typer.Option(  # noqa: B008
+        DEFAULT_SPECS_ROOT,
+        "--specs-root",
+        help="Root directory receiving UC/, FEAT/ and BL/ files.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Use deterministic mock providers.",
+    ),
+    forge_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_FORGE_DIR,
+        "--forge-dir",
+        help="Forge state directory for archived spec review reports.",
+    ),
+    repo_root: Path = typer.Option(  # noqa: B008
+        Path.cwd(),  # noqa: B008
+        "--repo-root",
+        help="Repository root for providers.toml and default CDC resolution.",
+    ),
+    provider: str = typer.Option(
+        DEFAULT_PROVIDER,
+        "--provider",
+        help="Provider identifier from config/providers.toml.",
+    ),
+    providers_config: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--providers-config",
+        help="Override path to providers.toml.",
+    ),
+) -> None:
+    """Run phase 2 specification for one library (forge spec)."""
+    root = repo_root.resolve()
+    specs = specs_root if specs_root.is_absolute() else root / specs_root
+    try:
+        result = asyncio.run(
+            spec_forge_cli(
+                library=library,
+                cdc_path=cdc.resolve() if cdc else None,
+                specs_root=specs.resolve(),
+                workdir=(forge_dir.resolve() / "work" / library).resolve(),
+                forge_dir=forge_dir.resolve(),
+                repo_root=root,
+                provider_name=provider,
+                providers_config=providers_config.resolve() if providers_config else None,
+                dry_run=dry_run,
+            )
+        )
+    except ForgeCliError as error:
+        _handle_cli_error(error)
+    console.print(render_spec_phase_report(result))
 
 
 @app.command("audit")
