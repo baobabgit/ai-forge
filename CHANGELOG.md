@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented in this file.
 
+## v1.0.0
+
+### Added
+
+- Campagne de crash-safety éprouvée : harnais d'interruptions brutales, matrice
+  de reprise sur chaque étape du cycle et durcissement de la réconciliation
+  (PR mergée non journalisée, worktree en plein rebase, artefact de planning
+  tronqué) (`BL-forge-046`).
+- Commande `forge audit` et rapport `AuditReport` en lecture seule
+  (`BL-forge-065`).
+- Attribution des rôles par score, activable en configuration et désactivée par
+  défaut, avec plancher d'exploration et séparation stricte des rôles
+  (`BL-forge-066`).
+- Sécurité étendue : sandbox, masquage des secrets et périmètre GitHub
+  (`BL-forge-067`).
+
+### Documentation
+
+- Documentation d'exploitation : installation, configuration commentée,
+  déroulé opérateur et guide de diagnostic/reprise (`BL-forge-048`).
+
+### Quality
+
+- Couverture de tests `src/` ≥ 95 % au tag de version.
+
 ## v0.5.0
 
 ### Added
