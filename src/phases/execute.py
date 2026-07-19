@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess  # nosec B404 - read-only rev-parse for baseline capture.
+from collections.abc import Mapping as _Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -21,7 +22,7 @@ from src.core.models.bl import BL
 from src.core.models.go_no_go import GoNoGo
 from src.core.models.status import Status
 from src.core.models.verdict import Verdict
-from src.core.specparser import read_spec
+from src.core.specparser import SpecIndex, read_spec
 from src.gates.auto import AutoGatesRequest, run_auto_gates
 from src.ghub.cli import issue_create, pr_create
 from src.obs.invocation_journal import InvocationJournal
@@ -42,6 +43,17 @@ from src.roles.dev import DevCorrectionContext, DevRole, DevRoleRequest, resolve
 from src.roles.integrator import IntegratorRole, IntegratorRoleRequest
 from src.roles.reviewer import ReviewerRole, ReviewerRoleRequest
 from src.roles.tester import TesterRole, TesterRoleRequest
+from src.scheduler.degradation_policy import DegradationPolicy
+from src.scheduler.eligibility_score import EligibilityScorer
+from src.scheduler.limits import ProviderConcurrencyLimiter
+from src.scheduler.loop import (
+    BlRunner,
+    EventSink,
+    SchedulerConfig,
+    SchedulerLoop,
+    WorktreeProvisioner,
+)
+from src.scheduler.pause_controller import PauseController
 from src.state.db import EventRecord, StateDatabase
 from src.state.machine import BlStateMachine, TransitionRequest
 from src.state.run_manifest import default_run_manifest_path, load_run_manifest
@@ -1031,3 +1043,93 @@ def _parse_pr_number(stdout: str) -> int | None:
             if fragment.isdigit():
                 return int(fragment)
     return None
+
+
+def scheduler_event_sink(
+    database: StateDatabase,
+    *,
+    run_id: str,
+    actor: str = "scheduler",
+) -> EventSink:
+    """Build an async sink journaling scheduler events into the run journal.
+
+    Connected to :class:`~src.scheduler.loop.SchedulerLoop`'s ``emit`` seam so
+    real runs persist ``BL_ASSIGNED``, ``WORKER_STARTED``, ``WORKER_STOPPED``
+    and the deferral events (``SCOPE_CONFLICT_DETECTED``,
+    ``PARALLELISM_REDUCED``) in the append-only journal (EXG-ETA-01).
+
+    :param database: Open state store.
+    :param run_id: Run identifier the events belong to.
+    :param actor: Actor recorded on each event.
+    :returns: An async event sink suitable for the scheduler loop.
+    """
+
+    async def _emit(event_type: str, details: dict[str, object]) -> None:
+        bl_value = details.get("bl_id")
+        await database.append_event(
+            run_id=run_id,
+            event_type=event_type,
+            actor=actor,
+            bl_id=bl_value if isinstance(bl_value, str) else None,
+            details=details,
+        )
+
+    return _emit
+
+
+def build_scheduler_runtime(
+    *,
+    index: SpecIndex,
+    runner: BlRunner,
+    provisioner: WorktreeProvisioner,
+    initial_statuses: _Mapping[str, Status | None],
+    database: StateDatabase,
+    run_id: str,
+    workers: int,
+    provider: str,
+    repo: str = "default",
+    pause: PauseController | None = None,
+    degradation: DegradationPolicy | None = None,
+    eligibility: EligibilityScorer | None = None,
+    limiter: ProviderConcurrencyLimiter | None = None,
+    hot_files: _Mapping[str, int] | None = None,
+) -> SchedulerLoop:
+    """Assemble a fully wired scheduler loop for a real run (EXG-PAR-04).
+
+    Every runtime policy is applied: targeted pause (EXG-SCH-04), controlled
+    degradation (EXG-SCH-03), parallel-eligibility scoring (EXG-SCH-02) and the
+    per-provider concurrency ceiling (EXG-PAR-04); the ``emit`` sink journals
+    scheduler events into ``database``. Policies default to fresh instances so
+    callers only inject them to share state or customise thresholds.
+
+    :param index: Resolved specification index.
+    :param runner: Executes a backlog item's cycle.
+    :param provisioner: Provisions and releases per-item worktrees.
+    :param initial_statuses: Current status per backlog id.
+    :param database: Open state store receiving journaled events.
+    :param run_id: Run identifier.
+    :param workers: Global worker ceiling.
+    :param provider: Provider label for pause/limiter gating.
+    :param repo: Repository label for pause/degradation gating.
+    :param pause: Optional shared pause controller.
+    :param degradation: Optional shared degradation policy.
+    :param eligibility: Optional eligibility scorer override.
+    :param limiter: Optional shared provider concurrency limiter.
+    :param hot_files: Recent modification frequency per file.
+    :returns: A scheduler loop ready to ``run()``.
+    """
+    return SchedulerLoop(
+        index=index,
+        runner=runner,
+        provisioner=provisioner,
+        initial_statuses=initial_statuses,
+        config=SchedulerConfig(workers=workers),
+        emit=scheduler_event_sink(database, run_id=run_id),
+        pause=pause or PauseController(),
+        degradation=degradation or DegradationPolicy(),
+        eligibility=eligibility or EligibilityScorer(),
+        limiter=limiter or ProviderConcurrencyLimiter(),
+        provider=provider,
+        repo=repo,
+        hot_files=hot_files,
+    )

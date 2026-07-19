@@ -23,6 +23,14 @@ from typing import Protocol
 
 from src.core.models.status import Status
 from src.core.specparser import SpecIndex
+from src.scheduler.degradation_policy import DegradationPolicy
+from src.scheduler.eligibility_score import (
+    EligibilityDecision,
+    EligibilityScorer,
+    scopes_overlap,
+)
+from src.scheduler.limits import ProviderConcurrencyLimiter
+from src.scheduler.pause_controller import PauseController
 from src.scheduler.ready_selector import DependencyReadyBlSelector, ReadyBlSelector
 
 EventSink = Callable[[str, dict[str, object]], Awaitable[None]]
@@ -112,6 +120,13 @@ class SchedulerLoop:
         selector: ReadyBlSelector | None = None,
         config: SchedulerConfig = _DEFAULT_CONFIG,
         emit: EventSink = _noop_event,
+        pause: PauseController | None = None,
+        degradation: DegradationPolicy | None = None,
+        eligibility: EligibilityScorer | None = None,
+        limiter: ProviderConcurrencyLimiter | None = None,
+        provider: str = "default",
+        repo: str = "default",
+        hot_files: Mapping[str, int] | None = None,
     ) -> None:
         """Bind the loop to its selection graph and injected seams.
 
@@ -122,6 +137,17 @@ class SchedulerLoop:
         :param selector: Ready-item selector (defaults to dependency-based).
         :param config: Concurrency configuration.
         :param emit: Async event sink for scheduling events.
+        :param pause: Optional targeted pause gate (EXG-SCH-04): a paused repo,
+            provider or backlog item receives no new assignment.
+        :param degradation: Optional contention policy (EXG-SCH-03): caps the
+            per-repo worker ceiling and suspends launches on a paused repo.
+        :param eligibility: Optional parallel-eligibility scorer (EXG-SCH-02):
+            scope-overlapping or low-score items are deferred and journaled.
+        :param limiter: Optional per-provider concurrency ceiling (EXG-PAR-04).
+        :param provider: Provider label consulted by ``pause`` and ``limiter``.
+        :param repo: Repository label consulted by ``pause`` and ``degradation``.
+        :param hot_files: Recent modification frequency per file, fed to the
+            eligibility scorer.
         """
         self._index = index
         self._runner = runner
@@ -130,6 +156,17 @@ class SchedulerLoop:
         self._selector = selector or DependencyReadyBlSelector()
         self._config = config
         self._emit = emit
+        self._pause = pause
+        self._degradation = degradation
+        self._eligibility = eligibility
+        self._limiter = limiter
+        self._provider = provider
+        self._repo = repo
+        self._hot_files: dict[str, int] = dict(hot_files or {})
+        self._scopes: dict[str, tuple[str, ...]] = {
+            bl.id: tuple(bl.scope) for bl in index.backlog_items
+        }
+        self._journaled_deferrals: set[tuple[str, str]] = set()
 
     async def run(self, *, stop_event: asyncio.Event | None = None) -> SchedulerReport:
         """Drive the worker pool until the runnable graph is exhausted.
@@ -143,6 +180,7 @@ class SchedulerLoop:
         running: set[str] = set()
         outcomes: dict[str, BlOutcome] = {}
         started: list[str] = []
+        self._journaled_deferrals = set()
         peak = 0
         stopped_with_work = False
 
@@ -153,8 +191,23 @@ class SchedulerLoop:
                 if bl_id not in running and bl_id not in outcomes
             ]
             if not stop.is_set():
-                while len(in_flight) < self._config.workers and ready:
-                    bl_id = ready.pop(0)
+                launchable = await self._launchable(ready, running)
+                ceiling = self._worker_ceiling()
+                while len(in_flight) < ceiling and launchable and not self._provider_saturated():
+                    bl_id = launchable.pop(0)
+                    blocker = self._overlapping_runner(bl_id, running)
+                    if blocker is not None:
+                        # A sibling claimed an overlapping scope in this same
+                        # pass: serialise (EXG-SCH-02) and journal the deferral.
+                        await self._journal_deferral(
+                            EligibilityDecision(
+                                bl_id=bl_id,
+                                score=0.0,
+                                eligible=False,
+                                reason=f"scope overlaps in-flight {blocker}; serialised",
+                            )
+                        )
+                        continue
                     running.add(bl_id)
                     started.append(bl_id)
                     await self._emit("BL_ASSIGNED", {"bl_id": bl_id})
@@ -174,6 +227,11 @@ class SchedulerLoop:
                 self._statuses[bl_id] = Status.DONE if outcome is BlOutcome.DONE else Status.BLOCKED
                 await self._emit("WORKER_STOPPED", {"bl_id": bl_id, "outcome": outcome.value})
 
+        if self._degradation is not None:
+            # Progressive return (EXG-SCH-03): the end of the run lifts the
+            # per-repo worker reductions accumulated during the wave.
+            self._degradation.end_wave()
+
         return SchedulerReport(
             outcomes=outcomes,
             started_order=tuple(started),
@@ -181,11 +239,89 @@ class SchedulerLoop:
             stopped=stopped_with_work,
         )
 
+    async def _launchable(self, ready: list[str], running: set[str]) -> list[str]:
+        """Filter ``ready`` through the pause, degradation and eligibility gates.
+
+        Deferral decisions are journaled once per backlog item and reason kind:
+        a scope overlap with an in-flight item emits ``SCOPE_CONFLICT_DETECTED``,
+        a low parallel-eligibility score emits ``PARALLELISM_REDUCED``. When
+        every candidate is deferred while nothing runs, the best-scoring one is
+        launched alone (EXG-SCH-02: deferred items run solo rather than starve).
+
+        :param ready: Runnable backlog items, in selection order.
+        :param running: Backlog items currently in flight.
+        :returns: The items allowed to launch now, in selection order.
+        """
+        candidates = ready
+        if self._pause is not None:
+            candidates = [
+                bl_id
+                for bl_id in candidates
+                if self._pause.accepts(bl_id, repo=self._repo, provider=self._provider)
+            ]
+        if self._degradation is not None and not self._degradation.can_launch_on_repo(self._repo):
+            return []
+        if self._eligibility is None or not candidates:
+            return candidates
+        decisions = self._eligibility.evaluate_wave(
+            self._index,
+            ready_ids=candidates,
+            running_scopes={bl_id: self._scopes.get(bl_id, ()) for bl_id in running},
+            hot_files=self._hot_files,
+        )
+        eligible = [decision.bl_id for decision in decisions if decision.eligible]
+        for decision in decisions:
+            if decision.deferred:
+                await self._journal_deferral(decision)
+        if not eligible and not running and decisions:
+            # Solo fallback: run the least-risky deferred item on its own.
+            best = max(decisions, key=lambda decision: decision.score)
+            return [best.bl_id]
+        return eligible
+
+    async def _journal_deferral(self, decision: EligibilityDecision) -> None:
+        overlap = "overlaps in-flight" in decision.reason
+        event_type = "SCOPE_CONFLICT_DETECTED" if overlap else "PARALLELISM_REDUCED"
+        key = (decision.bl_id, event_type)
+        if key in self._journaled_deferrals:
+            return
+        self._journaled_deferrals.add(key)
+        await self._emit(
+            event_type,
+            {
+                "bl_id": decision.bl_id,
+                "action": "bl_deferred",
+                "score": decision.score,
+                "reason": decision.reason,
+            },
+        )
+
+    def _overlapping_runner(self, bl_id: str, running: set[str]) -> str | None:
+        """Return the in-flight item whose scope overlaps ``bl_id``, if any."""
+        if self._eligibility is None:
+            return None
+        scope = self._scopes.get(bl_id, ())
+        for other in sorted(running):
+            if scopes_overlap(scope, self._scopes.get(other, ())):
+                return other
+        return None
+
+    def _worker_ceiling(self) -> int:
+        if self._degradation is None:
+            return self._config.workers
+        return min(self._config.workers, self._degradation.repo_worker_limit(self._repo))
+
+    def _provider_saturated(self) -> bool:
+        return self._limiter is not None and self._limiter.is_saturated(self._provider)
+
     async def _run_one(self, bl_id: str) -> BlOutcome:
         await self._emit("WORKER_STARTED", {"bl_id": bl_id})
         worktree = await self._provisioner.provision(bl_id)
         try:
-            return await self._runner.run(bl_id, worktree)
+            if self._limiter is None:
+                return await self._runner.run(bl_id, worktree)
+            async with self._limiter.slot(self._provider):
+                return await self._runner.run(bl_id, worktree)
         finally:
             await self._provisioner.release(bl_id)
 
