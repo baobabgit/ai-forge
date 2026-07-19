@@ -3,7 +3,847 @@
   "cdc_version": "1.4",
   "cdc_reference": "docs/specs/cahier-des-charges-ai-forge-v1.4.md",
   "schema_version": 2,
-  "generated_at": "2026-07-05",
+  "generated_at": "2026-07-19",
+  "backlog": {
+    "BL-forge-001": {
+      "library": "ai-forge",
+      "version": "0.1.0",
+      "milestone": "Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable.",
+      "size": "S",
+      "critical": true,
+      "title": "Bootstrap du dépôt et chaîne qualité"
+    },
+    "BL-forge-002": {
+      "library": "ai-forge",
+      "version": "0.1.0",
+      "milestone": "Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable.",
+      "size": "M",
+      "critical": true,
+      "title": "Modèles de domaine pydantic"
+    },
+    "BL-forge-003": {
+      "library": "ai-forge",
+      "version": "0.1.0",
+      "milestone": "Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable.",
+      "size": "M",
+      "critical": false,
+      "title": "Parsing frontmatter des fichiers de specs"
+    },
+    "BL-forge-004": {
+      "library": "ai-forge",
+      "version": "0.1.0",
+      "milestone": "Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable.",
+      "size": "M",
+      "critical": true,
+      "title": "Interface Provider, mock et résultats typés"
+    },
+    "BL-forge-005": {
+      "library": "ai-forge",
+      "version": "0.1.0",
+      "milestone": "Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable.",
+      "size": "M",
+      "critical": true,
+      "title": "Exécuteur subprocess asynchrone commun"
+    },
+    "BL-forge-009": {
+      "library": "ai-forge",
+      "version": "0.1.0",
+      "milestone": "Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable.",
+      "size": "L",
+      "critical": true,
+      "title": "Base d'état SQLite et machine à états BL"
+    },
+    "BL-forge-010": {
+      "library": "ai-forge",
+      "version": "0.1.0",
+      "milestone": "Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable.",
+      "size": "S",
+      "critical": false,
+      "title": "Journalisation structurée JSONL et archivage"
+    },
+    "BL-forge-011": {
+      "library": "ai-forge",
+      "version": "0.1.0",
+      "milestone": "Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable.",
+      "size": "M",
+      "critical": true,
+      "title": "Moteur de prompts jinja2 et template DEV"
+    },
+    "BL-forge-014": {
+      "library": "ai-forge",
+      "version": "0.1.0",
+      "milestone": "Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable.",
+      "size": "M",
+      "critical": false,
+      "title": "CLI typer : forge init et run minimal"
+    },
+    "BL-forge-015": {
+      "library": "ai-forge",
+      "version": "0.1.0",
+      "milestone": "Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable.",
+      "size": "L",
+      "critical": true,
+      "title": "Chaîne séquentielle dry-run v0.1.0"
+    },
+    "BL-forge-006": {
+      "library": "ai-forge",
+      "version": "0.1.1",
+      "milestone": "Un BL développé par une IA réelle, PR ouverte, aucun artefact mentionnant une IA.",
+      "size": "M",
+      "critical": false,
+      "title": "Adaptateur Claude Code"
+    },
+    "BL-forge-007": {
+      "library": "ai-forge",
+      "version": "0.1.1",
+      "milestone": "Un BL développé par une IA réelle, PR ouverte, aucun artefact mentionnant une IA.",
+      "size": "M",
+      "critical": false,
+      "title": "Adaptateur Codex CLI"
+    },
+    "BL-forge-008": {
+      "library": "ai-forge",
+      "version": "0.1.1",
+      "milestone": "Un BL développé par une IA réelle, PR ouverte, aucun artefact mentionnant une IA.",
+      "size": "M",
+      "critical": false,
+      "title": "Adaptateur Cursor Agent"
+    },
+    "BL-forge-012": {
+      "library": "ai-forge",
+      "version": "0.1.1",
+      "milestone": "Un BL développé par une IA réelle, PR ouverte, aucun artefact mentionnant une IA.",
+      "size": "M",
+      "critical": true,
+      "title": "Wrapper git et gh de base"
+    },
+    "BL-forge-013": {
+      "library": "ai-forge",
+      "version": "0.1.1",
+      "milestone": "Un BL développé par une IA réelle, PR ouverte, aucun artefact mentionnant une IA.",
+      "size": "M",
+      "critical": true,
+      "title": "Rôle DEV"
+    },
+    "BL-forge-050": {
+      "library": "ai-forge",
+      "version": "0.1.2",
+      "milestone": "PR avec CI verte mergée via forge approve ; run tué puis repris sans incohérence.",
+      "size": "M",
+      "critical": true,
+      "title": "Niveaux de confiance, forge approve et safe mode"
+    },
+    "BL-forge-051": {
+      "library": "ai-forge",
+      "version": "0.1.2",
+      "milestone": "PR avec CI verte mergée via forge approve ; run tué puis repris sans incohérence.",
+      "size": "M",
+      "critical": true,
+      "title": "Interprétation robuste des checks CI"
+    },
+    "BL-forge-052": {
+      "library": "ai-forge",
+      "version": "0.1.2",
+      "milestone": "PR avec CI verte mergée via forge approve ; run tué puis repris sans incohérence.",
+      "size": "M",
+      "critical": true,
+      "title": "Reprise après interruption brutale (kill -9)"
+    },
+    "BL-forge-047": {
+      "library": "ai-forge",
+      "version": "0.1.3",
+      "milestone": "Rapport de run complet avec statistiques et ADR générés.",
+      "size": "S",
+      "critical": false,
+      "title": "Statistiques de consommation"
+    },
+    "BL-forge-068": {
+      "library": "ai-forge",
+      "version": "0.1.3",
+      "milestone": "Rapport de run complet avec statistiques et ADR générés.",
+      "size": "S",
+      "critical": false,
+      "title": "ADR outillés"
+    },
+    "BL-forge-069": {
+      "library": "ai-forge",
+      "version": "0.1.3",
+      "milestone": "Rapport de run complet avec statistiques et ADR générés.",
+      "size": "M",
+      "critical": false,
+      "title": "forge status et forge report initiaux"
+    },
+    "BL-forge-016": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "M",
+      "critical": true,
+      "title": "Exécution des gates automatiques et diff-guard"
+    },
+    "BL-forge-017": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "M",
+      "critical": true,
+      "title": "Verdicts IA structurés"
+    },
+    "BL-forge-018": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "M",
+      "critical": false,
+      "title": "Rôle TESTER"
+    },
+    "BL-forge-019": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "M",
+      "critical": false,
+      "title": "Rôle REVIEWER"
+    },
+    "BL-forge-020": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "S",
+      "critical": false,
+      "title": "Rôle INTEGRATOR procédural"
+    },
+    "BL-forge-021": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "L",
+      "critical": true,
+      "title": "Boucle de correction par Issue GitHub"
+    },
+    "BL-forge-022": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "S",
+      "critical": false,
+      "title": "Plafond d'itérations et passage BLOCKED"
+    },
+    "BL-forge-023": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "M",
+      "critical": false,
+      "title": "Cloisonnement de contexte mono-provider"
+    },
+    "BL-forge-024": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "M",
+      "critical": true,
+      "title": "États de quota et détection réactive"
+    },
+    "BL-forge-025": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "M",
+      "critical": false,
+      "title": "Bascule de provider en cours de tâche"
+    },
+    "BL-forge-026": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "M",
+      "critical": false,
+      "title": "Arrêt propre et forge resume"
+    },
+    "BL-forge-027": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "M",
+      "critical": false,
+      "title": "Attribution des rôles par rotation de charge"
+    },
+    "BL-forge-053": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "M",
+      "critical": true,
+      "title": "Locks persistés : BL, dépôt, provider"
+    },
+    "BL-forge-054": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "M",
+      "critical": true,
+      "title": "Chargement et vérification des invariants"
+    },
+    "BL-forge-055": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "L",
+      "critical": true,
+      "title": "Banc de scénarios de référence v1"
+    },
+    "BL-forge-070": {
+      "library": "ai-forge",
+      "version": "0.2.0",
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI.",
+      "size": "M",
+      "critical": true,
+      "title": "Manifeste de contexte et manifeste de run"
+    },
+    "BL-forge-036": {
+      "library": "ai-forge",
+      "version": "0.3.0",
+      "milestone": "Deux BL du même dépôt en parallèle mergés sans intervention ; revert démontré.",
+      "size": "M",
+      "critical": true,
+      "title": "Gestion des worktrees Git"
+    },
+    "BL-forge-037": {
+      "library": "ai-forge",
+      "version": "0.3.0",
+      "milestone": "Deux BL du même dépôt en parallèle mergés sans intervention ; revert démontré.",
+      "size": "L",
+      "critical": true,
+      "title": "Scheduler asyncio multi-workers"
+    },
+    "BL-forge-038": {
+      "library": "ai-forge",
+      "version": "0.3.0",
+      "milestone": "Deux BL du même dépôt en parallèle mergés sans intervention ; revert démontré.",
+      "size": "M",
+      "critical": false,
+      "title": "Rebase post-merge et résolution de conflits"
+    },
+    "BL-forge-039": {
+      "library": "ai-forge",
+      "version": "0.3.0",
+      "milestone": "Deux BL du même dépôt en parallèle mergés sans intervention ; revert démontré.",
+      "size": "S",
+      "critical": false,
+      "title": "Plafond de concurrence par provider"
+    },
+    "BL-forge-056": {
+      "library": "ai-forge",
+      "version": "0.3.0",
+      "milestone": "Deux BL du même dépôt en parallèle mergés sans intervention ; revert démontré.",
+      "size": "M",
+      "critical": false,
+      "title": "forge doctor et forge validate-specs"
+    },
+    "BL-forge-057": {
+      "library": "ai-forge",
+      "version": "0.3.0",
+      "milestone": "Deux BL du même dépôt en parallèle mergés sans intervention ; revert démontré.",
+      "size": "M",
+      "critical": false,
+      "title": "forge revert et forge cleanup-orphans"
+    },
+    "BL-forge-059": {
+      "library": "ai-forge",
+      "version": "0.3.0",
+      "milestone": "Deux BL du même dépôt en parallèle mergés sans intervention ; revert démontré.",
+      "size": "L",
+      "critical": true,
+      "title": "Ordonnancement concurrent : score, dégradation, pause ciblée"
+    },
+    "BL-forge-060": {
+      "library": "ai-forge",
+      "version": "0.3.0",
+      "milestone": "Deux BL du même dépôt en parallèle mergés sans intervention ; revert démontré.",
+      "size": "M",
+      "critical": false,
+      "title": "Budgets de run et stop-loss par BL"
+    },
+    "BL-forge-061": {
+      "library": "ai-forge",
+      "version": "0.3.0",
+      "milestone": "Deux BL du même dépôt en parallèle mergés sans intervention ; revert démontré.",
+      "size": "M",
+      "critical": false,
+      "title": "Dossiers d'escalade EscalationReport"
+    },
+    "BL-forge-062": {
+      "library": "ai-forge",
+      "version": "0.3.0",
+      "milestone": "Deux BL du même dépôt en parallèle mergés sans intervention ; revert démontré.",
+      "size": "L",
+      "critical": true,
+      "title": "Moteur de politiques et anti-injection"
+    },
+    "BL-forge-040": {
+      "library": "ai-forge",
+      "version": "0.4.0",
+      "milestone": "Projet cible à deux librairies mené jusqu'à un jalon tagué, bump propagé, badges verts.",
+      "size": "M",
+      "critical": false,
+      "title": "Dépôt programme et création multi-repo"
+    },
+    "BL-forge-041": {
+      "library": "ai-forge",
+      "version": "0.4.0",
+      "milestone": "Projet cible à deux librairies mené jusqu'à un jalon tagué, bump propagé, badges verts.",
+      "size": "M",
+      "critical": true,
+      "title": "Jalons d'intégration inter-librairies"
+    },
+    "BL-forge-042": {
+      "library": "ai-forge",
+      "version": "0.4.0",
+      "milestone": "Projet cible à deux librairies mené jusqu'à un jalon tagué, bump propagé, badges verts.",
+      "size": "M",
+      "critical": true,
+      "title": "Gate de version, tags SemVer et releases"
+    },
+    "BL-forge-043": {
+      "library": "ai-forge",
+      "version": "0.4.0",
+      "milestone": "Projet cible à deux librairies mené jusqu'à un jalon tagué, bump propagé, badges verts.",
+      "size": "M",
+      "critical": false,
+      "title": "forge status temps réel"
+    },
+    "BL-forge-044": {
+      "library": "ai-forge",
+      "version": "0.4.0",
+      "milestone": "Projet cible à deux librairies mené jusqu'à un jalon tagué, bump propagé, badges verts.",
+      "size": "S",
+      "critical": false,
+      "title": "forge report"
+    },
+    "BL-forge-045": {
+      "library": "ai-forge",
+      "version": "0.4.0",
+      "milestone": "Projet cible à deux librairies mené jusqu'à un jalon tagué, bump propagé, badges verts.",
+      "size": "S",
+      "critical": false,
+      "title": "Dépendances inter-librairies épinglées"
+    },
+    "BL-forge-049": {
+      "library": "ai-forge",
+      "version": "0.4.0",
+      "milestone": "Projet cible à deux librairies mené jusqu'à un jalon tagué, bump propagé, badges verts.",
+      "size": "L",
+      "critical": true,
+      "title": "Projet cible d'exemple de bout en bout"
+    },
+    "BL-forge-058": {
+      "library": "ai-forge",
+      "version": "0.4.0",
+      "milestone": "Projet cible à deux librairies mené jusqu'à un jalon tagué, bump propagé, badges verts.",
+      "size": "M",
+      "critical": false,
+      "title": "forge rollback-version et forge repair-state"
+    },
+    "BL-forge-063": {
+      "library": "ai-forge",
+      "version": "0.4.0",
+      "milestone": "Projet cible à deux librairies mené jusqu'à un jalon tagué, bump propagé, badges verts.",
+      "size": "L",
+      "critical": false,
+      "title": "Système de templates-plugins"
+    },
+    "BL-forge-064": {
+      "library": "ai-forge",
+      "version": "0.4.0",
+      "milestone": "Projet cible à deux librairies mené jusqu'à un jalon tagué, bump propagé, badges verts.",
+      "size": "M",
+      "critical": false,
+      "title": "Gates documentaires de version"
+    },
+    "BL-forge-028": {
+      "library": "ai-forge",
+      "version": "0.5.0",
+      "milestone": "Specs générées (score ≥ seuil) pour un projet d'essai ; exécution enchaînée.",
+      "size": "L",
+      "critical": false,
+      "title": "Rôle ARCHITECT et contre-relecture itérative"
+    },
+    "BL-forge-029": {
+      "library": "ai-forge",
+      "version": "0.5.0",
+      "milestone": "Specs générées (score ≥ seuil) pour un projet d'essai ; exécution enchaînée.",
+      "size": "M",
+      "critical": false,
+      "title": "Documents d'architecture et CDC par librairie"
+    },
+    "BL-forge-030": {
+      "library": "ai-forge",
+      "version": "0.5.0",
+      "milestone": "Specs générées (score ≥ seuil) pour un projet d'essai ; exécution enchaînée.",
+      "size": "M",
+      "critical": false,
+      "title": "Rôle SPEC : génération des UC"
+    },
+    "BL-forge-031": {
+      "library": "ai-forge",
+      "version": "0.5.0",
+      "milestone": "Specs générées (score ≥ seuil) pour un projet d'essai ; exécution enchaînée.",
+      "size": "M",
+      "critical": false,
+      "title": "Dérivation des FEAT et des BL"
+    },
+    "BL-forge-032": {
+      "library": "ai-forge",
+      "version": "0.5.0",
+      "milestone": "Specs générées (score ≥ seuil) pour un projet d'essai ; exécution enchaînée.",
+      "size": "M",
+      "critical": false,
+      "title": "Contre-relecture des spécifications"
+    },
+    "BL-forge-033": {
+      "library": "ai-forge",
+      "version": "0.5.0",
+      "milestone": "Specs générées (score ≥ seuil) pour un projet d'essai ; exécution enchaînée.",
+      "size": "M",
+      "critical": true,
+      "title": "Constructeur de DAG et détection de cycles"
+    },
+    "BL-forge-034": {
+      "library": "ai-forge",
+      "version": "0.5.0",
+      "milestone": "Specs générées (score ≥ seuil) pour un projet d'essai ; exécution enchaînée.",
+      "size": "M",
+      "critical": true,
+      "title": "Ordonnancement par vagues et chemin critique"
+    },
+    "BL-forge-035": {
+      "library": "ai-forge",
+      "version": "0.5.0",
+      "milestone": "Specs générées (score ≥ seuil) pour un projet d'essai ; exécution enchaînée.",
+      "size": "M",
+      "critical": false,
+      "title": "Publication et recalcul événementiel du planning"
+    },
+    "BL-forge-046": {
+      "library": "ai-forge",
+      "version": "1.0.0",
+      "milestone": "Durcissement final : crash-safety éprouvée et documentation d'exploitation complète.",
+      "size": "L",
+      "critical": true,
+      "title": "Crash-safety éprouvée"
+    },
+    "BL-forge-048": {
+      "library": "ai-forge",
+      "version": "1.0.0",
+      "milestone": "Durcissement final : crash-safety éprouvée et documentation d'exploitation complète.",
+      "size": "M",
+      "critical": false,
+      "title": "Documentation d'exploitation"
+    },
+    "BL-forge-065": {
+      "library": "ai-forge",
+      "version": "1.0.0",
+      "milestone": "Durcissement final : crash-safety éprouvée et documentation d'exploitation complète.",
+      "size": "L",
+      "critical": false,
+      "title": "forge audit et AuditReport"
+    },
+    "BL-forge-066": {
+      "library": "ai-forge",
+      "version": "1.0.0",
+      "milestone": "Durcissement final : crash-safety éprouvée et documentation d'exploitation complète.",
+      "size": "M",
+      "critical": false,
+      "title": "Attribution des rôles par score"
+    },
+    "BL-forge-067": {
+      "library": "ai-forge",
+      "version": "1.0.0",
+      "milestone": "Durcissement final : crash-safety éprouvée et documentation d'exploitation complète.",
+      "size": "L",
+      "critical": false,
+      "title": "Sécurité étendue : sandbox, secrets, périmètre GitHub"
+    },
+    "BL-forge-071": {
+      "library": "ai-forge",
+      "version": "1.1.0",
+      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé.",
+      "size": "M",
+      "critical": false,
+      "title": "Commande forge close-spec"
+    },
+    "BL-forge-072": {
+      "library": "ai-forge",
+      "version": "1.1.0",
+      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé.",
+      "size": "M",
+      "critical": false,
+      "title": "Batch clôture FEAT historiques"
+    },
+    "BL-forge-073": {
+      "library": "ai-forge",
+      "version": "1.1.0",
+      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé.",
+      "size": "S",
+      "critical": false,
+      "title": "Batch clôture UC historiques"
+    },
+    "BL-forge-074": {
+      "library": "ai-forge",
+      "version": "1.1.0",
+      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé.",
+      "size": "M",
+      "critical": false,
+      "title": "Commande forge architect"
+    },
+    "BL-forge-075": {
+      "library": "ai-forge",
+      "version": "1.1.0",
+      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé.",
+      "size": "M",
+      "critical": false,
+      "title": "Commande forge spec"
+    },
+    "BL-forge-076": {
+      "library": "ai-forge",
+      "version": "1.1.0",
+      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé.",
+      "size": "S",
+      "critical": false,
+      "title": "README racine et alignement operations"
+    },
+    "BL-forge-077": {
+      "library": "ai-forge",
+      "version": "1.1.0",
+      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé.",
+      "size": "L",
+      "critical": false,
+      "title": "Câblage runtime SchedulerLoop"
+    },
+    "BL-forge-078": {
+      "library": "ai-forge",
+      "version": "1.1.0",
+      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé.",
+      "size": "M",
+      "critical": false,
+      "title": "Correctifs forge run --bl et max_concurrency"
+    },
+    "BL-forge-079": {
+      "library": "ai-forge",
+      "version": "1.1.0",
+      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé.",
+      "size": "M",
+      "critical": false,
+      "title": "Adaptateur stats pour ScoreRoleAssigner"
+    },
+    "BL-forge-080": {
+      "library": "ai-forge",
+      "version": "1.1.0",
+      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé.",
+      "size": "M",
+      "critical": false,
+      "title": "Annulation tâches sœurs et élagage SpecifyPhase"
+    },
+    "BL-forge-081": {
+      "library": "ai-forge",
+      "version": "1.1.0",
+      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé.",
+      "size": "S",
+      "critical": false,
+      "title": "Typage BLId pour depends_on BacklogSpec"
+    }
+  },
+  "versions": [
+    {
+      "version": "0.1.0",
+      "default_trust_level": "L0",
+      "workers_default": 1,
+      "waves": [],
+      "critical_path": [
+        "BL-forge-001",
+        "BL-forge-002",
+        "BL-forge-009",
+        "BL-forge-014",
+        "BL-forge-015"
+      ],
+      "critical_path_weight": 13,
+      "milestone": "Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable."
+    },
+    {
+      "version": "0.1.1",
+      "default_trust_level": "L0",
+      "workers_default": 1,
+      "waves": [],
+      "critical_path": [],
+      "critical_path_weight": 0,
+      "milestone": "Un BL développé par une IA réelle, PR ouverte, aucun artefact mentionnant une IA."
+    },
+    {
+      "version": "0.1.2",
+      "default_trust_level": "L0",
+      "workers_default": 1,
+      "waves": [],
+      "critical_path": [],
+      "critical_path_weight": 0,
+      "milestone": "PR avec CI verte mergée via forge approve ; run tué puis repris sans incohérence."
+    },
+    {
+      "version": "0.1.3",
+      "default_trust_level": "L0",
+      "workers_default": 1,
+      "waves": [],
+      "critical_path": [],
+      "critical_path_weight": 0,
+      "milestone": "Rapport de run complet avec statistiques et ADR générés."
+    },
+    {
+      "version": "0.2.0",
+      "default_trust_level": "L0",
+      "workers_default": 1,
+      "waves": [],
+      "critical_path": [
+        "BL-forge-001",
+        "BL-forge-002",
+        "BL-forge-009",
+        "BL-forge-014",
+        "BL-forge-015",
+        "BL-forge-021"
+      ],
+      "critical_path_weight": 4,
+      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI."
+    },
+    {
+      "version": "0.3.0",
+      "default_trust_level": "L1",
+      "workers_default": 3,
+      "waves": [],
+      "critical_path": [
+        "BL-forge-001",
+        "BL-forge-002",
+        "BL-forge-009",
+        "BL-forge-014",
+        "BL-forge-015",
+        "BL-forge-021",
+        "BL-forge-038"
+      ],
+      "critical_path_weight": 2,
+      "milestone": "Deux BL du même dépôt en parallèle mergés sans intervention ; revert démontré."
+    },
+    {
+      "version": "0.4.0",
+      "default_trust_level": "L2",
+      "workers_default": 3,
+      "waves": [],
+      "critical_path": [],
+      "critical_path_weight": 0,
+      "milestone": "Projet cible à deux librairies mené jusqu'à un jalon tagué, bump propagé, badges verts."
+    },
+    {
+      "version": "0.5.0",
+      "default_trust_level": "L2",
+      "workers_default": 3,
+      "waves": [],
+      "critical_path": [],
+      "critical_path_weight": 0,
+      "milestone": "Specs générées (score ≥ seuil) pour un projet d'essai ; exécution enchaînée."
+    },
+    {
+      "version": "1.0.0",
+      "default_trust_level": "L2",
+      "workers_default": 3,
+      "waves": [],
+      "critical_path": [
+        "BL-forge-001",
+        "BL-forge-002",
+        "BL-forge-009",
+        "BL-forge-014",
+        "BL-forge-015",
+        "BL-forge-021",
+        "BL-forge-038",
+        "BL-forge-046",
+        "BL-forge-048"
+      ],
+      "critical_path_weight": 6,
+      "milestone": "Durcissement final : crash-safety éprouvée et documentation d'exploitation complète."
+    },
+    {
+      "version": "1.1.0",
+      "default_trust_level": "L2",
+      "workers_default": 3,
+      "waves": [
+        [
+          "BL-forge-076",
+          "BL-forge-077",
+          "BL-forge-078",
+          "BL-forge-079",
+          "BL-forge-080"
+        ]
+      ],
+      "critical_path": [
+        "BL-forge-001",
+        "BL-forge-002",
+        "BL-forge-009",
+        "BL-forge-014",
+        "BL-forge-015",
+        "BL-forge-021",
+        "BL-forge-038",
+        "BL-forge-046",
+        "BL-forge-048",
+        "BL-forge-071",
+        "BL-forge-072",
+        "BL-forge-073"
+      ],
+      "critical_path_weight": 5,
+      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé."
+    }
+  ],
+  "critical_bls": [
+    "BL-forge-001",
+    "BL-forge-002",
+    "BL-forge-004",
+    "BL-forge-005",
+    "BL-forge-009",
+    "BL-forge-011",
+    "BL-forge-012",
+    "BL-forge-013",
+    "BL-forge-015",
+    "BL-forge-016",
+    "BL-forge-017",
+    "BL-forge-021",
+    "BL-forge-024",
+    "BL-forge-033",
+    "BL-forge-034",
+    "BL-forge-036",
+    "BL-forge-037",
+    "BL-forge-041",
+    "BL-forge-042",
+    "BL-forge-046",
+    "BL-forge-049",
+    "BL-forge-050",
+    "BL-forge-051",
+    "BL-forge-052",
+    "BL-forge-053",
+    "BL-forge-054",
+    "BL-forge-055",
+    "BL-forge-059",
+    "BL-forge-062",
+    "BL-forge-070"
+  ],
+  "global_critical_path": [
+    "BL-forge-001",
+    "BL-forge-002",
+    "BL-forge-009",
+    "BL-forge-014",
+    "BL-forge-015",
+    "BL-forge-021",
+    "BL-forge-038",
+    "BL-forge-046",
+    "BL-forge-048",
+    "BL-forge-071",
+    "BL-forge-072",
+    "BL-forge-073"
+  ],
   "notes": [
     "Trajectoire alignée sur le CDC v1.4 §6. Les versions v0.1.x stabilisent le cœur séquentiel (dry-run mock → PR réelle → merge approuvé) avant parallélisme (v0.3), multi-repo (v0.4) et génération de specs (v0.5).",
     "Self-hosting, L2 autonome, rollback-version et multi-repo automatique sont explicitement repoussés — voir deferred_topics.",
@@ -13,7 +853,12 @@
     {
       "topic": "Parallélisme multi-workers",
       "earliest_version": "0.3.0",
-      "bls": ["BL-forge-036", "BL-forge-037", "BL-forge-038", "BL-forge-039"]
+      "bls": [
+        "BL-forge-036",
+        "BL-forge-037",
+        "BL-forge-038",
+        "BL-forge-039"
+      ]
     },
     {
       "topic": "Self-hosting (AI-Forge exécute ses propres BL)",
@@ -33,7 +878,13 @@
     {
       "topic": "Multi-repo automatique",
       "earliest_version": "0.4.0",
-      "bls": ["BL-forge-040", "BL-forge-041", "BL-forge-042", "BL-forge-044", "BL-forge-045"]
+      "bls": [
+        "BL-forge-040",
+        "BL-forge-041",
+        "BL-forge-042",
+        "BL-forge-044",
+        "BL-forge-045"
+      ]
     }
   ],
   "gaps": [
@@ -47,61 +898,92 @@
       "exigence": "forge approve + safe_mode (v0.1.2)",
       "target_version": "0.1.2",
       "status": "specified",
-      "bls": ["BL-forge-050"]
+      "bls": [
+        "BL-forge-050"
+      ]
     },
     {
       "exigence": "Interprétation robuste des checks CI + reprise kill -9 (v0.1.2)",
       "target_version": "0.1.2",
       "status": "specified",
-      "bls": ["BL-forge-051", "BL-forge-052"]
+      "bls": [
+        "BL-forge-051",
+        "BL-forge-052"
+      ]
     },
     {
       "exigence": "ADR outillés + status/report initiaux (v0.1.3)",
       "target_version": "0.1.3",
       "status": "specified",
-      "bls": ["BL-forge-068", "BL-forge-069"]
+      "bls": [
+        "BL-forge-068",
+        "BL-forge-069"
+      ]
     },
     {
       "exigence": "Locks, invariants, manifeste de contexte/run, banc v1 (v0.2.0)",
       "target_version": "0.2.0",
       "status": "specified",
-      "bls": ["BL-forge-053", "BL-forge-054", "BL-forge-070", "BL-forge-055"]
+      "bls": [
+        "BL-forge-053",
+        "BL-forge-054",
+        "BL-forge-070",
+        "BL-forge-055"
+      ]
     },
     {
       "exigence": "forge revert + cleanup-orphans (v0.3.0)",
       "target_version": "0.3.0",
       "status": "specified",
-      "bls": ["BL-forge-057"]
+      "bls": [
+        "BL-forge-057"
+      ]
     },
     {
       "exigence": "Ordonnancement concurrent avancé, budgets, escalade, anti-injection (v0.3.0)",
       "target_version": "0.3.0",
       "status": "specified",
-      "bls": ["BL-forge-059", "BL-forge-060", "BL-forge-061", "BL-forge-062"]
+      "bls": [
+        "BL-forge-059",
+        "BL-forge-060",
+        "BL-forge-061",
+        "BL-forge-062"
+      ]
     },
     {
       "exigence": "forge rollback-version + repair-state (v0.4.0)",
       "target_version": "0.4.0",
       "status": "specified",
-      "bls": ["BL-forge-058"]
+      "bls": [
+        "BL-forge-058"
+      ]
     },
     {
       "exigence": "forge doctor + forge validate-specs (v0.3.0+)",
       "target_version": "0.3.0",
       "status": "specified",
-      "bls": ["BL-forge-056"]
+      "bls": [
+        "BL-forge-056"
+      ]
     },
     {
       "exigence": "Templates-plugins + gates documentaires (v0.4.0)",
       "target_version": "0.4.0",
       "status": "specified",
-      "bls": ["BL-forge-063", "BL-forge-064"]
+      "bls": [
+        "BL-forge-063",
+        "BL-forge-064"
+      ]
     },
     {
       "exigence": "Mode audit, scoring providers, sécurité étendue (v1.0.0)",
       "target_version": "1.0.0",
       "status": "done",
-      "bls": ["BL-forge-065", "BL-forge-066", "BL-forge-067"]
+      "bls": [
+        "BL-forge-065",
+        "BL-forge-066",
+        "BL-forge-067"
+      ]
     },
     {
       "exigence": "Clôture EXG-SPE-07, flux CLI complet, runtime scheduler (v1.1.0)",
@@ -121,192 +1003,5 @@
         "BL-forge-081"
       ]
     }
-  ],
-  "versions": [
-    {
-      "version": "0.1.0",
-      "default_trust_level": "L0",
-      "workers_default": 1,
-      "waves": [
-        ["BL-forge-001"],
-        ["BL-forge-002", "BL-forge-005", "BL-forge-010"],
-        ["BL-forge-003", "BL-forge-004", "BL-forge-009", "BL-forge-011"],
-        ["BL-forge-014"],
-        ["BL-forge-015"]
-      ],
-      "critical_path": [
-        "BL-forge-001",
-        "BL-forge-002",
-        "BL-forge-009",
-        "BL-forge-014",
-        "BL-forge-015"
-      ],
-      "critical_path_weight": 11,
-      "milestone": "Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable."
-    },
-    {
-      "version": "0.1.1",
-      "default_trust_level": "L0",
-      "workers_default": 1,
-      "waves": [
-        ["BL-forge-006", "BL-forge-007", "BL-forge-008"],
-        ["BL-forge-012", "BL-forge-013"]
-      ],
-      "critical_path": [
-        "BL-forge-004",
-        "BL-forge-006",
-        "BL-forge-012",
-        "BL-forge-013"
-      ],
-      "critical_path_weight": 8,
-      "milestone": "Un BL développé par une IA réelle, PR ouverte, aucun artefact mentionnant une IA."
-    },
-    {
-      "version": "0.1.2",
-      "default_trust_level": "L0",
-      "workers_default": 1,
-      "waves": [
-        ["BL-forge-050", "BL-forge-051", "BL-forge-052"]
-      ],
-      "critical_path": ["BL-forge-050"],
-      "critical_path_weight": 2,
-      "milestone": "PR avec CI verte mergée via forge approve ; run tué puis repris sans incohérence."
-    },
-    {
-      "version": "0.1.3",
-      "default_trust_level": "L0",
-      "workers_default": 1,
-      "waves": [
-        ["BL-forge-047", "BL-forge-068"],
-        ["BL-forge-069"]
-      ],
-      "critical_path": ["BL-forge-047", "BL-forge-069"],
-      "critical_path_weight": 3,
-      "milestone": "Rapport de run complet avec statistiques et ADR générés."
-    },
-    {
-      "version": "0.2.0",
-      "default_trust_level": "L0",
-      "workers_default": 1,
-      "waves": [
-        ["BL-forge-016", "BL-forge-017", "BL-forge-020", "BL-forge-024"],
-        ["BL-forge-018", "BL-forge-019", "BL-forge-026", "BL-forge-027"],
-        ["BL-forge-021", "BL-forge-023", "BL-forge-053", "BL-forge-054", "BL-forge-070"],
-        ["BL-forge-022", "BL-forge-025"],
-        ["BL-forge-055"]
-      ],
-      "critical_path": [
-        "BL-forge-016",
-        "BL-forge-018",
-        "BL-forge-021",
-        "BL-forge-025",
-        "BL-forge-055"
-      ],
-      "critical_path_weight": 14,
-      "milestone": "Un BL corrigé via Issue après NO GO ; bascule sur épuisement simulé ; banc vert en CI."
-    },
-    {
-      "version": "0.3.0",
-      "default_trust_level": "L1",
-      "workers_default": 3,
-      "waves": [
-        ["BL-forge-036", "BL-forge-037", "BL-forge-056", "BL-forge-057"],
-        ["BL-forge-038", "BL-forge-039", "BL-forge-060", "BL-forge-061", "BL-forge-062"],
-        ["BL-forge-059"]
-      ],
-      "critical_path": ["BL-forge-037", "BL-forge-059"],
-      "critical_path_weight": 8,
-      "milestone": "Deux BL du même dépôt en parallèle mergés sans intervention ; revert démontré."
-    },
-    {
-      "version": "0.4.0",
-      "default_trust_level": "L2",
-      "workers_default": 3,
-      "waves": [
-        ["BL-forge-040", "BL-forge-042", "BL-forge-043"],
-        ["BL-forge-041", "BL-forge-044", "BL-forge-045", "BL-forge-058", "BL-forge-063", "BL-forge-064"],
-        ["BL-forge-049"]
-      ],
-      "critical_path": ["BL-forge-040", "BL-forge-041", "BL-forge-049"],
-      "critical_path_weight": 12,
-      "milestone": "Projet cible à deux librairies mené jusqu'à un jalon tagué, bump propagé, badges verts."
-    },
-    {
-      "version": "0.5.0",
-      "default_trust_level": "L2",
-      "workers_default": 3,
-      "waves": [
-        ["BL-forge-028", "BL-forge-030", "BL-forge-033"],
-        ["BL-forge-029", "BL-forge-031", "BL-forge-034"],
-        ["BL-forge-032", "BL-forge-035"]
-      ],
-      "critical_path": ["BL-forge-028", "BL-forge-029", "BL-forge-034"],
-      "critical_path_weight": 8,
-      "milestone": "Specs générées (score ≥ seuil) pour un projet d'essai ; exécution enchaînée."
-    },
-    {
-      "version": "1.0.0",
-      "default_trust_level": "L2",
-      "workers_default": 3,
-      "waves": [
-        ["BL-forge-046", "BL-forge-065", "BL-forge-066", "BL-forge-067"],
-        ["BL-forge-048"]
-      ],
-      "critical_path": ["BL-forge-046"],
-      "critical_path_weight": 5,
-      "milestone": "Durcissement final : crash-safety éprouvée et documentation d'exploitation complète."
-    },
-    {
-      "version": "1.1.0",
-      "default_trust_level": "L2",
-      "workers_default": 3,
-      "waves": [
-        ["BL-forge-071"],
-        ["BL-forge-072", "BL-forge-073"],
-        ["BL-forge-074", "BL-forge-075", "BL-forge-081"],
-        ["BL-forge-076"],
-        ["BL-forge-077", "BL-forge-078"],
-        ["BL-forge-079", "BL-forge-080"]
-      ],
-      "critical_path": ["BL-forge-071", "BL-forge-074", "BL-forge-077"],
-      "critical_path_weight": 6,
-      "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé."
-    }
-  ],
-  "critical_bls": [
-    "BL-forge-001",
-    "BL-forge-002",
-    "BL-forge-004",
-    "BL-forge-005",
-    "BL-forge-009",
-    "BL-forge-011",
-    "BL-forge-014",
-    "BL-forge-015",
-    "BL-forge-006",
-    "BL-forge-012",
-    "BL-forge-013",
-    "BL-forge-016",
-    "BL-forge-017",
-    "BL-forge-021",
-    "BL-forge-024",
-    "BL-forge-036",
-    "BL-forge-037",
-    "BL-forge-040",
-    "BL-forge-041",
-    "BL-forge-042",
-    "BL-forge-028",
-    "BL-forge-033",
-    "BL-forge-034",
-    "BL-forge-046",
-    "BL-forge-049",
-    "BL-forge-050",
-    "BL-forge-051",
-    "BL-forge-052",
-    "BL-forge-053",
-    "BL-forge-054",
-    "BL-forge-055",
-    "BL-forge-059",
-    "BL-forge-062",
-    "BL-forge-070"
   ]
 }

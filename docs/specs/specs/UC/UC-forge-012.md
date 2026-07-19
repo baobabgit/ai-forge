@@ -3,12 +3,12 @@ id: UC-forge-012
 type: UC
 parent: null
 library: ai-forge
-status: TODO
+status: DONE
 gates:
   auto: []
   ai_judged:
-    - "Toutes les FEAT enfants sont GO"
-    - "Les 42 FEAT et 11 UC historiques sont status DONE avec gates EXG-SPE-07 documentées"
+  - Toutes les FEAT enfants sont GO
+  - Les 42 FEAT et 11 UC historiques sont status DONE avec gates EXG-SPE-07 documentées
 ---
 
 # UC-forge-012 — Clôturer la hiérarchie de specs post-v1.0.0

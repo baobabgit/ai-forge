@@ -3,12 +3,13 @@ id: UC-forge-007
 type: UC
 parent: null
 library: ai-forge
-status: TODO
+status: DONE
 gates:
   auto: []
   ai_judged:
-    - "Toutes les FEAT enfants sont GO"
-    - "Le scénario de bout en bout du UC est exécuté et validé par une IA n'ayant pas développé"
+  - Toutes les FEAT enfants sont GO
+  - Le scénario de bout en bout du UC est exécuté et validé par une IA n'ayant pas
+    développé
 ---
 
 # UC-forge-007 — Planifier le développement (DAG, vagues, chemin critique)
