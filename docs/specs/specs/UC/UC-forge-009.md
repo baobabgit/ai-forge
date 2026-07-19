@@ -4,12 +4,13 @@ type: UC
 parent: null
 library: ai-forge
 target_version: 0.4.0
-status: TODO
+status: DONE
 gates:
   auto: []
   ai_judged:
-    - "Toutes les FEAT enfants sont GO"
-    - "Le scénario de bout en bout du UC est exécuté et validé par une IA n'ayant pas développé"
+  - Toutes les FEAT enfants sont GO
+  - Le scénario de bout en bout du UC est exécuté et validé par une IA n'ayant pas
+    développé
 ---
 
 # UC-forge-009 — Gérer le multi-repo, les versions et les jalons

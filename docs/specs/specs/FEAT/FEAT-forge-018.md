@@ -4,13 +4,14 @@ type: FEAT
 parent: UC-forge-006
 library: ai-forge
 target_version: 0.5.0
-status: TODO
+status: DONE
 gates:
   auto: []
   ai_judged:
-    - "Tous les BL enfants sont DONE"
-    - "Les tests d'intégration de la feature sont verts"
-    - "Le comportement Given/When/Then est validé par une IA n'ayant pas développé la feature"
+  - Tous les BL enfants sont DONE
+  - Les tests d'intégration de la feature sont verts
+  - Le comportement Given/When/Then est validé par une IA n'ayant pas développé la
+    feature
 ---
 
 # FEAT-forge-018 — Phase 2 : génération et contre-relecture des specs
