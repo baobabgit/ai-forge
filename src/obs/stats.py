@@ -17,6 +17,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from src.providers.scoring import ProviderRoleStats
+from src.state.db import EventRecord
+
 #: Normalized invocation outcomes tracked in the statistics (ProviderStatus).
 INVOCATION_STATUSES: tuple[str, ...] = ("OK", "EXHAUSTED", "ERROR", "TIMEOUT")
 
@@ -269,3 +272,93 @@ def _effectiveness_sort_key(group: GroupStats) -> tuple[float, float, float, str
         group.average_duration_seconds,
         group.key,
     )
+
+
+#: GO/NO-GO verdict events feeding the per-size effectiveness statistics.
+_VERDICT_EVENTS: Mapping[str, bool] = {
+    "TEST_GO": True,
+    "REVIEW_GO": True,
+    "TEST_NO_GO": False,
+    "REVIEW_NO_GO": False,
+}
+
+
+def verdict_counts_from_events(events: Iterable[EventRecord]) -> dict[str, tuple[int, int]]:
+    """Count GO / NO-GO verdicts per backlog item from journal events.
+
+    ``TEST_GO``/``REVIEW_GO`` increment the GO count, ``TEST_NO_GO``/
+    ``REVIEW_NO_GO`` the NO-GO count (EXG-SCO-01).
+
+    :param events: Journal events of a run.
+    :returns: Mapping of backlog id to ``(go, no_go)`` counts.
+    """
+    counts: dict[str, tuple[int, int]] = {}
+    for event in events:
+        outcome = _VERDICT_EVENTS.get(event.event_type)
+        if outcome is None or event.bl_id is None:
+            continue
+        go, no_go = counts.get(event.bl_id, (0, 0))
+        counts[event.bl_id] = (go + 1, no_go) if outcome else (go, no_go + 1)
+    return counts
+
+
+def provider_role_size_stats(
+    records: Sequence[InvocationRecord],
+    *,
+    sizes: Mapping[str, str],
+    verdicts: Mapping[str, tuple[int, int]],
+    default_size: str = "M",
+) -> dict[tuple[str, str, str], ProviderRoleStats]:
+    """Aggregate persisted invocations per provider, role and backlog size.
+
+    This is the EXG-SCO-02 enrichment of the consumption statistics: each
+    invocation lands in its ``(provider, role, size)`` bucket (size from the
+    backlog frontmatter, ``default_size`` when unknown), accumulating samples,
+    exhaustions, induced iterations and durations. GO/NO-GO verdict counts are
+    imputed to the **last DEV invocation's provider** for each backlog item —
+    the verdict judges the produced diff, and the last DEV invocation is the
+    one whose output was judged.
+
+    :param records: Journaled invocation records (:func:`parse_invocation_records`).
+    :param sizes: Backlog id to size bucket (``S``/``M``/``L``).
+    :param verdicts: Backlog id to ``(go, no_go)`` counts
+        (:func:`verdict_counts_from_events`).
+    :param default_size: Size bucket used when a backlog id is unknown.
+    :returns: Mapping of ``(provider, role, size)`` to its statistics.
+    """
+    accumulators: dict[tuple[str, str, str], dict[str, float]] = {}
+    last_dev: dict[str, InvocationRecord] = {}
+    for record in records:
+        key = (record.provider, record.role, sizes.get(record.bl_id, default_size))
+        entry = accumulators.setdefault(
+            key,
+            {"samples": 0, "go": 0, "no_go": 0, "exhausted": 0, "iters": 0, "duration": 0.0},
+        )
+        entry["samples"] += 1
+        entry["exhausted"] += 1 if record.status == "EXHAUSTED" else 0
+        entry["iters"] += record.induced_iterations
+        entry["duration"] += record.duration_seconds
+        if record.role == "DEV":
+            last_dev[record.bl_id] = record
+    for bl_id, (go, no_go) in verdicts.items():
+        dev_record = last_dev.get(bl_id)
+        if dev_record is None:
+            continue
+        key = (dev_record.provider, "DEV", sizes.get(bl_id, default_size))
+        entry = accumulators[key]
+        entry["go"] += go
+        entry["no_go"] += no_go
+    return {
+        key: ProviderRoleStats(
+            provider=key[0],
+            role=key[1],
+            size=key[2],
+            samples=int(entry["samples"]),
+            go=int(entry["go"]),
+            no_go=int(entry["no_go"]),
+            exhausted=int(entry["exhausted"]),
+            total_iterations=int(entry["iters"]),
+            total_duration_seconds=float(entry["duration"]),
+        )
+        for key, entry in accumulators.items()
+    }
