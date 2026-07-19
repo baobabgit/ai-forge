@@ -154,7 +154,8 @@ def _parse_provider_config(name: str, section: object) -> ProviderConfig:
             f"provider {name!r}: 'model' must be a non-empty string in providers.toml"
         )
 
-    max_concurrency = section.get("max_concurrency", 1)
+    # EXG-PAR-04: the per-provider concurrency ceiling defaults to 2.
+    max_concurrency = section.get("max_concurrency", 2)
     if not isinstance(max_concurrency, int) or max_concurrency < 1:
         raise ProviderRegistryError(f"provider {name!r}: 'max_concurrency' must be an integer >= 1")
 

@@ -30,6 +30,7 @@ from src.phases.execute import (
     SequentialExecutionRequest,
     SequentialExecutionResult,
     SequentialExecutor,
+    build_scheduler_runtime,
 )
 from src.phases.spec_review_loop_result import SpecReviewLoopResult
 from src.phases.specify import SpecifyPhase, run_spec_review_loop
@@ -52,10 +53,9 @@ from src.roles.spec_derivation_request import SpecDerivationRequest
 from src.roles.spec_review import SpecReviewRole, assign_review_provider
 from src.roles.spec_role_error import SpecRoleError
 from src.roles.use_case_spec import UseCaseSpec
+from src.scheduler.degradation_policy import DegradationPolicy
 from src.scheduler.loop import (
     BlOutcome,
-    SchedulerConfig,
-    SchedulerLoop,
     SchedulerReport,
     initial_statuses,
 )
@@ -628,27 +628,36 @@ async def run_scheduler(
             record = await database.get_bl_status(bl.id)
             if record is not None:
                 persisted[bl.id] = record.status
+
+        runner = _SchedulerBlRunner(
+            forge_dir=forge_dir,
+            providers_config=providers_config,
+            provider_name=provider_name,
+            dry_run=dry_run,
+        )
+        async with WorktreeManager(repo_root, state_path) as manager:
+            provisioner = _SchedulerWorktreeProvisioner(manager, run_id)
+            stop_event = asyncio.Event()
+            _install_sigint_handler(stop_event)
+            # Fully wired runtime (BL-forge-077): journaling emit sink plus the
+            # pause, degradation, eligibility and provider-ceiling policies. The
+            # degradation policy's per-repo ceiling is aligned on the requested
+            # worker count so the default never silently caps the run.
+            scheduler = build_scheduler_runtime(
+                index=index,
+                runner=runner,
+                provisioner=provisioner,
+                initial_statuses=initial_statuses(index, persisted),
+                database=database,
+                run_id=run_id,
+                workers=workers,
+                provider=provider_name,
+                repo=repo_root.name,
+                degradation=DegradationPolicy(default_repo_workers=max(workers, 1)),
+            )
+            return await scheduler.run(stop_event=stop_event)
     finally:
         await database.close()
-
-    runner = _SchedulerBlRunner(
-        forge_dir=forge_dir,
-        providers_config=providers_config,
-        provider_name=provider_name,
-        dry_run=dry_run,
-    )
-    async with WorktreeManager(repo_root, state_path) as manager:
-        provisioner = _SchedulerWorktreeProvisioner(manager, run_id)
-        stop_event = asyncio.Event()
-        _install_sigint_handler(stop_event)
-        scheduler = SchedulerLoop(
-            index=index,
-            runner=runner,
-            provisioner=provisioner,
-            initial_statuses=initial_statuses(index, persisted),
-            config=SchedulerConfig(workers=workers),
-        )
-        return await scheduler.run(stop_event=stop_event)
 
 
 def _run_scheduler_command(
@@ -730,7 +739,18 @@ def run_command(
     ),
 ) -> None:
     """Run one backlog item (--bl) or the multi-worker scheduler (--workers N)."""
-    if bl_id is None or workers > 1:
+    if bl_id is not None and workers > 1:
+        # A targeted backlog item runs on exactly one worker: the combination
+        # is incompatible and silently ignoring --bl would over-schedule.
+        _handle_cli_error(
+            ForgeCliError(
+                ExitCode.USER_ERROR,
+                "--bl et --workers > 1 sont incompatibles : un BL ciblé "
+                "s'exécute sur un seul worker (omettez --workers, ou omettez "
+                "--bl pour lancer le scheduler multi-workers)",
+            )
+        )
+    if bl_id is None:
         _run_scheduler_command(
             forge_dir=forge_dir,
             repo_root=repo_root,
