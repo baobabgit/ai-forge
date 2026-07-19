@@ -8,19 +8,41 @@ commandes s'exécutent à la racine du dépôt via `uv run forge …`.
 ```
 forge doctor                # 0. environnement sain
 forge init <cdc.md>         # 1. initialiser l'etat du run
-forge validate-specs        # 2. valider l'arbre de specs (UC/FEAT/BL)
-forge plan                  # 3. publier planning.json / planning.md
-forge run --workers N       # 4. executer les BL prets (ou --bl <id>)
-forge status --watch        # 5. suivre le run en temps reel
-forge report                # 6. rapport Markdown de fin de run
+forge architect --cdc <cdc> # 2. phase 1 : architecture multi-librairies
+forge spec --library <lib>  # 3. phase 2 : UC/FEAT/BL generes et contre-relus
+forge validate-specs        # 4. valider l'arbre de specs (UC/FEAT/BL)
+forge plan                  # 5. publier planning.json / planning.md
+forge run --workers N       # 6. executer les BL prets (ou --bl <id>)
+forge status --watch        # 7. suivre le run en temps reel
+forge report                # 8. rapport Markdown de fin de run
 ```
 
-> **Périmètre v1.0.0 :** les phases amont ARCHITECT (CDC → architecture
-> multi-librairies) et SPEC (génération/contre-relecture des UC/FEAT/BL) sont
-> livrées comme modules moteur (`src/phases/architect.py`,
-> `src/phases/specify.py`) et testées, mais ne sont **pas encore exposées**
-> comme commandes CLI dédiées. Le flux CLI opérationnel part de specs déjà
-> présentes sous `docs/specs/specs/` (racine surchargeable par `--specs-root`).
+> Depuis la v1.1.0, les phases amont ARCHITECT et SPEC sont exposées comme
+> commandes CLI (`forge architect`, `forge spec`). Un projet dont les specs
+> existent déjà sous `docs/specs/specs/` (racine surchargeable par
+> `--specs-root`) peut démarrer directement à l'étape 4.
+
+## 1 bis. Phases amont : architecture et spécifications
+
+```bash
+# Phase 1 — CDC d'entree -> architecture multi-librairies :
+uv run forge architect --cdc docs/specs/cahier-des-charges.md --provider claude
+
+# Phase 2 — CDC de librairie -> UC/FEAT/BL contre-relus :
+uv run forge spec --library ma-lib --provider claude
+```
+
+- `forge architect` : boucle produire/contre-relire de la phase 1, écrit
+  `architecture.md`, `milestones.md` et les CDC de librairies
+  (`--output-dir`, défaut racine du dépôt) ; artefacts archivés sous
+  `--forge-dir`.
+- `forge spec` : génère les UC puis dérive FEAT/BL pour `--library`, chaque
+  lot étant contre-relu par un provider différent avant écriture sous
+  `--specs-root` (défaut `docs/specs/specs`) ; `--cdc` pointe le CDC de la
+  librairie (défaut `docs/cdc/<library>.md`).
+- Les deux commandes acceptent `--provider` (**défaut `mock`**, provider de
+  test déterministe — précisez un provider réel), `--providers-config`,
+  `--dry-run`, `--forge-dir` et `--repo-root`.
 
 ## 2. Initialisation
 
