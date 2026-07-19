@@ -12,7 +12,9 @@ assignment without a restart.
 
 from __future__ import annotations
 
+import tomllib
 from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 
 from src.core.models.role import Role
 from src.core.models.role_assignment import RoleAssignment
@@ -23,6 +25,10 @@ ASSIGNED_ROLES: tuple[Role, ...] = (Role.DEV, Role.TESTER, Role.REVIEWER)
 
 #: Configuration key toggling the score strategy (rotation stays the default).
 SCORE_CONFIG_KEY = "score_assignment"
+
+#: ``forge.toml`` section and key gating persisted-stats scoring (EXG-SCO-02).
+SCORING_SECTION = "scoring"
+SCORING_ENABLED_KEY = "enabled"
 
 #: Lookup returning the stats for a provider/role/size, or ``None`` when unknown.
 StatsLookup = Callable[[str, Role, str], ProviderRoleStats | None]
@@ -157,3 +163,64 @@ def _unique(providers: Sequence[str]) -> tuple[str, ...]:
             seen.add(normalized)
             ordered.append(normalized)
     return tuple(ordered)
+
+
+def load_scoring_enabled(config_path: Path) -> bool:
+    """Return whether score-based assignment is enabled in ``forge.toml``.
+
+    Reads the ``[scoring] enabled`` key (EXG-SCO-02: opt-in, disabled by
+    default). Every doubt resolves to ``False``: missing file, missing section,
+    unreadable TOML or a non-boolean value all keep the rotation strategy.
+
+    :param config_path: Path to ``forge.toml``.
+    :returns: ``True`` only when ``enabled`` is explicitly ``true``.
+    """
+    if not config_path.is_file():
+        return False
+    try:
+        with config_path.open("rb") as handle:
+            payload = tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError):
+        return False
+    section = payload.get(SCORING_SECTION)
+    if not isinstance(section, dict):
+        return False
+    return section.get(SCORING_ENABLED_KEY) is True
+
+
+def persisted_stats_lookup(
+    table: Mapping[tuple[str, str, str], ProviderRoleStats],
+) -> StatsLookup:
+    """Adapt a persisted ``(provider, role, size)`` table to a stats lookup.
+
+    :param table: Aggregated statistics, e.g. from
+        :func:`src.obs.stats.provider_role_size_stats`.
+    :returns: A lookup suitable for :meth:`ScoreRoleAssigner.assign`.
+    """
+
+    def lookup(provider: str, role: Role, size: str) -> ProviderRoleStats | None:
+        return table.get((provider, role.value, size))
+
+    return lookup
+
+
+def build_persisted_score_assigner(
+    *,
+    config_path: Path,
+    stats_table: Mapping[tuple[str, str, str], ProviderRoleStats],
+    exploration_floor: float = 0.0,
+) -> tuple[ScoreRoleAssigner, StatsLookup] | None:
+    """Build a score assigner fed by persisted statistics, when enabled.
+
+    :param config_path: Path to ``forge.toml`` (``[scoring] enabled`` gate).
+    :param stats_table: Persisted ``(provider, role, size)`` statistics.
+    :param exploration_floor: Exploration floor forwarded to the assigner.
+    :returns: The assigner and its lookup, or ``None`` when scoring is
+        disabled (the caller keeps the load-balanced rotation).
+    """
+    if not load_scoring_enabled(config_path):
+        return None
+    return (
+        ScoreRoleAssigner(exploration_floor=exploration_floor),
+        persisted_stats_lookup(stats_table),
+    )
