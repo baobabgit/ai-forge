@@ -652,6 +652,22 @@
       "size": "S",
       "critical": false,
       "title": "Typage BLId pour depends_on BacklogSpec"
+    },
+    "BL-forge-082": {
+      "library": "ai-forge",
+      "version": "1.2.0",
+      "milestone": "",
+      "size": "M",
+      "critical": false,
+      "title": "Attribution multi-provider des rôles dans SequentialExecutor"
+    },
+    "BL-forge-083": {
+      "library": "ai-forge",
+      "version": "1.2.0",
+      "milestone": "",
+      "size": "M",
+      "critical": false,
+      "title": "Bascule provider automatique sur épuisement dans SequentialExecutor"
     }
   },
   "versions": [
@@ -788,6 +804,22 @@
       ],
       "critical_path_weight": 5,
       "milestone": "Produit opérable de bout en bout : clôture specs, CLI architect/spec, scheduler runtime câblé."
+    },
+    {
+      "version": "1.2.0",
+      "default_trust_level": "L2",
+      "workers_default": 3,
+      "waves": [
+        [
+          "BL-forge-082"
+        ],
+        [
+          "BL-forge-083"
+        ]
+      ],
+      "critical_path": [],
+      "critical_path_weight": 0,
+      "milestone": ""
     }
   ],
   "critical_bls": [

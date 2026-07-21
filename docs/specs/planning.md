@@ -87,6 +87,15 @@ _Généré le 2026-07-21._
 
 **Chemin critique** (poids 5) : BL-forge-001 → BL-forge-002 → BL-forge-009 → BL-forge-014 → BL-forge-015 → BL-forge-021 → BL-forge-038 → BL-forge-046 → BL-forge-048 → BL-forge-071 → BL-forge-072 → BL-forge-073
 
+## Version v1.2.0 — 2 BL · L2 · 3 workers
+
+| Vague | BL parallélisables | Tailles |
+|---|---|---|
+| 1 | BL-forge-082 — Attribution multi-provider des rôles dans SequentialExecutor | M |
+| 2 | BL-forge-083 — Bascule provider automatique sur épuisement dans SequentialExecutor | M |
+
+**Chemin critique** (poids 0) : _aucun_
+
 ---
 
 ## Chemin critique global
@@ -128,4 +137,4 @@ BL-forge-001 → BL-forge-002 → BL-forge-009 → BL-forge-014 → BL-forge-015
 | **BL-forge-034** | v0.5.0 | Ordonnancement par vagues et chemin critique |
 | **BL-forge-046** | v1.0.0 | Crash-safety éprouvée |
 
-_Total : 81 BL._
+_Total : 83 BL._
