@@ -3,12 +3,13 @@ id: UC-forge-014
 type: UC
 parent: null
 library: ai-forge
-status: TODO
+status: DONE
 gates:
   auto: []
   ai_judged:
-    - "Toutes les FEAT enfants sont GO"
-    - "Le scheduler runtime applique score, dégradation, pause et journalisation emit en run réel"
+  - Toutes les FEAT enfants sont GO
+  - Le scheduler runtime applique score, dégradation, pause et journalisation emit
+    en run réel
 ---
 
 # UC-forge-014 — Intégrer les politiques runtime post-v1.0.0
