@@ -2,6 +2,38 @@
 
 All notable changes to this project are documented in this file.
 
+## v1.1.0
+
+### Added
+
+- Commande `forge close-spec` et clôture par lot des FEAT/UC (EXG-SPE-07)
+  (`BL-forge-071`, `BL-forge-072`, `BL-forge-073`).
+- Commandes CLI des phases amont : `forge architect` (phase 1) et
+  `forge spec` (phase 2) (`BL-forge-074`, `BL-forge-075`).
+- Câblage runtime du scheduler : score d'éligibilité, dégradation contrôlée,
+  pause ciblée et plafond de concurrence par provider appliqués dans la boucle,
+  avec journalisation des événements (`BL-forge-077`).
+- Adaptateur de statistiques persistées pour l'attribution des rôles par score,
+  activable via `[scoring] enabled` (`BL-forge-079`).
+
+### Changed
+
+- `README.md` racine et alignement de `docs/operations.md` sur les nouvelles
+  commandes (`BL-forge-076`).
+- `forge run --bl X --workers N>1` rejeté explicitement ; défaut
+  `max_concurrency` aligné sur EXG-PAR-04 (2) (`BL-forge-078`).
+
+### Fixed
+
+- `SchedulerLoop` annule proprement les tâches sœurs sur exception d'un worker ;
+  `SpecifyPhase` élague les UC obsolètes en cas de non-convergence
+  (`BL-forge-080`).
+- Typage de `BacklogSpec.depends_on` en `BLId` (`BL-forge-081`).
+
+### Quality
+
+- Couverture de tests `src/` >= 95 % au tag de version.
+
 ## v1.0.0
 
 ### Added
