@@ -3,12 +3,12 @@ id: UC-forge-013
 type: UC
 parent: null
 library: ai-forge
-status: TODO
+status: DONE
 gates:
   auto: []
   ai_judged:
-    - "Toutes les FEAT enfants sont GO"
-    - "Le scénario init → architect → spec → plan → run est opérable en CLI sans contournement"
+  - Toutes les FEAT enfants sont GO
+  - Le scénario init → architect → spec → plan → run est opérable en CLI sans contournement
 ---
 
 # UC-forge-013 — Rendre le flux CDC opérable en CLI

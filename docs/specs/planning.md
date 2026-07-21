@@ -5,7 +5,7 @@
 Granularité : **BL**. Pondération taille : S=1, M=2, L=4 (S ≈ 0,5 j-agent, M ≈ 1 j, L ≈ 2 j).
 Les versions sont **strictement séquentielles** ; à l'intérieur d'une version, les BL d'une même vague sont **développables en parallèle** (dans la limite des workers).
 
-_Généré le 2026-07-19._
+_Généré le 2026-07-21._
 
 ## Version v0.1.0 — 10 BL · L0 · 1 worker
 **Jalon de sortie :** Un BL manuel déroulé de bout en bout en dry-run/mock, rejouable, journal exploitable.
@@ -84,7 +84,6 @@ _Généré le 2026-07-19._
 
 | Vague | BL parallélisables | Tailles |
 |---|---|---|
-| 1 | BL-forge-076 — README racine et alignement operations<br>BL-forge-077 — Câblage runtime SchedulerLoop<br>BL-forge-078 — Correctifs forge run --bl et max_concurrency<br>BL-forge-079 — Adaptateur stats pour ScoreRoleAssigner<br>BL-forge-080 — Annulation tâches sœurs et élagage SpecifyPhase | S, L, M, M, M |
 
 **Chemin critique** (poids 5) : BL-forge-001 → BL-forge-002 → BL-forge-009 → BL-forge-014 → BL-forge-015 → BL-forge-021 → BL-forge-038 → BL-forge-046 → BL-forge-048 → BL-forge-071 → BL-forge-072 → BL-forge-073
 
