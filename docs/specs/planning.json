@@ -3,7 +3,7 @@
   "cdc_version": "1.4",
   "cdc_reference": "docs/specs/cahier-des-charges-ai-forge-v1.4.md",
   "schema_version": 2,
-  "generated_at": "2026-07-19",
+  "generated_at": "2026-07-21",
   "backlog": {
     "BL-forge-001": {
       "library": "ai-forge",
@@ -771,15 +771,7 @@
       "version": "1.1.0",
       "default_trust_level": "L2",
       "workers_default": 3,
-      "waves": [
-        [
-          "BL-forge-076",
-          "BL-forge-077",
-          "BL-forge-078",
-          "BL-forge-079",
-          "BL-forge-080"
-        ]
-      ],
+      "waves": [],
       "critical_path": [
         "BL-forge-001",
         "BL-forge-002",
