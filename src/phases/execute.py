@@ -20,6 +20,7 @@ from src.contracts.escalation_report import (
 )
 from src.core.models.bl import BL
 from src.core.models.go_no_go import GoNoGo
+from src.core.models.role import Role
 from src.core.models.status import Status
 from src.core.models.verdict import Verdict
 from src.core.specparser import SpecIndex, read_spec
@@ -38,7 +39,7 @@ from src.phases.escalation import (
 from src.policy.approval_queue import ApprovalQueue
 from src.policy.pending_action import PendingActionStatus
 from src.policy.trust_level import ActionKind
-from src.providers.base import Provider
+from src.providers.base import Provider, ProviderHealth, ProviderResult, RoleTask
 from src.roles.dev import DevCorrectionContext, DevRole, DevRoleRequest, resolve_scope
 from src.roles.integrator import IntegratorRole, IntegratorRoleRequest
 from src.roles.reviewer import ReviewerRole, ReviewerRoleRequest
@@ -46,6 +47,7 @@ from src.roles.tester import TesterRole, TesterRoleRequest
 from src.scheduler.assignment import assign_roles
 from src.scheduler.degradation_policy import DegradationPolicy
 from src.scheduler.eligibility_score import EligibilityScorer
+from src.scheduler.failover import NoAvailableProviderError, ProviderFailover
 from src.scheduler.limits import ProviderConcurrencyLimiter
 from src.scheduler.loop import (
     BlRunner,
@@ -115,6 +117,7 @@ class SequentialExecutionRequest:
     run_manifest_path: Path | None = None
     providers: _Mapping[str, Provider] | None = None
     provider_names: tuple[str, ...] = ()
+    providers_config: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,6 +164,85 @@ class _MergeAwaitingApproval(Exception):
     def __init__(self, pending_action_id: str | None) -> None:
         """Remember the queued approval identifier when available."""
         self.pending_action_id = pending_action_id
+
+
+class _FailoverProvider:
+    """Provider proxy applying quota failover around a role execution (EXG-QUO-02).
+
+    The proxy satisfies the :class:`~src.providers.base.Provider` protocol and
+    delegates :meth:`execute` to :class:`ProviderFailover`: when the assigned
+    provider returns ``EXHAUSTED`` mid-task it is marked exhausted, the switch is
+    journalised, the worktree is reset for writing roles, and the task is replayed
+    on the next available provider. The role wrapping the proxy then parses the
+    winning result unchanged. Identity mirrors the initially assigned provider.
+    """
+
+    def __init__(
+        self,
+        *,
+        failover: ProviderFailover,
+        delegate: Provider,
+        run_id: str,
+        bl_id: str,
+        role: Role,
+        providers: _Mapping[str, Provider],
+        provider_names: tuple[str, ...],
+        baseline_ref: str | None,
+    ) -> None:
+        """Bind the proxy to the failover engine and the assigned provider.
+
+        :param failover: Failover engine bound to the state store and quota config.
+        :param delegate: Initially assigned provider (identity and first attempt).
+        :param run_id: Owning run identifier.
+        :param bl_id: Backlog item under execution.
+        :param role: Workflow role the wrapped provider serves.
+        :param providers: Provider adapters keyed by name for failover selection.
+        :param provider_names: Failover order among configured providers.
+        :param baseline_ref: Pre-role commit for worktree reset (writing roles only).
+        """
+        self._failover = failover
+        self._delegate = delegate
+        self._run_id = run_id
+        self._bl_id = bl_id
+        self._role = role
+        self._providers = providers
+        self._provider_names = provider_names
+        self._baseline_ref = baseline_ref
+
+    @property
+    def name(self) -> str:
+        """Return the assigned provider's name."""
+        return self._delegate.name
+
+    @property
+    def model(self) -> str:
+        """Return the assigned provider's model."""
+        return self._delegate.model
+
+    async def execute(self, task: RoleTask, workdir: Path) -> ProviderResult:
+        """Run ``task`` with automatic provider failover on exhaustion.
+
+        :param task: Rendered role task, reused across failover attempts.
+        :param workdir: Git worktree the role executes in.
+        :returns: The winning (non-exhausted) provider result.
+        :raises NoAvailableProviderError: When every provider is exhausted.
+        """
+        outcome = await self._failover.run(
+            run_id=self._run_id,
+            bl_id=self._bl_id,
+            role=self._role,
+            workdir=workdir,
+            baseline_ref=self._baseline_ref,
+            provider_names=self._provider_names,
+            providers=self._providers,
+            task=task,
+            initial_provider=self._delegate.name,
+        )
+        return outcome.result
+
+    async def health_check(self) -> ProviderHealth:
+        """Delegate the health check to the assigned provider."""
+        return await self._delegate.health_check()
 
 
 class SequentialExecutor:
@@ -213,6 +295,41 @@ class SequentialExecutor:
                 )
             resolved.append(adapter)
         return resolved[0], resolved[1], resolved[2]
+
+    def _failover_wrap(
+        self,
+        request: SequentialExecutionRequest,
+        *,
+        role: Role,
+        assigned: Provider,
+        baseline_ref: str | None,
+    ) -> Provider:
+        """Wrap ``assigned`` in a failover proxy when quota failover is enabled.
+
+        Failover is enabled only for a multi-provider run whose quota config is
+        known (``providers`` map, ``provider_names`` and ``providers_config`` all
+        set). Otherwise — a single-provider legacy run, or a role-assignment-only
+        run without a config path — the assigned provider is returned unchanged.
+
+        :param request: Execution parameters carrying the provider wiring.
+        :param role: Workflow role the provider serves.
+        :param assigned: Provider attributed to the role by :func:`assign_roles`.
+        :param baseline_ref: Pre-role commit for worktree reset (writing roles only).
+        :returns: The assigned provider, or a failover proxy around it.
+        """
+        if not request.providers or not request.provider_names or request.providers_config is None:
+            return assigned
+        failover = ProviderFailover(db=self._database, config_path=request.providers_config)
+        return _FailoverProvider(
+            failover=failover,
+            delegate=assigned,
+            run_id=request.run_id,
+            bl_id=request.bl_id,
+            role=role,
+            providers=request.providers,
+            provider_names=request.provider_names,
+            baseline_ref=baseline_ref,
+        )
 
     async def execute(self, request: SequentialExecutionRequest) -> SequentialExecutionResult:
         """Execute or resume the sequential chain for ``request.bl_id``.
@@ -289,7 +406,14 @@ class SequentialExecutor:
                         )
                     elif step is ExecutionStep.DEV:
                         dev_baseline = _git_head(repo, dry_run=request.dry_run)
-                        dev = DevRole(dev_provider)
+                        dev = DevRole(
+                            self._failover_wrap(
+                                request,
+                                role=Role.DEV,
+                                assigned=dev_provider,
+                                baseline_ref=dev_baseline,
+                            )
+                        )
                         dev_result = await dev.run(
                             DevRoleRequest(
                                 spec_path=request.spec_path,
@@ -383,7 +507,14 @@ class SequentialExecutor:
                                     ),
                                 )
                         else:
-                            tester = TesterRole(tester_provider)
+                            tester = TesterRole(
+                                self._failover_wrap(
+                                    request,
+                                    role=Role.TESTER,
+                                    assigned=tester_provider,
+                                    baseline_ref=None,
+                                )
+                            )
                             tester_result = await tester.run(
                                 TesterRoleRequest(
                                     spec_path=request.spec_path,
@@ -470,7 +601,14 @@ class SequentialExecutor:
                                 details={"verdict": Verdict.GO.value, "dry_run": True},
                             )
                         else:
-                            reviewer = ReviewerRole(reviewer_provider)
+                            reviewer = ReviewerRole(
+                                self._failover_wrap(
+                                    request,
+                                    role=Role.REVIEWER,
+                                    assigned=reviewer_provider,
+                                    baseline_ref=None,
+                                )
+                            )
                             review_result = await reviewer.run(
                                 ReviewerRoleRequest(
                                     spec_path=request.spec_path,
@@ -551,6 +689,10 @@ class SequentialExecutor:
                         after_event_id=epoch_event_id,
                     )
                 break
+            except NoAvailableProviderError as exhausted:
+                # Every provider is exhausted mid-cycle: surface it as an
+                # execution error so the caller runs the EXG-QUO-03 clean stop.
+                raise ExecutionError(step, str(exhausted)) from exhausted
             except _CorrectionRestart as restart:
                 epoch_event_id = restart.epoch_event_id
                 continue

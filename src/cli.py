@@ -304,6 +304,7 @@ async def run_bl(
                     dry_run=dry_run,
                     providers=providers,
                     provider_names=tuple(providers),
+                    providers_config=config_path,
                 )
             )
         except ExecutionError as error:
