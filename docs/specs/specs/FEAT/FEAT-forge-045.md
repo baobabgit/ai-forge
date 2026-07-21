@@ -4,13 +4,14 @@ type: FEAT
 parent: UC-forge-014
 library: ai-forge
 target_version: 1.1.0
-status: TODO
+status: DONE
 gates:
   auto: []
   ai_judged:
-    - "Tous les BL enfants sont DONE"
-    - "Les tests d'intégration de la feature sont verts"
-    - "Le comportement Given/When/Then est validé par une IA n'ayant pas développé la feature"
+  - Tous les BL enfants sont DONE
+  - Les tests d'intégration de la feature sont verts
+  - Le comportement Given/When/Then est validé par une IA n'ayant pas développé la
+    feature
 ---
 
 # FEAT-forge-045 — Câblage runtime du scheduler
@@ -22,8 +23,8 @@ Intégrer EligibilityScore, DegradationPolicy, PauseController et ProviderConcur
 
 ## Comportement attendu (Given / When / Then)
 - **Given** un run multi-workers avec politiques configurées
-- **When** `forge run --workers 2 --bl BL-forge-001` est lancé
-- **Then** seul le BL ciblé est planifié, les événements scheduler sont journalisés, et les plafonds provider sont respectés
+- **When** `forge run --workers 2` est lancé (mode scheduler), ou `forge run --bl BL-forge-001 --workers 2` (combinaison ciblée)
+- **Then** en mode scheduler, les BL prêts sont planifiés et exécutés, les événements scheduler sont journalisés et les plafonds de concurrence par provider sont respectés ; la combinaison `--bl` + `--workers > 1` est rejetée avec un message explicite (un BL ciblé s'exécute sur un seul worker)
 
 ## BL enfants
 - BL-forge-077
