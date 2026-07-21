@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented in this file.
 
+## v1.2.0
+
+### Added
+
+- Attribution multi-provider des rôles (DEV / TESTER / REVIEWER) dans
+  `SequentialExecutor`, avec séparation des providers et compatibilité
+  mono-provider préservée (`BL-forge-082`).
+- Bascule automatique de provider sur épuisement en cours de tâche
+  (EXG-QUO-02) : marquage EXHAUSTED, relance sur le prochain provider,
+  réinitialisation du worktree pour les rôles écrivains, et arrêt propre
+  EXG-QUO-03 uniquement lorsque tous les providers sont épuisés
+  (`BL-forge-083`).
+
+### Specs
+
+- UC-forge-015 / FEAT-forge-047 : intégration multi-provider par rôle et
+  bascule quota dans le flux `forge run`.
+
+### Quality
+
+- Couverture de tests `src/` >= 95 % au tag de version.
+
 ## v1.1.0
 
 ### Added
