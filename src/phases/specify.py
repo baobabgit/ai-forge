@@ -55,6 +55,7 @@ class SpecifyPhase:
         previous_diagnostics: tuple[str, ...] = ()
         use_cases: tuple[UseCaseSpec, ...] = ()
         written: tuple[Path, ...] = ()
+        written_by_id: dict[str, Path] = {}
 
         for iteration in range(1, request.max_iterations + 1):
             try:
@@ -72,12 +73,18 @@ class SpecifyPhase:
             except SpecRoleError as error:
                 if error.code != _CORRECTABLE_CODE:
                     raise
-                # Malformed provider output: feed the diagnostic back (parser -> SPEC).
+                # Malformed provider output: feed the diagnostic back
+                # (parser -> SPEC); earlier files are kept for diagnostics
+                # until a later pass produces a set to reconcile against.
                 previous_diagnostics = (str(error),)
                 use_cases, written = (), ()
                 continue
             use_cases = produce_result.use_cases
             written = write_use_cases(use_cases, uc_dir)
+            prune_stale_use_cases(written_by_id, use_cases)
+            written_by_id.update(
+                {use_case.id: path for use_case, path in zip(use_cases, written, strict=True)}
+            )
             diagnostics = validate_use_case_files(use_cases, written)
             if not diagnostics:
                 return SpecifyPhaseResult(
@@ -96,6 +103,30 @@ class SpecifyPhase:
             written_paths=written,
             diagnostics=previous_diagnostics,
         )
+
+
+def prune_stale_use_cases(
+    written_by_id: dict[str, Path],
+    current: tuple[UseCaseSpec, ...],
+) -> tuple[Path, ...]:
+    """Remove UC files from earlier passes that the current pass dropped.
+
+    When a correction pass produces fewer (or different) use cases than an
+    earlier one, the previously written files would linger as stale specs in
+    the worktree; they are deleted and forgotten (FEAT-forge-046 hardening).
+
+    :param written_by_id: Files written by earlier passes, keyed by UC id;
+        pruned entries are removed in place.
+    :param current: Use cases produced by the current pass.
+    :returns: The removed file paths, in id order.
+    """
+    current_ids = {use_case.id for use_case in current}
+    removed: list[Path] = []
+    for uc_id in sorted(set(written_by_id) - current_ids):
+        path = written_by_id.pop(uc_id)
+        path.unlink(missing_ok=True)
+        removed.append(path)
+    return tuple(removed)
 
 
 def write_use_cases(use_cases: tuple[UseCaseSpec, ...], uc_dir: Path) -> tuple[Path, ...]:

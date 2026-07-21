@@ -184,53 +184,65 @@ class SchedulerLoop:
         peak = 0
         stopped_with_work = False
 
-        while True:
-            ready = [
-                bl_id
-                for bl_id in self._selector.select(self._index, self._statuses)
-                if bl_id not in running and bl_id not in outcomes
-            ]
-            if not stop.is_set():
-                launchable = await self._launchable(ready, running)
-                ceiling = self._worker_ceiling()
-                while len(in_flight) < ceiling and launchable and not self._provider_saturated():
-                    bl_id = launchable.pop(0)
-                    blocker = self._overlapping_runner(bl_id, running)
-                    if blocker is not None:
-                        # A sibling claimed an overlapping scope in this same
-                        # pass: serialise (EXG-SCH-02) and journal the deferral.
-                        await self._journal_deferral(
-                            EligibilityDecision(
-                                bl_id=bl_id,
-                                score=0.0,
-                                eligible=False,
-                                reason=f"scope overlaps in-flight {blocker}; serialised",
+        try:
+            while True:
+                ready = [
+                    bl_id
+                    for bl_id in self._selector.select(self._index, self._statuses)
+                    if bl_id not in running and bl_id not in outcomes
+                ]
+                if not stop.is_set():
+                    launchable = await self._launchable(ready, running)
+                    ceiling = self._worker_ceiling()
+                    while (
+                        len(in_flight) < ceiling and launchable and not self._provider_saturated()
+                    ):
+                        bl_id = launchable.pop(0)
+                        blocker = self._overlapping_runner(bl_id, running)
+                        if blocker is not None:
+                            # A sibling claimed an overlapping scope in this same
+                            # pass: serialise (EXG-SCH-02) and journal the deferral.
+                            await self._journal_deferral(
+                                EligibilityDecision(
+                                    bl_id=bl_id,
+                                    score=0.0,
+                                    eligible=False,
+                                    reason=f"scope overlaps in-flight {blocker}; serialised",
+                                )
                             )
-                        )
-                        continue
-                    running.add(bl_id)
-                    started.append(bl_id)
-                    await self._emit("BL_ASSIGNED", {"bl_id": bl_id})
-                    in_flight[asyncio.create_task(self._run_one(bl_id))] = bl_id
-                    peak = max(peak, len(in_flight))
+                            continue
+                        running.add(bl_id)
+                        started.append(bl_id)
+                        await self._emit("BL_ASSIGNED", {"bl_id": bl_id})
+                        in_flight[asyncio.create_task(self._run_one(bl_id))] = bl_id
+                        peak = max(peak, len(in_flight))
 
-            if not in_flight:
-                stopped_with_work = stop.is_set() and bool(ready)
-                break
+                if not in_flight:
+                    stopped_with_work = stop.is_set() and bool(ready)
+                    break
 
-            done, _ = await asyncio.wait(set(in_flight), return_when=asyncio.FIRST_COMPLETED)
-            for task in done:
-                bl_id = in_flight.pop(task)
-                running.discard(bl_id)
-                outcome = task.result()
-                outcomes[bl_id] = outcome
-                self._statuses[bl_id] = Status.DONE if outcome is BlOutcome.DONE else Status.BLOCKED
-                await self._emit("WORKER_STOPPED", {"bl_id": bl_id, "outcome": outcome.value})
-
-        if self._degradation is not None:
-            # Progressive return (EXG-SCH-03): the end of the run lifts the
-            # per-repo worker reductions accumulated during the wave.
-            self._degradation.end_wave()
+                done, _ = await asyncio.wait(set(in_flight), return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    bl_id = in_flight.pop(task)
+                    running.discard(bl_id)
+                    outcome = task.result()
+                    outcomes[bl_id] = outcome
+                    self._statuses[bl_id] = (
+                        Status.DONE if outcome is BlOutcome.DONE else Status.BLOCKED
+                    )
+                    await self._emit("WORKER_STOPPED", {"bl_id": bl_id, "outcome": outcome.value})
+        finally:
+            if in_flight:
+                # An unexpected exception escaped the loop (typically re-raised
+                # by ``task.result()``): cancel the sibling workers and await
+                # them so no task outlives the run (FEAT-forge-046).
+                for task in in_flight:
+                    task.cancel()
+                await asyncio.gather(*in_flight, return_exceptions=True)
+            if self._degradation is not None:
+                # Progressive return (EXG-SCH-03): the end of the run — even a
+                # failed one — lifts the per-repo worker reductions of the wave.
+                self._degradation.end_wave()
 
         return SchedulerReport(
             outcomes=outcomes,
