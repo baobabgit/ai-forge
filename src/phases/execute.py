@@ -43,6 +43,7 @@ from src.roles.dev import DevCorrectionContext, DevRole, DevRoleRequest, resolve
 from src.roles.integrator import IntegratorRole, IntegratorRoleRequest
 from src.roles.reviewer import ReviewerRole, ReviewerRoleRequest
 from src.roles.tester import TesterRole, TesterRoleRequest
+from src.scheduler.assignment import assign_roles
 from src.scheduler.degradation_policy import DegradationPolicy
 from src.scheduler.eligibility_score import EligibilityScorer
 from src.scheduler.limits import ProviderConcurrencyLimiter
@@ -112,6 +113,8 @@ class SequentialExecutionRequest:
     max_iterations: int = DEFAULT_MAX_ITERATIONS
     specs_root: Path | None = None
     run_manifest_path: Path | None = None
+    providers: _Mapping[str, Provider] | None = None
+    provider_names: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,6 +172,48 @@ class SequentialExecutor:
         self._machine = BlStateMachine(database)
         self._command_log: gitio.CommandLog = []
 
+    async def _resolve_role_providers(
+        self,
+        request: SequentialExecutionRequest,
+        *,
+        artifacts_root: Path,
+    ) -> tuple[Provider, Provider, Provider]:
+        """Assign DEV, TESTER and REVIEWER providers for the backlog item.
+
+        When ``request.providers`` and ``request.provider_names`` describe a
+        multi-provider run, the three roles are attributed to distinct providers
+        via :func:`assign_roles` (EXG-ROL-02/03): the assignment balances recent
+        load, uses only currently available providers, journals a ``BL_ASSIGNED``
+        event and is idempotent across resumed cycles. With a single configured
+        provider the three roles collapse onto it, and without a provider map the
+        executor keeps its single ``request.provider`` for every role.
+
+        :param request: Execution parameters carrying the optional provider map.
+        :param artifacts_root: Root artifact directory for the JSONL run log.
+        :returns: The DEV, TESTER and REVIEWER provider adapters, in that order.
+        :raises ExecutionError: If an assigned provider is absent from the map.
+        """
+        providers = request.providers
+        if not providers or not request.provider_names:
+            return request.provider, request.provider, request.provider
+        assignments = await assign_roles(
+            self._database,
+            run_id=request.run_id,
+            bl_id=request.bl_id,
+            provider_names=request.provider_names,
+            artifacts_root=artifacts_root,
+        )
+        resolved: list[Provider] = []
+        for assignment in assignments:
+            adapter = providers.get(assignment.provider)
+            if adapter is None:
+                raise ExecutionError(
+                    ExecutionStep.DEV,
+                    f"assigned provider {assignment.provider!r} is not configured",
+                )
+            resolved.append(adapter)
+        return resolved[0], resolved[1], resolved[2]
+
     async def execute(self, request: SequentialExecutionRequest) -> SequentialExecutionResult:
         """Execute or resume the sequential chain for ``request.bl_id``.
 
@@ -193,6 +238,10 @@ class SequentialExecutor:
         journal = InvocationJournal(
             JsonlRunLogger(artifacts_dir, request.run_id),
             library=str(bl.library),
+        )
+
+        dev_provider, tester_provider, reviewer_provider = await self._resolve_role_providers(
+            request, artifacts_root=artifacts_dir
         )
 
         branch = _branch_name(request.bl_id)
@@ -240,7 +289,7 @@ class SequentialExecutor:
                         )
                     elif step is ExecutionStep.DEV:
                         dev_baseline = _git_head(repo, dry_run=request.dry_run)
-                        dev = DevRole(request.provider)
+                        dev = DevRole(dev_provider)
                         dev_result = await dev.run(
                             DevRoleRequest(
                                 spec_path=request.spec_path,
@@ -334,7 +383,7 @@ class SequentialExecutor:
                                     ),
                                 )
                         else:
-                            tester = TesterRole(request.provider)
+                            tester = TesterRole(tester_provider)
                             tester_result = await tester.run(
                                 TesterRoleRequest(
                                     spec_path=request.spec_path,
@@ -421,7 +470,7 @@ class SequentialExecutor:
                                 details={"verdict": Verdict.GO.value, "dry_run": True},
                             )
                         else:
-                            reviewer = ReviewerRole(request.provider)
+                            reviewer = ReviewerRole(reviewer_provider)
                             review_result = await reviewer.run(
                                 ReviewerRoleRequest(
                                     spec_path=request.spec_path,
