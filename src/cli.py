@@ -287,6 +287,7 @@ async def run_bl(
         try:
             registry = load_registry(config_path)
             provider = create_provider(registry, provider_name)
+            providers = registry.create_all()
         except ProviderRegistryError as error:
             raise ForgeCliError(ExitCode.USER_ERROR, str(error)) from error
 
@@ -301,6 +302,8 @@ async def run_bl(
                     run_id=run_id,
                     provider=provider,
                     dry_run=dry_run,
+                    providers=providers,
+                    provider_names=tuple(providers),
                 )
             )
         except ExecutionError as error:
