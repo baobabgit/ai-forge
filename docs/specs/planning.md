@@ -91,8 +91,7 @@ _Généré le 2026-07-21._
 
 | Vague | BL parallélisables | Tailles |
 |---|---|---|
-| 1 | BL-forge-082 — Attribution multi-provider des rôles dans SequentialExecutor | M |
-| 2 | BL-forge-083 — Bascule provider automatique sur épuisement dans SequentialExecutor | M |
+| 1 | BL-forge-083 — Bascule provider automatique sur épuisement dans SequentialExecutor | M |
 
 **Chemin critique** (poids 0) : _aucun_
 

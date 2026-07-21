@@ -811,9 +811,6 @@
       "workers_default": 3,
       "waves": [
         [
-          "BL-forge-082"
-        ],
-        [
           "BL-forge-083"
         ]
       ],
